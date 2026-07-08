@@ -29,6 +29,7 @@ export const listAgentSourcesProcedure = protectedProcedure
 				status: row.source.status,
 			},
 			fieldMappings: row.fieldMappings,
+			tagFilters: row.tagFilters,
 			tagRules: row.tagRules,
 			stageRules: row.stageRules,
 			writeNote: row.writeNote,

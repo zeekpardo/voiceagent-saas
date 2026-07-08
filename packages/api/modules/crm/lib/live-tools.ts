@@ -1,4 +1,4 @@
-import { getCrmLiveToolByNameAndSource, upsertCrmLiveToolForSource } from "@repo/database";
+import { getCrmLiveToolByName, upsertCrmLiveTool } from "@repo/database";
 
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
 
@@ -9,8 +9,10 @@ import { gatewayFetch } from "../../voiceagents/lib/gateway";
  * signs each invocation with a per-tool secret; /api/tools/crm verifies and
  * executes against the resolved CrmProvider.
  *
- * Tool names are namespaced per Source on the gateway (`${name}__${sourceId}`)
- * so multiple simultaneously-connected Sources never collide.
+ * Tool names stay global and clean (they are the LLM's function names, and
+ * prompts reference them) — WHICH source an invocation acts on is resolved
+ * per call by /api/tools/crm from the call's metadata.source_id, falling
+ * back to the agent's sole enabled attached source.
  */
 
 interface LiveToolDef {
@@ -121,25 +123,18 @@ function toolEndpointUrl(): string {
 	return `${base}/api/tools/crm`;
 }
 
-/** The gateway-registered tool name for a (def, source) pair — globally unique. */
-function gatewayToolName(defName: string, sourceId: string): string {
-	return `${defName}__${sourceId}`;
-}
-
 /**
- * Register the live CRM tools for a Source on the gateway (idempotent) and
- * persist their signing secrets. Safe to call on every Source connect.
+ * Register the live CRM tools on the gateway (idempotent) and persist
+ * their signing secrets. Safe to call on every Source connect.
  */
 export async function ensureCrmLiveTools(
-	sourceId: string,
 	userId: string,
 ): Promise<{ id: string; name: string; description: string }[]> {
 	const endpointUrl = toolEndpointUrl();
 	const result: { id: string; name: string; description: string }[] = [];
 
 	for (const def of LIVE_TOOL_DEFS) {
-		const gatewayName = gatewayToolName(def.name, sourceId);
-		const existing = await getCrmLiveToolByNameAndSource(def.name, sourceId);
+		const existing = await getCrmLiveToolByName(def.name);
 
 		if (existing) {
 			// We already hold the secret — keep the gateway copy current (best-effort).
@@ -149,16 +144,15 @@ export async function ensureCrmLiveTools(
 				endpoint_url: endpointUrl,
 				enabled: true,
 			}).catch((err) => {
-				console.warn(`[crm-live-tools] patch ${gatewayName} failed:`, err);
+				console.warn(`[crm-live-tools] patch ${def.name} failed:`, err);
 			});
 			result.push({ id: existing.toolId, name: def.name, description: def.description });
 			continue;
 		}
 
-		const created = await createGatewayTool(def, gatewayName, endpointUrl);
-		await upsertCrmLiveToolForSource({
+		const created = await createGatewayTool(def, endpointUrl);
+		await upsertCrmLiveTool({
 			userId,
-			sourceId,
 			name: def.name,
 			toolId: created.id,
 			secret: created.secret,
@@ -171,11 +165,10 @@ export async function ensureCrmLiveTools(
 
 async function createGatewayTool(
 	def: LiveToolDef,
-	gatewayName: string,
 	endpointUrl: string,
 ): Promise<{ id: string; secret: string }> {
 	const body = {
-		name: gatewayName,
+		name: def.name,
 		description: def.description,
 		json_schema: def.jsonSchema,
 		endpoint_url: endpointUrl,
@@ -190,8 +183,8 @@ async function createGatewayTool(
 		// secret. The secret is unrecoverable (returned only on create), so delete
 		// the gateway tool and recreate it.
 		const { tools } = await gatewayFetch<{ tools: GatewayTool[] }>("GET", "/v1/tools");
-		const stale = tools.find((t) => t.name === gatewayName);
-		if (!stale) throw new Error(`Gateway rejected tool "${gatewayName}" and it is not listed`);
+		const stale = tools.find((t) => t.name === def.name);
+		if (!stale) throw new Error(`Gateway rejected tool "${def.name}" and it is not listed`);
 		await gatewayFetch("DELETE", `/v1/tools/${stale.id}`);
 		return await gatewayFetch<{ id: string; secret: string }>("POST", "/v1/tools", body);
 	}

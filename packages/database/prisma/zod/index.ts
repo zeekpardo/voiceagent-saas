@@ -96,7 +96,7 @@ export type SourceScalarFieldEnum = z.infer<typeof SourceScalarFieldEnumSchema>;
 
 // File: VoiceAgentSourceScalarFieldEnum.schema.ts
 
-export const VoiceAgentSourceScalarFieldEnumSchema = z.enum(['id', 'agentId', 'sourceId', 'enabled', 'fieldMappings', 'tagRules', 'stageRules', 'writeNote', 'bookingCalendarId', 'bookingCalendarName', 'createdAt', 'updatedAt'])
+export const VoiceAgentSourceScalarFieldEnumSchema = z.enum(['id', 'agentId', 'sourceId', 'enabled', 'fieldMappings', 'tagFilters', 'tagRules', 'stageRules', 'writeNote', 'bookingCalendarId', 'bookingCalendarName', 'createdAt', 'updatedAt'])
 
 export type VoiceAgentSourceScalarFieldEnum = z.infer<typeof VoiceAgentSourceScalarFieldEnumSchema>;
 
@@ -108,7 +108,7 @@ export type VoiceEngineWebhookScalarFieldEnum = z.infer<typeof VoiceEngineWebhoo
 
 // File: CrmLiveToolScalarFieldEnum.schema.ts
 
-export const CrmLiveToolScalarFieldEnumSchema = z.enum(['id', 'userId', 'sourceId', 'name', 'toolId', 'secret', 'createdAt'])
+export const CrmLiveToolScalarFieldEnumSchema = z.enum(['id', 'userId', 'name', 'toolId', 'secret', 'createdAt'])
 
 export type CrmLiveToolScalarFieldEnum = z.infer<typeof CrmLiveToolScalarFieldEnumSchema>;
 
@@ -402,6 +402,7 @@ export const VoiceAgentSourceSchema = z.object({
   sourceId: z.string(),
   enabled: z.boolean().default(true),
   fieldMappings: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
+  tagFilters: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
   tagRules: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
   stageRules: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
   writeNote: z.boolean().default(true),
@@ -432,7 +433,6 @@ export type VoiceEngineWebhookType = z.infer<typeof VoiceEngineWebhookSchema>;
 export const CrmLiveToolSchema = z.object({
   id: z.string(),
   userId: z.string(),
-  sourceId: z.string().nullish(),
   name: z.string(),
   toolId: z.string(),
   secret: z.string(),

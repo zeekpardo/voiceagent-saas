@@ -109,6 +109,11 @@ const fieldMapping = z.object({
 	crmFieldName: z.string().optional(),
 });
 
+const tagFilter = z.object({
+	tag: z.string().min(1),
+	mode: z.enum(["is", "is_not"]),
+});
+
 const tagRule = z.object({
 	extractField: z.string().min(1),
 	equals: z.string().min(1),
@@ -141,6 +146,7 @@ export const getAgentSourceMapping = protectedProcedure
 			sourceId: mapping.sourceId,
 			enabled: mapping.enabled,
 			fieldMappings: mapping.fieldMappings as z.infer<typeof fieldMapping>[],
+			tagFilters: mapping.tagFilters as z.infer<typeof tagFilter>[],
 			tagRules: mapping.tagRules as z.infer<typeof tagRule>[],
 			stageRules: mapping.stageRules as z.infer<typeof stageRule>[],
 			writeNote: mapping.writeNote,
@@ -162,6 +168,7 @@ export const saveAgentSourceMappingProcedure = protectedProcedure
 			sourceId: z.string(),
 			enabled: z.boolean().default(true),
 			fieldMappings: z.array(fieldMapping).default([]),
+			tagFilters: z.array(tagFilter).default([]),
 			tagRules: z.array(tagRule).default([]),
 			stageRules: z.array(stageRule).default([]),
 			writeNote: z.boolean().default(true),

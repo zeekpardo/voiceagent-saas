@@ -98,6 +98,7 @@ export async function saveAgentSourceMapping(data: {
 	sourceId: string;
 	enabled?: boolean;
 	fieldMappings: unknown;
+	tagFilters?: unknown;
 	tagRules: unknown;
 	stageRules: unknown;
 	writeNote: boolean;
@@ -105,11 +106,12 @@ export async function saveAgentSourceMapping(data: {
 	bookingCalendarId?: string | null;
 	bookingCalendarName?: string | null;
 }) {
-	const { agentId, sourceId, ...rest } = data;
+	const { agentId, sourceId, tagFilters, ...rest } = data;
 	const jsonFields = {
 		fieldMappings: rest.fieldMappings as object[],
 		tagRules: rest.tagRules as object[],
 		stageRules: rest.stageRules as object[],
+		...(tagFilters !== undefined ? { tagFilters: tagFilters as object[] } : {}),
 	};
 	return db.voiceAgentSource.upsert({
 		where: { agentId_sourceId: { agentId, sourceId } },
@@ -118,26 +120,25 @@ export async function saveAgentSourceMapping(data: {
 	});
 }
 
-// ---------------------------------------------------------------- per-source live CRM tools
+// ---------------------------------------------------------------- live CRM tools (global names, per-call source resolution)
 
-export async function getCrmLiveToolByNameAndSource(name: string, sourceId: string) {
-	return db.crmLiveTool.findUnique({ where: { name_sourceId: { name, sourceId } } });
+export async function getCrmLiveToolByName(name: string) {
+	return db.crmLiveTool.findUnique({ where: { name } });
 }
 
-export async function upsertCrmLiveToolForSource(data: {
+export async function upsertCrmLiveTool(data: {
 	userId: string;
-	sourceId: string;
 	name: string;
 	toolId: string;
 	secret: string;
 }) {
 	return db.crmLiveTool.upsert({
-		where: { name_sourceId: { name: data.name, sourceId: data.sourceId } },
+		where: { name: data.name },
 		create: data,
 		update: { userId: data.userId, toolId: data.toolId, secret: data.secret },
 	});
 }
 
-export async function getCrmLiveToolsForSource(sourceId: string) {
-	return db.crmLiveTool.findMany({ where: { sourceId }, orderBy: { createdAt: "asc" } });
+export async function getCrmLiveTools() {
+	return db.crmLiveTool.findMany({ orderBy: { createdAt: "asc" } });
 }

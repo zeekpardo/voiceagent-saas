@@ -45,7 +45,7 @@ export async function GET(req: Request): Promise<Response> {
 		const provider = registration.create(config);
 		const { accountName } = await provider.validateConnection();
 
-		const source = await createSource({
+		await createSource({
 			organizationId: verified.organizationId,
 			name: accountName || registration.label,
 			providerType: verified.providerType,
@@ -54,8 +54,8 @@ export async function GET(req: Request): Promise<Response> {
 		});
 		await ensureVoiceWebhook();
 
-		// Register this source's live in-call CRM tools (best-effort — the connection works without them).
-		await ensureCrmLiveTools(source.id, verified.userId).catch((err) => {
+		// Register the live in-call CRM tools (best-effort — the connection works without them).
+		await ensureCrmLiveTools(verified.userId).catch((err) => {
 			console.warn("[crm-oauth] live tool registration failed:", err);
 		});
 

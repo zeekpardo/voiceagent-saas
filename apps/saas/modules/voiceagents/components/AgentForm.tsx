@@ -28,14 +28,16 @@ import {
 	SelectValue,
 } from "@repo/ui/components/select";
 import { Switch } from "@repo/ui/components/switch";
-import { Textarea } from "@repo/ui/components/textarea";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
 import { useCreateAgentMutation, useUpdateAgentMutation } from "../lib/api";
+import { textToTiptapDoc, tiptapToText } from "./flow/compile";
+import { buildVariableItems, createFlowMentionExtension } from "./flow/mentions";
+import { SectionEditor } from "./flow/SectionEditor";
 
 /** Which TTS providers accept a speaking-speed option through LiveKit Inference. */
 const PROVIDER_SUPPORTS_SPEED: Record<string, boolean> = {
@@ -211,6 +213,22 @@ function ChipsInput({ value, onChange, placeholder }: ChipsInputProps) {
 
 	return (
 		<div className="flex flex-col gap-2">
+			<Input
+				value={draft}
+				placeholder={placeholder}
+				onChange={(e) => setDraft(e.target.value)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" || e.key === ",") {
+						e.preventDefault();
+						addChip(draft);
+					} else if (e.key === "Backspace" && draft === "" && value.length > 0) {
+						onChange(value.slice(0, -1));
+					}
+				}}
+				onBlur={() => {
+					if (draft.trim()) addChip(draft);
+				}}
+			/>
 			{value.length > 0 && (
 				<div className="flex flex-wrap gap-1.5">
 					{value.map((word) => (
@@ -231,23 +249,51 @@ function ChipsInput({ value, onChange, placeholder }: ChipsInputProps) {
 					))}
 				</div>
 			)}
-			<Input
-				value={draft}
-				placeholder={placeholder}
-				onChange={(e) => setDraft(e.target.value)}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" || e.key === ",") {
-						e.preventDefault();
-						addChip(draft);
-					} else if (e.key === "Backspace" && draft === "" && value.length > 0) {
-						onChange(value.slice(0, -1));
-					}
-				}}
-				onBlur={() => {
-					if (draft.trim()) addChip(draft);
-				}}
-			/>
 		</div>
+	);
+}
+
+/**
+ * Instructions with @-variable chips (CloseBot-style): the same TipTap
+ * mention editor the flow nodes use, hydrated from the stored plain-text
+ * prompt and serialized back to it — chips are just {{variable}} in the
+ * saved config, so the engine contract is unchanged.
+ */
+function InstructionsEditor({
+	value,
+	onChange,
+}: {
+	value: string;
+	onChange: (next: string) => void;
+}) {
+	// Hydrate once — the editor owns the text after mount.
+	const [initialBody] = useState<unknown>(() => textToTiptapDoc(value));
+	// Latest text via ref so the suggestion list can include {{vars}} the
+	// prompt already references without recreating the extension.
+	const valueRef = useRef(value);
+	valueRef.current = value;
+	const mentionExtension = useMemo(
+		() =>
+			createFlowMentionExtension({
+				getVariables: () => {
+					const referenced = [...valueRef.current.matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)].map(
+						(m) => m[1]!,
+					);
+					return buildVariableItems(referenced);
+				},
+				getTools: () => [],
+				getExits: () => [],
+			}),
+		[],
+	);
+	return (
+		<SectionEditor
+			initialBody={initialBody}
+			mentionExtension={mentionExtension}
+			onBodyChange={(doc) => onChange(tiptapToText(doc))}
+			hint="Type @ to insert a variable — location and contact details fill in per call"
+			editorClassName="min-h-44"
+		/>
 	);
 }
 
@@ -346,7 +392,7 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 						here and keep node prompts focused on their stage.
 					</FormDescription>
 					<FormControl>
-						<Textarea rows={8} placeholder="You are a friendly receptionist for…" {...field} />
+						<InstructionsEditor value={field.value} onChange={field.onChange} />
 					</FormControl>
 					<FormMessage />
 				</FormItem>
@@ -554,25 +600,36 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 						<FormField
 							control={form.control}
 							name="language"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Language</FormLabel>
-									<Select onValueChange={field.onChange} value={field.value}>
-										<FormControl>
-											<SelectTrigger>
-												<SelectValue />
-											</SelectTrigger>
-										</FormControl>
-										<SelectContent>
-											{LANGUAGES.map((l) => (
-												<SelectItem key={l.id} value={l.id}>
-													{l.label}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</FormItem>
-							)}
+							render={({ field }) => {
+								// Language only pins the ears: xAI STT auto-detects (and
+								// code-switches) languages, so the picker is meaningless there.
+								const sttModel = form.watch("stt.model");
+								const sttAutoDetects = !sttModel || sttModel === "default" || sttModel.startsWith("xai");
+								return (
+									<FormItem>
+										<FormLabel className={sttAutoDetects ? "opacity-50" : ""}>Language</FormLabel>
+										<FormDescription>
+											{sttAutoDetects
+												? "xAI STT auto-detects the spoken language, including mid-call switches"
+												: "Pins speech recognition to this language"}
+										</FormDescription>
+										<Select onValueChange={field.onChange} value={field.value}>
+											<FormControl>
+												<SelectTrigger disabled={sttAutoDetects}>
+													<SelectValue placeholder={sttAutoDetects ? "Auto-detect" : undefined} />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												{LANGUAGES.map((l) => (
+													<SelectItem key={l.id} value={l.id}>
+														{l.label}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</FormItem>
+								);
+							}}
 						/>
 						<FormField
 							control={form.control}

@@ -306,6 +306,9 @@ model VoiceAgentSource {
 
   /// [{ extractField, crmFieldId, crmFieldKey, crmFieldName }]
   fieldMappings Json @default("[]")
+  /// [{ tag, mode: "is" | "is_not" }] — contact-tag conditions gating whether
+  /// this agent acts for this source (e.g. tag is not "ai off")
+  tagFilters    Json @default("[]")
   /// [{ extractField, equals, tag }]
   tagRules      Json @default("[]")
   /// [{ extractField, equals, pipelineId, stageId, pipelineName?, stageName? }]
@@ -335,12 +338,12 @@ model VoiceEngineWebhook {
 }
 
 model CrmLiveTool {
-  id       String  @id @default(cuid())
-  userId   String
-  /// owning Source — tool names are namespaced per source so multiple
-  /// simultaneously-connected CRM accounts don't collide on the gateway
-  sourceId String?
-  /// LLM function name registered on the gateway (update_contact, add_tag, move_stage)
+  id     String @id @default(cuid())
+  userId String
+  /// LLM function name registered on the gateway (update_contact, add_tag, …).
+  /// One global registration per name — WHICH source a mid-call invocation
+  /// acts on is resolved per call from metadata.source_id (see /api/tools/crm),
+  /// so multiple sources share the same clean tool names.
   name   String
   /// gateway tool id (tool_…)
   toolId String
@@ -348,6 +351,6 @@ model CrmLiveTool {
   secret String @db.Text
   createdAt DateTime @default(now())
 
-  @@unique([name, sourceId])
+  @@unique([name])
   @@map("crm_live_tool")
 }

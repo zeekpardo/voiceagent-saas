@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@repo/ui";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
@@ -21,8 +22,18 @@ import {
 } from "@repo/ui/components/sheet";
 import { Switch } from "@repo/ui/components/switch";
 import { Textarea } from "@repo/ui/components/textarea";
-import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useMemo, useRef } from "react";
+import {
+	ArrowDownIcon,
+	ArrowRightIcon,
+	ArrowUpIcon,
+	type LucideIcon,
+	PlusIcon,
+	SearchIcon,
+	SettingsIcon,
+	Trash2Icon,
+	WrenchIcon,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAgentCalendarsQuery } from "../../lib/api";
 import { MODEL_GROUPS } from "../AgentForm";
@@ -48,10 +59,31 @@ export interface FlowToolOption {
 	description: string;
 }
 
+type AgentSubPanel = "settings" | "tools" | "exits";
+
+const SUB_PANEL_META: Record<AgentSubPanel, { title: string; description: string; icon: LucideIcon }> = {
+	settings: {
+		title: "Node settings",
+		description: "Model override and booking behavior for this stage.",
+		icon: SettingsIcon,
+	},
+	tools: {
+		title: "Tools",
+		description: "What this node may call while it is active. @@chips check tools automatically.",
+		icon: WrenchIcon,
+	},
+	exits: {
+		title: "Exit paths",
+		description: "Mention exits in the prompt with @@@ to include them as AI exit choices.",
+		icon: ArrowRightIcon,
+	},
+};
+
 const SHEET_META: Record<FlowNodeKind, { title: string; description: string }> = {
 	agent: {
 		title: "Edit agent node",
-		description: "This node's prompt, exits and tools. Type @ for variables, @@ for tools, @@@ for exits.",
+		description:
+			"The prompt is the star — type @ for variables, @@ for tools, @@@ for exits. Tools, exits and settings live in the side rail.",
 	},
 	truefalse: {
 		title: "Edit True/False branch",
@@ -76,9 +108,10 @@ const SHEET_META: Record<FlowNodeKind, { title: string; description: string }> =
 };
 
 /**
- * Right-side sheet for editing one flow node. Kind-aware: agent nodes get the
- * full prompt/exits/tools/model editor; branch nodes (True/False, Switch) get
- * a condition editor and their paths.
+ * Right-side sheet for editing one flow node. Agent nodes get a CloseBot-style
+ * layout: the prompt fills the panel, while tools/exits/settings open as a
+ * narrow secondary aside from a mini icon rail on the panel's edge. Branch
+ * nodes (True/False, Switch) keep a simple single-column condition editor.
  */
 export function NodeEditorPanel({
 	agentId,
@@ -117,6 +150,11 @@ export function NodeEditorPanel({
 	nodeIdRef.current = nodeId;
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
+
+	const [subPanel, setSubPanel] = useState<AgentSubPanel | null>(null);
+	// Selecting a different node resets the secondary aside.
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	useEffect(() => setSubPanel(null), [nodeId]);
 
 	const mentionExtension = useMemo(
 		() =>
@@ -161,10 +199,31 @@ export function NodeEditorPanel({
 		return null;
 	}
 
+	const isAgent = nodeType === "agent";
+
+	const footer = (
+		<div className="mt-2 flex justify-between border-t pt-4">
+			<Button type="button" variant="destructive" size="sm" onClick={() => onDelete(nodeId)}>
+				<Trash2Icon className="size-4" /> Delete node
+			</Button>
+			<Button type="button" variant="outline" size="sm" onClick={onClose}>
+				Done
+			</Button>
+		</div>
+	);
+
 	return (
 		<Sheet open onOpenChange={(open) => !open && onClose()}>
 			<SheetContent
-				className="flex w-full flex-col gap-5 overflow-y-auto sm:max-w-xl"
+				// The shared sheet concatenates classes without tailwind-merge, so its
+				// default p-6/gap-4/max-w-sm would race ours — force the row layout
+				// with important modifiers and pin the width inline.
+				className={cn(
+					isAgent
+						? "flex w-full flex-row !gap-0 overflow-hidden !p-0 transition-[max-width] duration-200"
+						: "flex w-full flex-col gap-5 overflow-y-auto",
+				)}
+				style={{ maxWidth: isAgent ? (subPanel ? 940 : 576) : 576 }}
 				onPointerDownOutside={(event) => {
 					if ((event.target as HTMLElement | null)?.closest?.("[data-mention-dropdown]")) {
 						event.preventDefault();
@@ -176,78 +235,135 @@ export function NodeEditorPanel({
 					}
 				}}
 			>
-				<SheetHeader>
-					<SheetTitle>{SHEET_META[nodeType].title}</SheetTitle>
-					<SheetDescription>{SHEET_META[nodeType].description}</SheetDescription>
-				</SheetHeader>
+				{isAgent ? (
+					<>
+						{/* Mini icon rail — the panel's edge, CloseBot style. */}
+						<div className="flex w-12 shrink-0 flex-col items-center border-r bg-muted/40 pt-14">
+							{(Object.keys(SUB_PANEL_META) as AgentSubPanel[]).map((key, index) => {
+								const meta = SUB_PANEL_META[key];
+								const Icon = meta.icon;
+								return (
+									<div key={key} className="flex w-full flex-col items-center">
+										{index > 0 && <div className="h-px w-6 bg-border" />}
+										<button
+											type="button"
+											title={meta.title}
+											aria-label={meta.title}
+											aria-pressed={subPanel === key}
+											onClick={() => setSubPanel((current) => (current === key ? null : key))}
+											className={cn(
+												"flex w-full items-center justify-center p-2.5 transition-colors",
+												subPanel === key
+													? "bg-background text-primary"
+													: "text-muted-foreground hover:bg-muted hover:text-foreground",
+											)}
+										>
+											<Icon className="size-5" />
+										</button>
+									</div>
+								);
+							})}
+						</div>
 
-				{nodeType === "agent" && (
-					<AgentNodeEditor
-						agentId={agentId}
-						nodeId={nodeId}
-						data={data as AgentNodeData}
-						isEntry={isEntry}
-						tools={tools}
-						bookingToolIds={bookingToolIds}
-						mentionExtension={mentionExtension}
-						onChange={onChange}
-					/>
-				)}
-				{nodeType === "truefalse" && (
-					<TrueFalseNodeEditor nodeId={nodeId} data={data as TrueFalseNodeData} onChange={onChange} />
-				)}
-				{nodeType === "switch" && (
-					<SwitchNodeEditor nodeId={nodeId} data={data as SwitchNodeData} onChange={onChange} />
-				)}
-				{nodeType === "statement" && (
-					<StatementNodeEditor
-						nodeId={nodeId}
-						data={data as StatementNodeData}
-						onChange={onChange}
-					/>
-				)}
-				{nodeType === "scenario" && (
-					<ScenarioNodeEditor nodeId={nodeId} data={data as ScenarioNodeData} onChange={onChange} />
-				)}
+						{/* Secondary aside — one concern at a time. */}
+						{subPanel && (
+							<div className="flex w-80 shrink-0 flex-col overflow-hidden border-r">
+								<div className="shrink-0 border-b px-4 pt-5 pb-3">
+									<h3 className="font-semibold text-base">{SUB_PANEL_META[subPanel].title}</h3>
+									<p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
+										{SUB_PANEL_META[subPanel].description}
+									</p>
+								</div>
+								<div className="min-h-0 flex-1 overflow-y-auto p-4">
+									{subPanel === "settings" && (
+										<AgentSettingsPanel
+											agentId={agentId}
+											nodeId={nodeId}
+											data={data as AgentNodeData}
+											bookingToolIds={bookingToolIds}
+											onChange={onChange}
+										/>
+									)}
+									{subPanel === "tools" && (
+										<AgentToolsPanel
+											nodeId={nodeId}
+											data={data as AgentNodeData}
+											tools={tools}
+											onChange={onChange}
+										/>
+									)}
+									{subPanel === "exits" && (
+										<AgentExitsPanel
+											nodeId={nodeId}
+											data={data as AgentNodeData}
+											onChange={onChange}
+										/>
+									)}
+								</div>
+							</div>
+						)}
 
-				<div className="mt-2 flex justify-between border-t pt-4">
-					<Button type="button" variant="destructive" size="sm" onClick={() => onDelete(nodeId)}>
-						<Trash2Icon className="size-4" /> Delete node
-					</Button>
-					<Button type="button" variant="outline" size="sm" onClick={onClose}>
-						Done
-					</Button>
-				</div>
+						{/* Main column — the prompt is the focus. */}
+						<div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
+							<SheetHeader className="p-0">
+								<SheetTitle>{SHEET_META.agent.title}</SheetTitle>
+								<SheetDescription>{SHEET_META.agent.description}</SheetDescription>
+							</SheetHeader>
+							<AgentPromptEditor
+								nodeId={nodeId}
+								data={data as AgentNodeData}
+								isEntry={isEntry}
+								mentionExtension={mentionExtension}
+								onChange={onChange}
+							/>
+							{footer}
+						</div>
+					</>
+				) : (
+					<>
+						<SheetHeader>
+							<SheetTitle>{SHEET_META[nodeType].title}</SheetTitle>
+							<SheetDescription>{SHEET_META[nodeType].description}</SheetDescription>
+						</SheetHeader>
+						{nodeType === "truefalse" && (
+							<TrueFalseNodeEditor nodeId={nodeId} data={data as TrueFalseNodeData} onChange={onChange} />
+						)}
+						{nodeType === "switch" && (
+							<SwitchNodeEditor nodeId={nodeId} data={data as SwitchNodeData} onChange={onChange} />
+						)}
+						{nodeType === "statement" && (
+							<StatementNodeEditor
+								nodeId={nodeId}
+								data={data as StatementNodeData}
+								onChange={onChange}
+							/>
+						)}
+						{nodeType === "scenario" && (
+							<ScenarioNodeEditor nodeId={nodeId} data={data as ScenarioNodeData} onChange={onChange} />
+						)}
+						{footer}
+					</>
+				)}
 			</SheetContent>
 		</Sheet>
 	);
 }
 
-function AgentNodeEditor({
-	agentId,
+/** The main column: title, prompt sections and entry message — nothing else. */
+function AgentPromptEditor({
 	nodeId,
 	data,
 	isEntry,
-	tools,
-	bookingToolIds,
 	mentionExtension,
 	onChange,
 }: {
-	agentId: string;
 	nodeId: string;
 	data: AgentNodeData;
 	isEntry: boolean;
-	tools: FlowToolOption[];
-	bookingToolIds: string[];
 	mentionExtension: ReturnType<typeof createFlowMentionExtension>;
 	onChange: (nodeId: string, data: FlowNodeData) => void;
 }) {
 	const patch = (partial: Partial<AgentNodeData>) => onChange(nodeId, { ...data, ...partial });
-
-	// The Booking calendar pin only applies while a booking tool is gated onto
-	// this node — fetch the calendar list only then.
-	const hasBookingTool = data.toolIds.some((id) => bookingToolIds.includes(id));
-	const { data: crmCalendars } = useAgentCalendarsQuery(agentId, hasBookingTool);
 
 	const moveSection = (index: number, delta: number) => {
 		const next = [...data.sections];
@@ -367,72 +483,52 @@ function AgentNodeEditor({
 						: "Generated when this node becomes active, e.g. “Let the caller know you're checking the calendar.”"}
 				</p>
 			</div>
+		</>
+	);
+}
 
-			<div className="flex flex-col gap-2">
-				<Label>Exits</Label>
-				<p className="-mt-1 text-xs opacity-50">
-					How the conversation leaves this node. Wire an exit on the canvas to send the call to
-					another node; leave it unwired to end the call.
-				</p>
-				{data.exits.map((exit) => (
-					<div key={exit.id} className="flex items-start gap-2">
-						<Input
-							value={exit.name}
-							onChange={(e) =>
-								patch({
-									exits: data.exits.map((x) =>
-										x.id === exit.id ? { ...x, name: e.target.value } : x,
-									),
-								})
-							}
-							placeholder="qualified"
-							className="max-w-36 font-mono text-sm"
-						/>
-						<Input
-							value={exit.description}
-							onChange={(e) =>
-								patch({
-									exits: data.exits.map((x) =>
-										x.id === exit.id ? { ...x, description: e.target.value } : x,
-									),
-								})
-							}
-							placeholder="When to take this exit, e.g. the caller wants to book"
-						/>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							className="shrink-0"
-							onClick={() => patch({ exits: data.exits.filter((x) => x.id !== exit.id) })}
-						>
-							<Trash2Icon className="size-4" />
-						</Button>
-					</div>
-				))}
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					className="self-start"
-					onClick={() =>
-						patch({ exits: [...data.exits, { id: makeId("exit"), name: "", description: "" }] })
-					}
-				>
-					<PlusIcon className="size-4" /> Add exit
-				</Button>
+/** Rail panel: which tools this node may call — searchable, with a count footer. */
+function AgentToolsPanel({
+	nodeId,
+	data,
+	tools,
+	onChange,
+}: {
+	nodeId: string;
+	data: AgentNodeData;
+	tools: FlowToolOption[];
+	onChange: (nodeId: string, data: FlowNodeData) => void;
+}) {
+	const patch = (partial: Partial<AgentNodeData>) => onChange(nodeId, { ...data, ...partial });
+	const [search, setSearch] = useState("");
+
+	const query = search.trim().toLowerCase();
+	const filtered = tools.filter(
+		(tool) =>
+			!query ||
+			tool.name.toLowerCase().includes(query) ||
+			tool.description.toLowerCase().includes(query),
+	);
+	const enabledCount = tools.filter((tool) => data.toolIds.includes(tool.id)).length;
+
+	return (
+		<div className="flex h-full flex-col gap-3">
+			<div className="relative">
+				<SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+				<Input
+					value={search}
+					onChange={(e) => setSearch(e.target.value)}
+					placeholder="Search tools..."
+					className="h-8 pl-8 text-sm"
+				/>
 			</div>
-
-			<div className="flex flex-col gap-2">
-				<Label>Tools on this node</Label>
-				<p className="-mt-1 text-xs opacity-50">
-					Available only while this node is active. Inserting a @@tool chip checks it here
-					automatically.
-				</p>
-				{tools.length === 0 ? (
-					<p className="py-2 text-sm opacity-50">No tools registered yet.</p>
-				) : (
-					tools.map((tool) => {
+			{tools.length === 0 ? (
+				<p className="py-2 text-sm opacity-50">No tools registered yet.</p>
+			) : filtered.length === 0 ? (
+				<p className="py-2 text-sm opacity-50">No tools match "{search}"</p>
+			) : (
+				<div className="flex flex-col gap-1.5">
+					{filtered.map((tool) => {
 						const checked = data.toolIds.includes(tool.id);
 						return (
 							<div key={tool.id} className="flex items-center gap-3 rounded-lg border p-2.5">
@@ -453,13 +549,142 @@ function AgentNodeEditor({
 								</label>
 							</div>
 						);
-					})
-				)}
+					})}
+				</div>
+			)}
+			<p className="mt-auto border-t pt-2 text-muted-foreground text-xs">
+				{enabledCount} of {tools.length} enabled
+			</p>
+		</div>
+	);
+}
+
+/** Rail panel: the ways a conversation leaves this node. */
+function AgentExitsPanel({
+	nodeId,
+	data,
+	onChange,
+}: {
+	nodeId: string;
+	data: AgentNodeData;
+	onChange: (nodeId: string, data: FlowNodeData) => void;
+}) {
+	const patch = (partial: Partial<AgentNodeData>) => onChange(nodeId, { ...data, ...partial });
+
+	return (
+		<div className="flex flex-col gap-3">
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				className="w-full"
+				onClick={() =>
+					patch({ exits: [...data.exits, { id: makeId("exit"), name: "", description: "" }] })
+				}
+			>
+				<PlusIcon className="size-4" /> Add exit
+			</Button>
+			<p className="text-muted-foreground text-xs">
+				Wire an exit on the canvas to send the call to another node; leave it unwired to end the
+				call.
+			</p>
+			{data.exits.map((exit) => (
+				<div key={exit.id} className="flex flex-col gap-2 rounded-lg border p-2.5">
+					<div className="flex items-center gap-2">
+						<Input
+							value={exit.name}
+							onChange={(e) =>
+								patch({
+									exits: data.exits.map((x) =>
+										x.id === exit.id ? { ...x, name: e.target.value } : x,
+									),
+								})
+							}
+							placeholder="qualified"
+							className="h-8 font-mono text-sm"
+						/>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon"
+							className="size-8 shrink-0"
+							aria-label={`Remove exit ${exit.name || "unnamed"}`}
+							onClick={() => patch({ exits: data.exits.filter((x) => x.id !== exit.id) })}
+						>
+							<Trash2Icon className="size-4" />
+						</Button>
+					</div>
+					<Textarea
+						rows={2}
+						value={exit.description}
+						onChange={(e) =>
+							patch({
+								exits: data.exits.map((x) =>
+									x.id === exit.id ? { ...x, description: e.target.value } : x,
+								),
+							})
+						}
+						placeholder="When to take this exit, e.g. the caller wants to book"
+						className="text-sm"
+					/>
+				</div>
+			))}
+		</div>
+	);
+}
+
+/** Rail panel: model override + booking behavior. */
+function AgentSettingsPanel({
+	agentId,
+	nodeId,
+	data,
+	bookingToolIds,
+	onChange,
+}: {
+	agentId: string;
+	nodeId: string;
+	data: AgentNodeData;
+	bookingToolIds: string[];
+	onChange: (nodeId: string, data: FlowNodeData) => void;
+}) {
+	const patch = (partial: Partial<AgentNodeData>) => onChange(nodeId, { ...data, ...partial });
+
+	// The Booking calendar pin only applies while a booking tool is gated onto
+	// this node — fetch the calendar list only then.
+	const hasBookingTool = data.toolIds.some((id) => bookingToolIds.includes(id));
+	const { data: crmCalendars } = useAgentCalendarsQuery(agentId, hasBookingTool);
+
+	return (
+		<div className="flex flex-col gap-5">
+			<div className="flex flex-col gap-1.5">
+				<Label>Model override</Label>
+				<Select
+					value={data.model ?? INHERIT_MODEL}
+					onValueChange={(value) => patch({ model: value === INHERIT_MODEL ? undefined : value })}
+				>
+					<SelectTrigger>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value={INHERIT_MODEL}>Agent default</SelectItem>
+						{MODEL_GROUPS.map((group) => (
+							<SelectGroup key={group.label}>
+								<SelectLabel>{group.label}</SelectLabel>
+								{group.models.map((model) => (
+									<SelectItem key={model.id} value={model.id}>
+										{model.label}
+									</SelectItem>
+								))}
+							</SelectGroup>
+						))}
+					</SelectContent>
+				</Select>
+				<p className="text-xs opacity-50">A different brain for just this stage.</p>
 			</div>
 
-			{hasBookingTool && (
+			{hasBookingTool ? (
 				<div className="flex flex-col gap-4">
-					<Label>Booking settings</Label>
+					<Label>Booking</Label>
 					<div className="-mt-2.5 flex flex-col gap-1.5">
 						<Label className="text-xs opacity-70">Calendar</Label>
 						{crmCalendars && crmCalendars.length === 0 ? (
@@ -493,8 +718,7 @@ function AgentNodeEditor({
 									</SelectContent>
 								</Select>
 								<p className="text-xs opacity-50">
-									Overrides the agent's default booking calendar (CRM sync aside) for this node
-									only.
+									Overrides the agent's default booking calendar for this node only.
 								</p>
 							</>
 						)}
@@ -521,33 +745,13 @@ function AgentNodeEditor({
 						</p>
 					</div>
 				</div>
+			) : (
+				<p className="text-muted-foreground text-xs">
+					Booking options appear here when a booking tool (check_availability / book_appointment)
+					is enabled on this node.
+				</p>
 			)}
-
-			<div className="flex flex-col gap-1.5">
-				<Label>Model override</Label>
-				<Select
-					value={data.model ?? INHERIT_MODEL}
-					onValueChange={(value) => patch({ model: value === INHERIT_MODEL ? undefined : value })}
-				>
-					<SelectTrigger>
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value={INHERIT_MODEL}>Agent default</SelectItem>
-						{MODEL_GROUPS.map((group) => (
-							<SelectGroup key={group.label}>
-								<SelectLabel>{group.label}</SelectLabel>
-								{group.models.map((model) => (
-									<SelectItem key={model.id} value={model.id}>
-										{model.label}
-									</SelectItem>
-								))}
-							</SelectGroup>
-						))}
-					</SelectContent>
-				</Select>
-			</div>
-		</>
+		</div>
 	);
 }
 

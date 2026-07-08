@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getAgentSource, getCrmLiveToolByNameAndSource } from "@repo/database";
+import { getAgentSource, getCrmLiveToolByName, getSoleEnabledAgentSource } from "@repo/database";
 import type { CrmCalendar, CrmProvider } from "@repo/api/modules/crm/lib/provider";
 import { GhlApiError } from "@repo/api/modules/crm/lib/providers/ghl-client";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
@@ -8,9 +8,12 @@ import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
  * Live CRM tool invocations from the voice worker (tools-as-webhooks). The
  * worker POSTs here mid-call, signed with the per-tool secret issued at
  * registration (see packages/api/modules/crm/lib/live-tools.ts). Tool names
- * on the gateway are namespaced `${toolName}__${sourceId}` so multiple
- * simultaneously-connected Sources never collide; this route splits that
- * back apart to resolve which Source's CRM to act against.
+ * are global (they're the LLM's function names); WHICH Source's CRM an
+ * invocation acts on comes from the call's metadata.source_id — set when the
+ * call is created — falling back to the agent's sole enabled attached source.
+ * Ambiguous calls (multi-source agent, no source_id) are refused verbally,
+ * never guessed: acting on the wrong sub-account would bleed data across
+ * locations.
  *
  * Business failures return 200 with {result:{error,...}} — the worker treats
  * any non-2xx as a hard tool failure, and we prefer handing the LLM a spoken
@@ -60,11 +63,17 @@ function stringArg(value: unknown): string {
 	return typeof value === "string" ? value : "";
 }
 
-/** Split the gateway's namespaced tool name back into (toolName, sourceId). */
-function parseGatewayToolName(gatewayName: string): { toolName: string; sourceId: string } | null {
-	const idx = gatewayName.lastIndexOf("__");
-	if (idx === -1) return null;
-	return { toolName: gatewayName.slice(0, idx), sourceId: gatewayName.slice(idx + 2) };
+/**
+ * Which Source this invocation acts on: explicit metadata.source_id wins
+ * (stamped at call creation by sessions/trigger routes); otherwise an agent
+ * with exactly one enabled attached Source resolves unambiguously.
+ */
+async function resolveSourceId(invocation: ToolInvocation): Promise<string | null> {
+	const explicit = invocation.metadata?.source_id;
+	if (typeof explicit === "string" && explicit) return explicit;
+	if (!invocation.agent_id) return null;
+	const sole = await getSoleEnabledAgentSource(invocation.agent_id);
+	return sole?.sourceId ?? null;
 }
 
 async function resolveContactId(
@@ -332,13 +341,8 @@ export async function POST(req: Request): Promise<Response> {
 		return Response.json({ error: "invalid JSON" }, { status: 400 });
 	}
 
-	const parsed = invocation.tool ? parseGatewayToolName(invocation.tool) : null;
-	if (!parsed) {
-		return Response.json({ error: "unknown tool" }, { status: 401 });
-	}
-	const { toolName, sourceId } = parsed;
-
-	const liveTool = await getCrmLiveToolByNameAndSource(toolName, sourceId);
+	const toolName = invocation.tool;
+	const liveTool = toolName ? await getCrmLiveToolByName(toolName) : null;
 	if (!liveTool) {
 		return Response.json({ error: "unknown tool" }, { status: 401 });
 	}
@@ -353,8 +357,9 @@ export async function POST(req: Request): Promise<Response> {
 		return Response.json({ error: "invalid signature" }, { status: 401 });
 	}
 
-	const provider = await resolveCrmProvider(sourceId);
-	if (!provider) {
+	const sourceId = await resolveSourceId(invocation);
+	const provider = sourceId ? await resolveCrmProvider(sourceId) : null;
+	if (!sourceId || !provider) {
 		return toolResult({ error: "no_crm", message: "No CRM connected. Continue without it." });
 	}
 

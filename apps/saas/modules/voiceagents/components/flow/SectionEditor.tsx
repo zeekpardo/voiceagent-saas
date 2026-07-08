@@ -12,11 +12,17 @@ export function SectionEditor({
 	initialBody,
 	mentionExtension,
 	onBodyChange,
+	hint = "@ variables · @@ tools · @@@ exits",
+	editorClassName = "min-h-24",
 }: {
 	initialBody: unknown;
 	/** Created once by the panel (holds the suggestion sources). */
 	mentionExtension: AnyExtension;
 	onBodyChange: (body: unknown) => void;
+	/** Helper line under the editor — override where only some triggers apply. */
+	hint?: string;
+	/** Extra classes on the editable area (e.g. a taller min-height). */
+	editorClassName?: string;
 }) {
 	const editor = useEditor({
 		extensions: [
@@ -34,8 +40,7 @@ export function SectionEditor({
 		immediatelyRender: false,
 		editorProps: {
 			attributes: {
-				class:
-					"min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring [&_p]:my-0.5",
+				class: `${editorClassName} w-full rounded-md border bg-background px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring [&_p]:my-0.5`,
 			},
 		},
 		onUpdate: ({ editor: instance }) => onBodyChange(instance.getJSON()),
@@ -44,7 +49,7 @@ export function SectionEditor({
 	return (
 		<div className="flex flex-col gap-1">
 			<EditorContent editor={editor} />
-			<p className="text-xs opacity-40">@ variables · @@ tools · @@@ exits</p>
+			<p className="text-xs opacity-40">{hint}</p>
 		</div>
 	);
 }

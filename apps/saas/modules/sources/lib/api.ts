@@ -88,6 +88,7 @@ export function useSaveSourceMappingMutation(agentId: string) {
 			sourceId: string;
 			enabled: boolean;
 			fieldMappings: { extractField: string; crmFieldId: string; crmFieldName?: string }[];
+			tagFilters?: { tag: string; mode: "is" | "is_not" }[];
 			tagRules: { extractField: string; equals: string; tag: string }[];
 			stageRules: {
 				extractField: string;

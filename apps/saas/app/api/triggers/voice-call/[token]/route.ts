@@ -1,6 +1,7 @@
 import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
+import { getAgentSource } from "@repo/database";
 
 /**
  * CRM workflow → voice call. Drop this URL into a workflow webhook action
@@ -24,6 +25,30 @@ interface TriggerPayload {
 	customData?: Record<string, unknown>;
 	contact?: { id?: string; phone?: string };
 	[key: string]: unknown;
+}
+
+interface TagFilter {
+	tag: string;
+	mode: "is" | "is_not";
+}
+
+/**
+ * Per-(agent, source) contact-tag gate (closebot "Filters"): every condition
+ * must hold for the agent to act — e.g. `tag is_not "ai off"` stops calls to
+ * contacts opted out of automation on THIS sub-account without affecting the
+ * same agent on other sources.
+ */
+function passesTagFilters(filters: TagFilter[], contactTagsCsv: string | undefined): boolean {
+	if (filters.length === 0) return true;
+	const tags = new Set(
+		(contactTagsCsv ?? "")
+			.split(",")
+			.map((t) => t.trim().toLowerCase())
+			.filter(Boolean),
+	);
+	return filters.every((f) =>
+		f.mode === "is" ? tags.has(f.tag.toLowerCase()) : !tags.has(f.tag.toLowerCase()),
+	);
 }
 
 function toE164(raw: string | undefined): string | null {
@@ -81,6 +106,16 @@ export async function POST(
 		if (typeof value === "string" && value.trim()) {
 			variables[key] = value;
 		}
+	}
+
+	// Per-source tag filters: skip (ack, don't retry) when the contact doesn't
+	// qualify on this sub-account.
+	const mapping = await getAgentSource(identity.agentId, identity.sourceId).catch(() => null);
+	const tagFilters = ((mapping?.tagFilters ?? []) as unknown as TagFilter[]).filter(
+		(f) => f?.tag && (f.mode === "is" || f.mode === "is_not"),
+	);
+	if (!passesTagFilters(tagFilters, variables.contact_tags)) {
+		return Response.json({ queued: false, skipped: "contact does not match this source's tag filters" });
 	}
 
 	try {

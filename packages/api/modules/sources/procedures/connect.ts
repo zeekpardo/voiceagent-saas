@@ -56,8 +56,8 @@ export const connectSource = protectedProcedure
 		// Make sure call.completed events reach this app.
 		await ensureVoiceWebhook();
 
-		// Register this source's live in-call CRM tools (best-effort — the connection works without them).
-		await ensureCrmLiveTools(source.id, context.user.id).catch((err) => {
+		// Register the live in-call CRM tools (best-effort — the connection works without them).
+		await ensureCrmLiveTools(context.user.id).catch((err) => {
 			console.warn("[sources-connect] live tool registration failed:", err);
 		});
 

@@ -82,6 +82,36 @@ export const UserNotificationPreferenceScalarFieldEnumSchema = z.enum(['id', 'us
 
 export type UserNotificationPreferenceScalarFieldEnum = z.infer<typeof UserNotificationPreferenceScalarFieldEnumSchema>;
 
+// File: AgentOrganizationScalarFieldEnum.schema.ts
+
+export const AgentOrganizationScalarFieldEnumSchema = z.enum(['agentId', 'organizationId', 'createdAt'])
+
+export type AgentOrganizationScalarFieldEnum = z.infer<typeof AgentOrganizationScalarFieldEnumSchema>;
+
+// File: SourceScalarFieldEnum.schema.ts
+
+export const SourceScalarFieldEnumSchema = z.enum(['id', 'organizationId', 'name', 'providerType', 'accountName', 'address', 'config', 'status', 'createdAt', 'updatedAt'])
+
+export type SourceScalarFieldEnum = z.infer<typeof SourceScalarFieldEnumSchema>;
+
+// File: VoiceAgentSourceScalarFieldEnum.schema.ts
+
+export const VoiceAgentSourceScalarFieldEnumSchema = z.enum(['id', 'agentId', 'sourceId', 'enabled', 'fieldMappings', 'tagRules', 'stageRules', 'writeNote', 'bookingCalendarId', 'bookingCalendarName', 'createdAt', 'updatedAt'])
+
+export type VoiceAgentSourceScalarFieldEnum = z.infer<typeof VoiceAgentSourceScalarFieldEnumSchema>;
+
+// File: VoiceEngineWebhookScalarFieldEnum.schema.ts
+
+export const VoiceEngineWebhookScalarFieldEnumSchema = z.enum(['id', 'url', 'secret', 'gatewayId', 'createdAt'])
+
+export type VoiceEngineWebhookScalarFieldEnum = z.infer<typeof VoiceEngineWebhookScalarFieldEnumSchema>;
+
+// File: CrmLiveToolScalarFieldEnum.schema.ts
+
+export const CrmLiveToolScalarFieldEnumSchema = z.enum(['id', 'userId', 'sourceId', 'name', 'toolId', 'secret', 'createdAt'])
+
+export type CrmLiveToolScalarFieldEnum = z.infer<typeof CrmLiveToolScalarFieldEnumSchema>;
+
 // File: SortOrder.schema.ts
 
 export const SortOrderSchema = z.enum(['asc', 'desc'])
@@ -129,6 +159,12 @@ export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 export const NotificationTargetSchema = z.enum(['IN_APP', 'EMAIL'])
 
 export type NotificationTarget = z.infer<typeof NotificationTargetSchema>;
+
+// File: SourceStatus.schema.ts
+
+export const SourceStatusSchema = z.enum(['CONNECTED', 'DISCONNECTED'])
+
+export type SourceStatus = z.infer<typeof SourceStatusSchema>;
 
 // File: User.schema.ts
 
@@ -327,4 +363,81 @@ export const UserNotificationPreferenceSchema = z.object({
 });
 
 export type UserNotificationPreferenceType = z.infer<typeof UserNotificationPreferenceSchema>;
+
+
+// File: AgentOrganization.schema.ts
+
+export const AgentOrganizationSchema = z.object({
+  agentId: z.string(),
+  organizationId: z.string(),
+  createdAt: z.date(),
+});
+
+export type AgentOrganizationType = z.infer<typeof AgentOrganizationSchema>;
+
+
+// File: Source.schema.ts
+
+export const SourceSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  providerType: z.string(),
+  accountName: z.string().nullish(),
+  address: z.string().nullish(),
+  config: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10"),
+  status: SourceStatusSchema.default("CONNECTED"),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type SourceType = z.infer<typeof SourceSchema>;
+
+
+// File: VoiceAgentSource.schema.ts
+
+export const VoiceAgentSourceSchema = z.object({
+  id: z.string(),
+  agentId: z.string(),
+  sourceId: z.string(),
+  enabled: z.boolean().default(true),
+  fieldMappings: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
+  tagRules: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
+  stageRules: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
+  writeNote: z.boolean().default(true),
+  bookingCalendarId: z.string().nullish(),
+  bookingCalendarName: z.string().nullish(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type VoiceAgentSourceType = z.infer<typeof VoiceAgentSourceSchema>;
+
+
+// File: VoiceEngineWebhook.schema.ts
+
+export const VoiceEngineWebhookSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  secret: z.string(),
+  gatewayId: z.string(),
+  createdAt: z.date(),
+});
+
+export type VoiceEngineWebhookType = z.infer<typeof VoiceEngineWebhookSchema>;
+
+
+// File: CrmLiveTool.schema.ts
+
+export const CrmLiveToolSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  sourceId: z.string().nullish(),
+  name: z.string(),
+  toolId: z.string(),
+  secret: z.string(),
+  createdAt: z.date(),
+});
+
+export type CrmLiveToolType = z.infer<typeof CrmLiveToolSchema>;
 

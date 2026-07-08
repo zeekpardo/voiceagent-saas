@@ -74,10 +74,13 @@
 			"accountSettings": "Account settings",
 			"admin": "Admin",
 			"aiChatbot": "AI Chatbot",
+			"calls": "Calls",
 			"navigationTitle": "Menu",
 			"openNavigation": "Open navigation",
 			"organizationSettings": "Organization settings",
-			"start": "Start"
+			"sources": "Sources",
+			"start": "Start",
+			"voiceAgents": "Voice Agents"
 		},
 		"userMenu": {
 			"accountSettings": "Account settings",

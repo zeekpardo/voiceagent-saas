@@ -5,6 +5,7 @@
 	"scripts": {
 		"clean": "git clean -xdf .cache .turbo dist node_modules",
 		"create:user": "dotenv -c -e ../../.env -- tsx ./src/create-user.ts",
+		"migrate:agent-orgs": "dotenv -c -e ../../.env -- tsx ./src/assign-agents-to-organization.ts",
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {

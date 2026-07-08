@@ -29,11 +29,14 @@ import { NotificationCenter } from "@shared/components/NotificationCenter";
 import { UserMenu } from "@shared/components/UserMenu";
 import {
 	BotMessageSquareIcon,
+	AudioLinesIcon,
 	ChevronRightIcon,
+	DatabaseIcon,
 	HomeIcon,
 	MenuIcon,
 	PanelLeftCloseIcon,
 	PanelLeftOpenIcon,
+	PhoneCallIcon,
 	SettingsIcon,
 	ShieldUserIcon,
 	UserCogIcon,
@@ -321,6 +324,24 @@ export function NavBar() {
 				href: "/chatbot",
 				icon: BotMessageSquareIcon,
 				isActive: pathname.startsWith("/chatbot"),
+			},
+			{
+				label: t("app.menu.voiceAgents"),
+				href: "/voice-agents",
+				icon: AudioLinesIcon,
+				isActive: pathname.startsWith("/voice-agents"),
+			},
+			{
+				label: t("app.menu.sources"),
+				href: "/sources",
+				icon: DatabaseIcon,
+				isActive: pathname.startsWith("/sources"),
+			},
+			{
+				label: t("app.menu.calls"),
+				href: "/calls",
+				icon: PhoneCallIcon,
+				isActive: pathname.startsWith("/calls"),
 			},
 			...(organizationSubItems
 				? [

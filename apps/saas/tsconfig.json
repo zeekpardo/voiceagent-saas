@@ -12,7 +12,9 @@
 			"@admin/*": ["./modules/admin/*"],
 			"@ai/*": ["./modules/ai/*"],
 			"@onboarding/*": ["./modules/onboarding/*"],
-			"@shared/*": ["./modules/shared/*"]
+			"@shared/*": ["./modules/shared/*"],
+			"@sources/*": ["./modules/sources/*"],
+			"@voiceagents/*": ["./modules/voiceagents/*"]
 		}
 	},
 	"include": ["**/*.ts", "**/*.tsx", "**/*.cjs", "**/*.mjs", ".next/types/**/*.ts"],

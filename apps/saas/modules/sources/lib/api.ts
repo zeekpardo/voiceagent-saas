@@ -1,0 +1,185 @@
+"use client";
+
+import type { GatewayCall } from "@repo/api/modules/voiceagents/procedures/calls";
+import { orpcClient } from "@shared/lib/orpc-client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+export const sourcesQueryKey = ["sources"] as const;
+export const sourceProvidersQueryKey = ["sources", "providers"] as const;
+export const agentSourcesQueryKey = (agentId: string) => ["voiceagents", "agents", agentId, "sources"] as const;
+
+export function useSourcesQuery() {
+	return useQuery({ queryKey: sourcesQueryKey, queryFn: () => orpcClient.sources.list() });
+}
+
+export function useSourceProvidersQuery() {
+	return useQuery({
+		queryKey: sourceProvidersQueryKey,
+		queryFn: () => orpcClient.sources.providers(),
+	});
+}
+
+export function useConnectSourceMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: { name?: string; providerType: string; config: Record<string, string> }) =>
+			orpcClient.sources.connect(input),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: sourcesQueryKey }),
+	});
+}
+
+export function useDisconnectSourceMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => orpcClient.sources.disconnect({ id }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: sourcesQueryKey }),
+	});
+}
+
+export function useSourceOauthUrlMutation() {
+	return useMutation({
+		mutationFn: (providerType: string) => orpcClient.sources.oauthUrl({ providerType }),
+	});
+}
+
+// ---------------------------------------------------------------- agent <-> source attachment
+
+export function useAgentSourcesQuery(agentId: string) {
+	return useQuery({
+		queryKey: agentSourcesQueryKey(agentId),
+		queryFn: () => orpcClient.voiceagents.sources.list({ agentId }),
+	});
+}
+
+export function useAttachSourceMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (sourceId: string) => orpcClient.voiceagents.sources.attach({ agentId, sourceId }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: agentSourcesQueryKey(agentId) });
+			void queryClient.invalidateQueries({ queryKey: sourcesQueryKey });
+		},
+	});
+}
+
+export function useDetachSourceMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (sourceId: string) => orpcClient.voiceagents.sources.detach({ agentId, sourceId }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: agentSourcesQueryKey(agentId) });
+			void queryClient.invalidateQueries({ queryKey: sourcesQueryKey });
+		},
+	});
+}
+
+export function useAutoMapSourceMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (sourceId: string) => orpcClient.voiceagents.sources.autoMap({ agentId, sourceId }),
+		onSuccess: () => void queryClient.invalidateQueries({ queryKey: agentSourcesQueryKey(agentId) }),
+	});
+}
+
+export function useSaveSourceMappingMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: {
+			sourceId: string;
+			enabled: boolean;
+			fieldMappings: { extractField: string; crmFieldId: string; crmFieldName?: string }[];
+			tagRules: { extractField: string; equals: string; tag: string }[];
+			stageRules: {
+				extractField: string;
+				equals: string;
+				pipelineId: string;
+				stageId: string;
+				pipelineName?: string;
+				stageName?: string;
+			}[];
+			writeNote: boolean;
+			bookingCalendarId?: string | null;
+			bookingCalendarName?: string | null;
+		}) => orpcClient.voiceagents.sources.saveMapping({ agentId, ...input }),
+		onSuccess: () => void queryClient.invalidateQueries({ queryKey: agentSourcesQueryKey(agentId) }),
+	});
+}
+
+export function useSourceTriggerUrlQuery(agentId: string, sourceId: string | null) {
+	return useQuery({
+		queryKey: ["voiceagents", "agents", agentId, "sources", sourceId, "triggerUrl"] as const,
+		queryFn: () => orpcClient.voiceagents.triggerUrl({ agentId, sourceId: sourceId! }),
+		enabled: !!sourceId,
+		staleTime: Number.POSITIVE_INFINITY, // deterministic per (agent, source)
+	});
+}
+
+// ---------------------------------------------------------------- per-source CRM directory
+
+export function useSourceCustomFieldsQuery(sourceId: string | null) {
+	return useQuery({
+		queryKey: ["sources", sourceId, "customFields"] as const,
+		queryFn: () => orpcClient.sources.customFields.list({ sourceId: sourceId! }),
+		enabled: !!sourceId,
+	});
+}
+
+export function useCreateSourceFieldMutation(sourceId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (name: string) => orpcClient.sources.customFields.create({ sourceId, name }),
+		onSuccess: () =>
+			void queryClient.invalidateQueries({ queryKey: ["sources", sourceId, "customFields"] }),
+	});
+}
+
+export function useSourceTagsQuery(sourceId: string | null) {
+	return useQuery({
+		queryKey: ["sources", sourceId, "tags"] as const,
+		queryFn: () => orpcClient.sources.tags.list({ sourceId: sourceId! }),
+		enabled: !!sourceId,
+	});
+}
+
+export function useSourcePipelinesQuery(sourceId: string | null) {
+	return useQuery({
+		queryKey: ["sources", sourceId, "pipelines"] as const,
+		queryFn: () => orpcClient.sources.pipelines.list({ sourceId: sourceId! }),
+		enabled: !!sourceId,
+	});
+}
+
+export function useSourceCalendarsQuery(sourceId: string | null) {
+	return useQuery({
+		queryKey: ["sources", sourceId, "calendars"] as const,
+		queryFn: () => orpcClient.sources.calendars.list({ sourceId: sourceId! }),
+		enabled: !!sourceId,
+	});
+}
+
+/**
+ * Match the selected call to a CRM contact (by stored contact id, else by
+ * the human's phone number). Resolves which Source via the call's
+ * metadata.source_id, falling back to the agent's sole attached source.
+ */
+export function useContactMatchQuery(call: GatewayCall | null) {
+	const contactId = call?.metadata?.crm_contact_id;
+	const sourceId = call?.metadata?.source_id;
+	const phone = call
+		? (call.direction === "outbound" ? call.to_number : call.from_number)
+		: null;
+
+	return useQuery({
+		queryKey: ["sources", "contactMatch", call?.id ?? "none"] as const,
+		queryFn: () =>
+			orpcClient.sources.matchContact({
+				contactId: contactId || undefined,
+				phone: contactId ? undefined : (phone ?? undefined),
+				callId: call?.id,
+				sourceId,
+				agentId: call?.agent_id,
+			}),
+		enabled: !!call && (!!contactId || !!phone),
+		staleTime: 5 * 60 * 1000,
+	});
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "saas",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "saas", "dev"],
+      "port": 3000
+    }
+  ]
+}

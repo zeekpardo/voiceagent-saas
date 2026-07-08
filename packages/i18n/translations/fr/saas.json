@@ -74,10 +74,13 @@
 			"accountSettings": "Paramètres du compte",
 			"admin": "Admin",
 			"aiChatbot": "Chatbot IA",
+			"calls": "Appels",
 			"navigationTitle": "Menu",
 			"openNavigation": "Ouvrir la navigation",
 			"organizationSettings": "Paramètres de l'organisation",
-			"start": "Démarrage"
+			"sources": "Sources",
+			"start": "Démarrage",
+			"voiceAgents": "Agents vocaux"
 		},
 		"userMenu": {
 			"accountSettings": "Paramètres du compte",

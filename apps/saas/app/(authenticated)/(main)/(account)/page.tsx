@@ -30,7 +30,7 @@ export default async function AppStartPage() {
 	const t = await getTranslations("start");
 
 	return (
-		<div className="">
+		<div data-fullbleed>
 			<PageHeader title={t("welcome", { name: session?.user.name })} subtitle={t("subtitle")} />
 
 			<div>

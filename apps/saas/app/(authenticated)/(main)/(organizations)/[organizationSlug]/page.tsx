@@ -33,7 +33,7 @@ export default async function OrganizationPage({
 	}
 
 	return (
-		<div>
+		<div data-fullbleed>
 			<PageHeader title={activeOrganization.name} subtitle={t("subtitle")} />
 
 			<OrganizationStart />

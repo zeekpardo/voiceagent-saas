@@ -3,7 +3,7 @@ import { PageHeader } from "@shared/components/PageHeader";
 
 export default async function AiDemoPage() {
 	return (
-		<>
+		<div data-fullbleed>
 			<PageHeader
 				title="AI Chatbot"
 				subtitle="This is an example chatbot built with the OpenAI API"
@@ -11,6 +11,6 @@ export default async function AiDemoPage() {
 			/>
 
 			<AiChat />
-		</>
+		</div>
 	);
 }

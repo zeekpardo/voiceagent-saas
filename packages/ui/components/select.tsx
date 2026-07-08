@@ -19,14 +19,14 @@ const SelectTrigger = ({
 }: React.ComponentProps<typeof SelectPrimitive.Trigger>) => (
 	<SelectPrimitive.Trigger
 		className={cn(
-			"h-9 shadow-xs px-3 py-2 text-base flex w-full items-center justify-between rounded-md border border-input bg-card ring-offset-background placeholder:text-foreground/60 focus:ring-1 focus:ring-ring focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+			"h-9 shadow-xs gap-2 px-3 py-2 text-base flex w-full items-center justify-between rounded-md border border-input bg-card ring-offset-background placeholder:text-foreground/60 focus:ring-1 focus:ring-ring focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 [&>span]:text-left",
 			className,
 		)}
 		{...props}
 	>
 		{children}
 		<SelectPrimitive.Icon asChild>
-			<ChevronsUpDownIcon className="size-4 opacity-50" />
+			<ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />
 		</SelectPrimitive.Icon>
 	</SelectPrimitive.Trigger>
 );

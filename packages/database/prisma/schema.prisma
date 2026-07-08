@@ -144,6 +144,8 @@ model Organization {
   members            Member[]
   invitations        Invitation[]
   purchases          Purchase[]
+  sources            Source[]
+  agentOrganizations AgentOrganization[]
 
   @@unique([slug])
   @@map("organization")
@@ -240,4 +242,112 @@ model UserNotificationPreference {
 
   @@unique([userId, type, target])
   @@map("user_notification_preference")
+}
+
+// ---------------------------------------------------------------- voice agents / GHL
+
+/// Which organization owns a gateway agent (agentId is not an FK — agents
+/// live on the gateway, not in this DB). One agent belongs to exactly one org.
+model AgentOrganization {
+  /// gateway agent id (agt_…)
+  agentId        String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("agent_organization")
+}
+
+enum SourceStatus {
+  CONNECTED
+  DISCONNECTED
+}
+
+/// A connected CRM sub-account/location — an org can have many. One Agent can
+/// monitor many Sources (and vice versa) via VoiceAgentSource, letting a
+/// single agent be reused across many sub-accounts with per-source dynamic
+/// variables (closebot "Sources" model).
+model Source {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// user-facing label shown in the Sources table, e.g. "Ace Smog"
+  name           String
+  /// provider discriminator, e.g. "gohighlevel" — matches the CRM registry
+  providerType   String
+  /// CRM-reported account/location name
+  accountName    String?
+  /// denormalized display address for the Sources table
+  address        String?
+  /// provider-specific connection data (e.g. { locationId, accessToken });
+  /// local dev: stored as-is — encrypt before multi-tenant deploy
+  config         Json
+  status         SourceStatus @default(CONNECTED)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  agentSources VoiceAgentSource[]
+
+  @@index([organizationId])
+  @@map("source")
+}
+
+/// Many-to-many join between a gateway agent and a Source, carrying the
+/// per-(agent, source) CRM field sync rules (field IDs are account-specific,
+/// so mappings cannot be shared across sources on the same agent).
+model VoiceAgentSource {
+  id       String  @id @default(cuid())
+  /// gateway agent id (agt_…) — not an FK, agents live on the gateway
+  agentId  String
+  sourceId String
+  source   Source  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  enabled  Boolean @default(true)
+
+  /// [{ extractField, crmFieldId, crmFieldKey, crmFieldName }]
+  fieldMappings Json @default("[]")
+  /// [{ extractField, equals, tag }]
+  tagRules      Json @default("[]")
+  /// [{ extractField, equals, pipelineId, stageId, pipelineName?, stageName? }]
+  stageRules    Json @default("[]")
+  writeNote     Boolean @default(true)
+  /// default calendar for the check_availability / book_appointment live tools
+  bookingCalendarId   String?
+  bookingCalendarName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([agentId, sourceId])
+  @@index([agentId])
+  @@index([sourceId])
+  @@map("voice_agent_source")
+}
+
+model VoiceEngineWebhook {
+  id        String   @id @default(cuid())
+  url       String
+  secret    String   @db.Text
+  gatewayId String
+  createdAt DateTime @default(now())
+
+  @@map("voice_engine_webhook")
+}
+
+model CrmLiveTool {
+  id       String  @id @default(cuid())
+  userId   String
+  /// owning Source — tool names are namespaced per source so multiple
+  /// simultaneously-connected CRM accounts don't collide on the gateway
+  sourceId String?
+  /// LLM function name registered on the gateway (update_contact, add_tag, move_stage)
+  name   String
+  /// gateway tool id (tool_…)
+  toolId String
+  /// per-tool HMAC signing secret — returned by the gateway only on create
+  secret String @db.Text
+  createdAt DateTime @default(now())
+
+  @@unique([name, sourceId])
+  @@map("crm_live_tool")
 }

@@ -19,7 +19,9 @@ function AppContent({ children }: PropsWithChildren) {
 				})}
 			>
 				<main className="md:border md:rounded-2xl md:overflow-y-auto py-6 h-full w-full border-t bg-card">
-					<div className="container">{children}</div>
+					{/* Pages marked data-fullbleed (inbox, canvas workspace) escape the
+					    centered max-width and use the whole main area. */}
+					<div className="container [&:has([data-fullbleed])]:max-w-none">{children}</div>
 				</main>
 			</div>
 		</div>

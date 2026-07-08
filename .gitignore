@@ -42,4 +42,4 @@ dist/
 # other 
 .react-email/
 .content-collections/
-.prisma-zod-generator-manifest.json
+.prisma-zod-generator-manifest.json.claude/settings.local.json

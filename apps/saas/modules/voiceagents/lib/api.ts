@@ -1,0 +1,159 @@
+"use client";
+
+import type { AgentConfigInput } from "@repo/api/modules/voiceagents/lib/schema";
+import { orpcClient } from "@shared/lib/orpc-client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+export const voiceAgentsQueryKey = ["voiceagents", "agents"] as const;
+export const agentQueryKey = (id: string) => ["voiceagents", "agents", id] as const;
+export const transcriptQueryKey = (callId: string) => ["voiceagents", "transcript", callId] as const;
+
+export function useAgentsQuery() {
+	return useQuery({
+		queryKey: voiceAgentsQueryKey,
+		queryFn: () => orpcClient.voiceagents.agents.list(),
+	});
+}
+
+export function useAgentQuery(id: string) {
+	return useQuery({
+		queryKey: agentQueryKey(id),
+		queryFn: () => orpcClient.voiceagents.agents.get({ id }),
+	});
+}
+
+export function useCreateAgentMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (config: AgentConfigInput) => orpcClient.voiceagents.agents.create(config),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey }),
+	});
+}
+
+export function useUpdateAgentMutation(id: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (config: AgentConfigInput) => orpcClient.voiceagents.agents.update({ id, config }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey });
+			void queryClient.invalidateQueries({ queryKey: agentQueryKey(id) });
+		},
+	});
+}
+
+export function useDeleteAgentMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => orpcClient.voiceagents.agents.delete({ id }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey }),
+	});
+}
+
+export const toolsQueryKey = ["voiceagents", "tools"] as const;
+
+export function useToolsQuery() {
+	return useQuery({
+		queryKey: toolsQueryKey,
+		queryFn: () => orpcClient.voiceagents.tools.list(),
+	});
+}
+
+export function useCreateToolMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: {
+			name: string;
+			description: string;
+			endpointUrl: string;
+			timeoutMs: number;
+			parameters: { name: string; type: "string" | "number" | "boolean"; description: string; required: boolean }[];
+		}) => orpcClient.voiceagents.tools.create(input),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: toolsQueryKey }),
+	});
+}
+
+export function useDeleteToolMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => orpcClient.voiceagents.tools.delete({ id }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: toolsQueryKey }),
+	});
+}
+
+export function useSetAgentToolsMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (toolIds: string[]) =>
+			orpcClient.voiceagents.agents.setTools({ id: agentId, toolIds }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: agentQueryKey(agentId) });
+			void queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey });
+		},
+	});
+}
+
+export function useSaveFlowMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: {
+			flow: {
+				entry: string;
+				nodes: {
+					id: string;
+					name?: string;
+					instructions: string;
+					entryInstructions?: string;
+					toolIds: string[];
+					llm?: { model: string; temperature?: number; maxTokens?: number };
+					exits: { name: string; description: string; target?: string }[];
+				}[];
+			};
+			canvas: unknown;
+			toolIds: string[];
+		}) => orpcClient.voiceagents.flow.save({ id: agentId, ...input }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: agentQueryKey(agentId) });
+			void queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey });
+		},
+	});
+}
+
+/**
+ * CRM "live tools" (update_contact, add_tag, move_stage, check_availability,
+ * book_appointment) registered for this agent's sole attached Source.
+ * Degrades to [] when the agent has zero or multiple attached Sources, so
+ * the flow builder still works without one resolved.
+ */
+export function useAgentLiveToolsQuery(agentId: string) {
+	return useQuery({
+		queryKey: ["voiceagents", "agents", agentId, "liveTools"] as const,
+		queryFn: () =>
+			orpcClient.voiceagents.liveTools({ agentId }).catch(() => ({ tools: [] as { id: string; name: string; description: string }[] })),
+	});
+}
+
+/** An agent's bookable calendars, resolved via its sole attached Source. */
+export function useAgentCalendarsQuery(agentId: string, enabled: boolean) {
+	return useQuery({
+		queryKey: ["voiceagents", "agents", agentId, "calendars"] as const,
+		queryFn: () => orpcClient.voiceagents.calendars({ agentId }),
+		enabled,
+	});
+}
+
+/** Inbox view: all recent calls across agents, polled so new calls appear. */
+export function useInboxCallsQuery() {
+	return useQuery({
+		queryKey: ["voiceagents", "calls", "inbox"] as const,
+		queryFn: () => orpcClient.voiceagents.calls.list({ limit: 200 }),
+		refetchInterval: 15_000,
+	});
+}
+
+export function useTranscriptQuery(callId: string | null) {
+	return useQuery({
+		queryKey: transcriptQueryKey(callId ?? "none"),
+		queryFn: () => orpcClient.voiceagents.calls.transcript({ id: callId! }),
+		enabled: !!callId,
+	});
+}

@@ -106,6 +106,15 @@ export function useSaveFlowMutation(agentId: string) {
 					toolIds: string[];
 					llm?: { model: string; temperature?: number; maxTokens?: number };
 					exits: { name: string; description: string; target?: string }[];
+					objectives?: {
+						key: string;
+						description: string;
+						field?: string;
+						options?: string[];
+						required?: boolean;
+						maxAttempts?: number;
+						sensitivity?: number;
+					}[];
 				}[];
 			};
 			canvas: unknown;
@@ -138,6 +147,24 @@ export function useAgentCalendarsQuery(agentId: string, enabled: boolean) {
 		queryKey: ["voiceagents", "agents", agentId, "calendars"] as const,
 		queryFn: () => orpcClient.voiceagents.calendars({ agentId }),
 		enabled,
+	});
+}
+
+export const numbersQueryKey = ["voiceagents", "numbers"] as const;
+
+export function useNumbersQuery() {
+	return useQuery({
+		queryKey: numbersQueryKey,
+		queryFn: () => orpcClient.voiceagents.numbers.list(),
+	});
+}
+
+export function useSetNumberAgentMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: { id: string; agentId: string | null }) =>
+			orpcClient.voiceagents.numbers.setAgent(input),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: numbersQueryKey }),
 	});
 }
 

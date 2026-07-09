@@ -76,6 +76,11 @@ async function resolveSourceId(invocation: ToolInvocation): Promise<string | nul
 	return sole?.sourceId ?? null;
 }
 
+/** Builder-test calls carry no caller identity; their CRM writes land on a
+ * stable, recognizable test contact so live tools behave exactly like
+ * production and results are inspectable in the CRM. */
+const TEST_CONTACT_PHONE = "+15005550006";
+
 async function resolveContactId(
 	provider: CrmProvider,
 	metadata: Record<string, unknown> | null,
@@ -89,7 +94,90 @@ async function resolveContactId(
 		return id;
 	}
 
+	if (metadata?.source === "builder-test") {
+		const { id } = await provider.upsertContactByPhone(TEST_CONTACT_PHONE);
+		return id;
+	}
+
 	return null;
+}
+
+/**
+ * Standard contact fields write to the contact record itself (CloseBot-style
+ * "output variable" behavior); everything else falls through to
+ * custom-field find-or-create.
+ */
+const STANDARD_FIELDS: Record<string, string> = {
+	address1: "address1",
+	streetaddress: "address1",
+	city: "city",
+	state: "state",
+	zip: "postalCode",
+	zipcode: "postalCode",
+	postalcode: "postalCode",
+	firstname: "firstName",
+	lastname: "lastName",
+	email: "email",
+	phone: "phone",
+	phonenumber: "phone",
+	companyname: "companyName",
+	country: "country",
+	website: "website",
+};
+
+/**
+ * The "magic" composite fields: a single objective whose output variable is
+ * "Full Address" or "Full Name" writes ALL the underlying standard slots from
+ * one spoken value — the CloseBot behavior where you pick one variable and it
+ * fills address1/city/state/postalCode (or firstName/lastName) at once.
+ */
+const COMPOSITE_FIELDS = new Set(["fulladdress", "address"]);
+const NAME_FIELDS = new Set(["fullname", "name"]);
+
+const US_STATES = new Set([
+	"AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA",
+	"ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK",
+	"OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
+]);
+
+/**
+ * Parse a spoken US address into GHL's standard slots. Tolerant of comma and
+ * space separators; fills what it can (a bare "123 Main St" still sets address1).
+ * "1304 Calle Milpitas, Bakersfield, CA 93307" → {address1, city, state, postalCode}.
+ */
+function parseAddress(raw: string): Record<string, string> {
+	const out: Record<string, string> = {};
+	let rest = raw.trim();
+
+	const zipMatch = rest.match(/\b(\d{5})(?:-\d{4})?\b\s*$/);
+	if (zipMatch) {
+		out.postalCode = zipMatch[1];
+		rest = rest.slice(0, zipMatch.index).trim().replace(/,\s*$/, "");
+	}
+
+	// State: trailing 2-letter code (comma- or space-separated).
+	const stateMatch = rest.match(/[,\s]([A-Za-z]{2})\s*$/);
+	if (stateMatch && US_STATES.has(stateMatch[1].toUpperCase())) {
+		out.state = stateMatch[1].toUpperCase();
+		rest = rest.slice(0, stateMatch.index).trim().replace(/,\s*$/, "");
+	}
+
+	const parts = rest.split(",").map((p) => p.trim()).filter(Boolean);
+	if (parts.length >= 2) {
+		out.city = parts[parts.length - 1];
+		out.address1 = parts.slice(0, -1).join(", ");
+	} else if (parts.length === 1 && parts[0]) {
+		out.address1 = parts[0];
+	}
+	return out;
+}
+
+/** "John Smith" / "Maria de la Cruz" → firstName + lastName (rest). */
+function parseName(raw: string): Record<string, string> {
+	const tokens = raw.trim().split(/\s+/).filter(Boolean);
+	if (tokens.length === 0) return {};
+	if (tokens.length === 1) return { firstName: tokens[0] };
+	return { firstName: tokens[0], lastName: tokens.slice(1).join(" ") };
 }
 
 async function executeUpdateContact(
@@ -104,6 +192,22 @@ async function executeUpdateContact(
 	}
 
 	const wanted = normalizeName(fieldName);
+
+	// Composite fields decompose one spoken value into several standard slots.
+	if (COMPOSITE_FIELDS.has(wanted) || NAME_FIELDS.has(wanted)) {
+		const parsed = COMPOSITE_FIELDS.has(wanted) ? parseAddress(value) : parseName(value);
+		if (Object.keys(parsed).length === 0) {
+			return { silent: true, detail: `No parseable components in "${value}".` };
+		}
+		await provider.updateContactStandard(contactId, parsed);
+		return { silent: true, detail: `Updated ${Object.keys(parsed).join(", ")} from "${value}".` };
+	}
+
+	const standardKey = STANDARD_FIELDS[wanted];
+	if (standardKey) {
+		await provider.updateContactStandard(contactId, { [standardKey]: value });
+		return { silent: true, detail: `Updated standard field ${standardKey} to "${value}".` };
+	}
 	const fields = await provider.listCustomFields();
 	let field = fields.find((f) => {
 		if (normalizeName(f.name) === wanted) return true;
@@ -116,7 +220,10 @@ async function executeUpdateContact(
 	}
 
 	await provider.updateContactFields(contactId, [{ fieldId: field.id, value }]);
-	return `Updated "${field.name}" to "${value}".`;
+	// silent: fire-and-forget write — the worker returns no tool output to the
+	// LLM, so the SDK never generates a follow-up turn (which is what made the
+	// agent re-speak its question after every save). detail is for logs only.
+	return { silent: true, detail: `Updated "${field.name}" to "${value}".` };
 }
 
 async function executeAddTag(
@@ -129,7 +236,7 @@ async function executeAddTag(
 		return { error: "bad_arguments", message: "tag is required." };
 	}
 	await provider.addContactTags(contactId, [tag]);
-	return `Added tag "${tag}".`;
+	return { silent: true, detail: `Added tag "${tag}".` };
 }
 
 async function executeMoveStage(
@@ -154,7 +261,7 @@ async function executeMoveStage(
 	}
 
 	await provider.moveContactToStage(contactId, pipeline.id, stage.id);
-	return `Moved contact to ${stage.name} in ${pipeline.name}.`;
+	return { silent: true, detail: `Moved contact to ${stage.name} in ${pipeline.name}.` };
 }
 
 // ---------------------------------------------------------------- calendar tools
@@ -377,7 +484,11 @@ export async function POST(req: Request): Promise<Response> {
 
 		const contactId = await resolveContactId(provider, invocation.metadata);
 		if (!contactId) {
-			return toolResult({ error: "no_contact", message: "No CRM contact for this caller." });
+			return toolResult({
+				error: "no_contact",
+				message:
+					"No CRM contact for this caller — the value was not saved. Continue the conversation naturally; do NOT repeat your last question.",
+			});
 		}
 
 		switch (toolName) {
@@ -406,7 +517,8 @@ export async function POST(req: Request): Promise<Response> {
 		console.error(`[crm-live-tools] ${toolName} (call ${invocation.call_id}) failed:`, err);
 		return toolResult({
 			error: "crm_error",
-			message: "The CRM update failed. Continue the call and mention a human will follow up.",
+			message:
+				"The CRM update failed. Continue the call and mention a human will follow up. Do NOT repeat your last question.",
 		});
 	}
 }

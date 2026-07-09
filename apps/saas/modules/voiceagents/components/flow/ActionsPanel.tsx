@@ -7,10 +7,14 @@ import {
 	BotIcon,
 	CalendarCheckIcon,
 	CornerUpRightIcon,
+	FormInputIcon,
+	GraduationCapIcon,
 	type LucideIcon,
 	MessageSquareIcon,
+	PhoneForwardedIcon,
 	SearchIcon,
 	SplitIcon,
+	TagsIcon,
 	WorkflowIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -32,8 +36,11 @@ interface ActionSection {
 }
 
 const AGENT_TILE = "bg-gradient-to-br from-blue-500 to-purple-500";
+const OBJECTIVE_TILE = "bg-gradient-to-br from-emerald-500 to-teal-500";
+const ACTION_TILE = "bg-gradient-to-br from-orange-500 to-amber-500";
 const BRANCH_TILE = "bg-gradient-to-br from-pink-500 to-rose-500";
 const SCENARIO_TILE = "bg-gradient-to-br from-amber-500 to-orange-500";
+const TRANSFER_TILE = "bg-gradient-to-br from-teal-500 to-cyan-500";
 
 const ACTION_SECTIONS: ActionSection[] = [
 	{
@@ -47,11 +54,25 @@ const ACTION_SECTIONS: ActionSection[] = [
 				tileClassName: AGENT_TILE,
 			},
 			{
+				kind: "objective",
+				title: "Objective",
+				subtitle: "Gather info from the caller and update fields",
+				icon: GraduationCapIcon,
+				tileClassName: OBJECTIVE_TILE,
+			},
+			{
 				kind: "statement",
 				title: "Statement",
 				subtitle: "Say something, then move on",
 				icon: MessageSquareIcon,
 				tileClassName: AGENT_TILE,
+			},
+			{
+				kind: "transfer",
+				title: "Transfer",
+				subtitle: "Hold music, then a different voice takes over",
+				icon: PhoneForwardedIcon,
+				tileClassName: TRANSFER_TILE,
 			},
 		],
 	},
@@ -83,6 +104,20 @@ const ACTION_SECTIONS: ActionSection[] = [
 				subtitle: "Conversationally book an appointment",
 				icon: CalendarCheckIcon,
 				tileClassName: AGENT_TILE,
+			},
+			{
+				kind: "set_field",
+				title: "Set Field",
+				subtitle: "Update a CRM field value, then move on",
+				icon: FormInputIcon,
+				tileClassName: ACTION_TILE,
+			},
+			{
+				kind: "modify_tags",
+				title: "Modify Tags",
+				subtitle: "Add or remove contact tags, then move on",
+				icon: TagsIcon,
+				tileClassName: ACTION_TILE,
 			},
 		],
 	},

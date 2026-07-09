@@ -13,6 +13,7 @@ import { listAgentCalendars } from "./procedures/agent-calendars";
 import { listAgentLiveTools } from "./procedures/agent-live-tools";
 import { getCallEvents, getTranscript, listCalls } from "./procedures/calls";
 import { saveFlow } from "./procedures/flow";
+import { listNumbers, setNumberAgent } from "./procedures/numbers";
 import { createTestSession } from "./procedures/sessions";
 import { getTriggerUrl } from "./procedures/trigger";
 import { createTool, deleteTool, listTools, setAgentTools } from "./procedures/tools";
@@ -41,6 +42,10 @@ export const voiceagentsRouter = {
 		list: listCalls,
 		transcript: getTranscript,
 		events: getCallEvents,
+	},
+	numbers: {
+		list: listNumbers,
+		setAgent: setNumberAgent,
 	},
 	sources: {
 		list: listAgentSourcesProcedure,

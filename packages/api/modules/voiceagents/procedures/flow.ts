@@ -20,10 +20,33 @@ export const flowInput = z.object({
 				name: z.string().optional(),
 				// "router" nodes never speak — the engine evaluates router.condition
 				// against the conversation and picks one exit. "statement" nodes speak
-				// statement.say and immediately continue. Default kind is "agent".
-				kind: z.enum(["agent", "router", "statement"]).optional(),
+				// statement.say and immediately continue. "transfer" nodes announce,
+				// play hold music, then continue with a new voice. Default is "agent".
+				kind: z
+					.enum(["agent", "router", "statement", "transfer", "set_field", "modify_tags"])
+					.optional(),
 				router: z.object({ condition: z.string().min(1) }).optional(),
 				statement: z.object({ say: z.string().min(1) }).optional(),
+				setField: z.object({ field: z.string().min(1), value: z.string() }).optional(),
+				modifyTags: z
+					.object({
+						add: z.array(z.string().min(1)).default([]),
+						remove: z.array(z.string().min(1)).default([]),
+					})
+					.optional(),
+				transfer: z
+					.object({
+						say: z.string().optional(),
+						holdSeconds: z.number().min(0).max(30),
+						voice: z
+							.object({
+								provider: z.string().min(1),
+								voice: z.string().min(1),
+								speed: z.number().min(0.7).max(1.5).optional(),
+							})
+							.optional(),
+					})
+					.optional(),
 				instructions: z.string().min(1),
 				entryInstructions: z.string().optional(),
 				toolIds: z.array(z.string()),
@@ -41,6 +64,21 @@ export const flowInput = z.object({
 						target: z.string().optional(),
 					}),
 				),
+				// Engine-verified data goals on an agent node; the engine takes the
+				// primary exit once every required objective is met.
+				objectives: z
+					.array(
+						z.object({
+							key: z.string().min(1),
+							description: z.string().min(1),
+							field: z.string().optional(),
+							options: z.array(z.string().min(1)).min(2).optional(),
+							required: z.boolean().optional(),
+							maxAttempts: z.number().int().min(1).max(10).optional(),
+							sensitivity: z.number().min(0).max(100).optional(),
+						}),
+					)
+					.optional(),
 			}),
 		)
 		.min(1),

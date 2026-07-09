@@ -1,6 +1,7 @@
 import type {
 	AgentCanvasNodeDoc,
 	AgentNodeData,
+	BookingNodeData,
 	CanvasDoc,
 	CanvasEdgeDoc,
 	CanvasNodeDoc,
@@ -9,22 +10,33 @@ import type {
 	EngineFlowNode,
 	EngineFlowScenario,
 	FlowSectionDoc,
+	ModifyTagsNodeData,
+	ObjectiveNodeData,
 	ScenarioCanvasNodeDoc,
+	SetFieldNodeData,
 	ScenarioNodeData,
 	StatementCanvasNodeDoc,
 	StatementNodeData,
 	SwitchCanvasNodeDoc,
 	SwitchNodeData,
+	TransferCanvasNodeDoc,
+	TransferNodeData,
 	TrueFalseCanvasNodeDoc,
 	TrueFalseNodeData,
 } from "./flow-types";
 import {
+	BOOKING_BOOKED_HANDLE_ID,
+	BOOKING_FAILED_HANDLE_ID,
 	FALSE_HANDLE_ID,
+	MODIFY_TAGS_NEXT_HANDLE_ID,
+	OBJECTIVE_NEXT_HANDLE_ID,
 	OTHERWISE_HANDLE_ID,
 	SCENARIO_JUMP_HANDLE_ID,
+	SET_FIELD_NEXT_HANDLE_ID,
 	START_HANDLE_ID,
 	START_NODE_ID,
 	STATEMENT_NEXT_HANDLE_ID,
+	TRANSFER_NEXT_HANDLE_ID,
 	TRUE_HANDLE_ID,
 } from "./flow-types";
 
@@ -104,8 +116,8 @@ function nodeToText(node: TiptapNode): string {
 }
 
 /** Sections → the node's plain-text prompt (`## Title` headers between sections). */
-export function sectionsToInstructions(sections: FlowSectionDoc[]): string {
-	return sections
+export function sectionsToInstructions(sections: FlowSectionDoc[] | undefined): string {
+	return (sections ?? [])
 		.map((section) => {
 			const body = tiptapToText(section.body).trim();
 			const title = section.title?.trim();
@@ -120,6 +132,13 @@ export function sectionsToInstructions(sections: FlowSectionDoc[]): string {
 export function validateFlowDoc(doc: CanvasDoc): string[] {
 	const errors: string[] = [];
 	const agentNodes = doc.nodes.filter((n): n is AgentCanvasNodeDoc => n.type === "agent");
+	// Conversational nodes can take the call first (they converse): agent nodes
+	// plus objective and booking nodes, which compile to agent engine nodes.
+	const conversationalIds = new Set(
+		doc.nodes
+			.filter((n) => n.type === "agent" || n.type === "objective" || n.type === "booking")
+			.map((n) => n.id),
+	);
 	const branchNodes = doc.nodes.filter(
 		(n): n is SwitchCanvasNodeDoc | TrueFalseCanvasNodeDoc =>
 			n.type === "truefalse" || n.type === "switch",
@@ -130,21 +149,19 @@ export function validateFlowDoc(doc: CanvasDoc): string[] {
 	const scenarioNodes = doc.nodes.filter((n): n is ScenarioCanvasNodeDoc => n.type === "scenario");
 	const nodeIds = new Set(doc.nodes.map((n) => n.id));
 
-	if (agentNodes.length === 0) {
-		errors.push("Add at least one agent node.");
+	if (conversationalIds.size === 0) {
+		errors.push("Add at least one agent, objective, or booking node.");
 	}
 
 	const startEdges = doc.edges.filter((e) => e.source === START_NODE_ID);
 	if (startEdges.length === 0) {
-		errors.push("Connect the Start node to the agent the call should begin on.");
+		errors.push("Connect the Start node to the node the call should begin on.");
 	} else if (startEdges.length > 1) {
-		errors.push("The Start node must connect to exactly one agent.");
-	} else if (branchNodes.some((n) => n.id === startEdges[0].target)) {
+		errors.push("The Start node must connect to exactly one node.");
+	} else if (!conversationalIds.has(startEdges[0].target)) {
 		errors.push(
-			"The call must start on an Agent node — a branch node can't take the call first. Connect Start to an agent.",
+			"The call must start on an Agent, Objective, or Booking node — a branch or action node can't take the call first.",
 		);
-	} else if (!agentNodes.some((n) => n.id === startEdges[0].target)) {
-		errors.push("The Start node must connect to an agent node.");
 	}
 
 	for (const edge of doc.edges) {
@@ -210,6 +227,26 @@ export function validateFlowDoc(doc: CanvasDoc): string[] {
 		}
 		if (!data.say.trim()) {
 			errors.push(`Statement node "${label}" needs something to say.`);
+		}
+	}
+
+	const transferNodes = doc.nodes.filter(
+		(n): n is TransferCanvasNodeDoc => n.type === "transfer",
+	);
+	for (const node of transferNodes) {
+		const data = node.data;
+		const label = data?.title?.trim() || node.id;
+		if (!data) {
+			errors.push(`Transfer node "${label}" has no data.`);
+			continue;
+		}
+		if (!data.title.trim()) {
+			errors.push("A Transfer node needs a name.");
+		}
+		if (!doc.edges.some((edge) => edge.source === node.id)) {
+			errors.push(
+				`Transfer node "${label}" must connect to the node the caller is transferred to.`,
+			);
 		}
 	}
 
@@ -309,6 +346,137 @@ export function compileCanvas(
 				toolIds: [],
 				// Unwired Next → no exits → the call ends after speaking.
 				exits: target ? [{ name: "Next", description: "Continue", target }] : [],
+			});
+		} else if (node.type === "objective" && node.data) {
+			// An objective node compiles to an engine AGENT node carrying
+			// objectives[]; the engine gathers them one at a time and auto-takes
+			// the single Next exit once every required objective is verified.
+			const target = targetOf(node.id, OBJECTIVE_NEXT_HANDLE_ID);
+			const objectives = node.data.objectives
+				.filter((o) => o.description.trim())
+				.map((o, i) => {
+					const slug =
+						(o.title.trim() || o.field.trim() || `objective_${i + 1}`)
+							.toLowerCase()
+							.replace(/[^a-z0-9]+/g, "_")
+							.replace(/^_+|_+$/g, "") || `objective_${i + 1}`;
+					return {
+						key: slug,
+						description: o.description.trim(),
+						field: o.field.trim() || undefined,
+						options: o.options?.length ? o.options : undefined,
+						maxAttempts: o.maxAttempts,
+						sensitivity: o.sensitivity,
+					};
+				});
+			const list = node.data.objectives
+				.filter((o) => o.description.trim())
+				.map((o) => `- ${o.description.trim()}`)
+				.join("\n");
+			nodes.push({
+				id: node.id,
+				name: node.data.title.trim() || undefined,
+				instructions:
+					`Gather the following from the caller, naturally and one question at a time:\n${list}` ||
+					"Gather the information for this stage.",
+				entryInstructions:
+					node.id !== entry && node.data.entryMessage.trim()
+						? node.data.entryMessage.trim()
+						: undefined,
+				toolIds: [],
+				objectives,
+				exits: [{ name: "Next", description: "All objectives gathered", target }],
+			});
+		} else if (node.type === "booking" && node.data) {
+			// A Booking node compiles to an AGENT node gated to the CRM booking
+			// tools, with the standard book/confirm instructions plus the node's
+			// description, extra prompt, and calendar/title/failed-tag settings.
+			let instructions = node.data.description.trim()
+				? `${node.data.description.trim()}\n\n${BOOKING_INSTRUCTIONS}`
+				: BOOKING_INSTRUCTIONS;
+			const calendarName = node.data.calendarName.trim();
+			const appointmentTitle = node.data.appointmentTitle.trim();
+			const failedBookingTag = node.data.failedBookingTag.trim();
+			const extraPrompt = node.data.extraPrompt.trim();
+			if (calendarName) {
+				instructions += `\n\nAlways pass calendar_name "${calendarName}" when using check_availability or book_appointment.`;
+			}
+			if (appointmentTitle) {
+				instructions += `\n\nWhen booking, use the appointment title "${appointmentTitle}".`;
+			}
+			if (failedBookingTag) {
+				instructions += `\n\nIf booking fails or no time works, use add_tag with tag "${failedBookingTag}".`;
+			}
+			if (extraPrompt) {
+				instructions += `\n\n${extraPrompt}`;
+			}
+			nodes.push({
+				id: node.id,
+				name: node.data.title.trim() || undefined,
+				instructions,
+				entryInstructions: node.id !== entry ? "Offer to get them booked in right now." : undefined,
+				toolIds: [...node.data.toolIds],
+				exits: [
+					{
+						name: "Booked",
+						description: "The appointment is booked and confirmed.",
+						target: targetOf(node.id, BOOKING_BOOKED_HANDLE_ID),
+					},
+					{
+						name: "No time worked",
+						description: "No slot worked or the calendar was unavailable; a callback was promised.",
+						target: targetOf(node.id, BOOKING_FAILED_HANDLE_ID),
+					},
+				],
+			});
+		} else if (node.type === "set_field" && node.data) {
+			const target = targetOf(node.id, SET_FIELD_NEXT_HANDLE_ID);
+			const field = node.data.field.trim();
+			nodes.push({
+				id: node.id,
+				name: node.data.title.trim() || undefined,
+				kind: "set_field",
+				setField: { field, value: node.data.value },
+				// The engine requires instructions min 1 on every node.
+				instructions: field ? `Set ${field}` : "Set a field",
+				toolIds: [],
+				exits: target ? [{ name: "Next", description: "Continue", target }] : [],
+			});
+		} else if (node.type === "modify_tags" && node.data) {
+			const target = targetOf(node.id, MODIFY_TAGS_NEXT_HANDLE_ID);
+			const add = node.data.addTags.map((t) => t.trim()).filter(Boolean);
+			const remove = node.data.removeTags.map((t) => t.trim()).filter(Boolean);
+			nodes.push({
+				id: node.id,
+				name: node.data.title.trim() || undefined,
+				kind: "modify_tags",
+				modifyTags: { add, remove },
+				instructions:
+					[add.length ? `Add: ${add.join(", ")}` : "", remove.length ? `Remove: ${remove.join(", ")}` : ""]
+						.filter(Boolean)
+						.join("; ") || "Modify tags",
+				toolIds: [],
+				exits: target ? [{ name: "Next", description: "Continue", target }] : [],
+			});
+		} else if (node.type === "transfer" && node.data) {
+			const say = node.data.say.trim();
+			const target = targetOf(node.id, TRANSFER_NEXT_HANDLE_ID);
+			nodes.push({
+				id: node.id,
+				name: node.data.title.trim() || undefined,
+				kind: "transfer",
+				transfer: {
+					say: say || undefined,
+					holdSeconds: node.data.holdSeconds,
+					voice:
+						node.data.voiceId && node.data.voiceProvider
+							? { provider: node.data.voiceProvider, voice: node.data.voiceId }
+							: undefined,
+				},
+				// The engine requires instructions min 1 on every node.
+				instructions: say || "Transferring the caller.",
+				toolIds: [],
+				exits: target ? [{ name: "Next", description: "Continue after the transfer", target }] : [],
 			});
 		} else if (node.type === "agent" && node.data) {
 			const entryMessage = node.data.entryMessage.trim();
@@ -555,6 +723,77 @@ export function canvasFromFlow(flow: EngineFlow): CanvasDoc {
 			continue;
 		}
 
+		if (flowNode.kind === "set_field") {
+			nodes.push({
+				id: flowNode.id,
+				type: "set_field",
+				position,
+				data: {
+					title: flowNode.name ?? flowNode.id,
+					field: flowNode.setField?.field ?? "",
+					value: flowNode.setField?.value ?? "",
+				},
+			});
+			const target = flowNode.exits[0]?.target;
+			if (target) {
+				edges.push({
+					id: makeId("edge"),
+					source: flowNode.id,
+					sourceHandle: SET_FIELD_NEXT_HANDLE_ID,
+					target,
+				});
+			}
+			continue;
+		}
+
+		if (flowNode.kind === "modify_tags") {
+			nodes.push({
+				id: flowNode.id,
+				type: "modify_tags",
+				position,
+				data: {
+					title: flowNode.name ?? flowNode.id,
+					addTags: flowNode.modifyTags?.add ?? [],
+					removeTags: flowNode.modifyTags?.remove ?? [],
+				},
+			});
+			const target = flowNode.exits[0]?.target;
+			if (target) {
+				edges.push({
+					id: makeId("edge"),
+					source: flowNode.id,
+					sourceHandle: MODIFY_TAGS_NEXT_HANDLE_ID,
+					target,
+				});
+			}
+			continue;
+		}
+
+		if (flowNode.kind === "transfer") {
+			nodes.push({
+				id: flowNode.id,
+				type: "transfer",
+				position,
+				data: {
+					title: flowNode.name ?? flowNode.id,
+					say: flowNode.transfer?.say ?? "",
+					holdSeconds: flowNode.transfer?.holdSeconds ?? 4,
+					voiceId: flowNode.transfer?.voice?.voice,
+					voiceProvider: flowNode.transfer?.voice?.provider,
+				},
+			});
+			const target = flowNode.exits[0]?.target;
+			if (target) {
+				edges.push({
+					id: makeId("edge"),
+					source: flowNode.id,
+					sourceHandle: TRANSFER_NEXT_HANDLE_ID,
+					target,
+				});
+			}
+			continue;
+		}
+
 		if (flowNode.kind === "router") {
 			const condition = flowNode.router?.condition ?? flowNode.instructions;
 			const title = flowNode.name ?? flowNode.id;
@@ -615,6 +854,39 @@ export function canvasFromFlow(flow: EngineFlow): CanvasDoc {
 						target: otherwiseExit.target,
 					});
 				}
+			}
+			continue;
+		}
+
+		// An engine agent node carrying objectives round-trips as an Objective
+		// canvas node (single Next handle → its primary exit's target).
+		if (flowNode.objectives?.length) {
+			nodes.push({
+				id: flowNode.id,
+				type: "objective",
+				position,
+				data: {
+					title: flowNode.name ?? flowNode.id,
+					entryMessage: flowNode.entryInstructions ?? "",
+					objectives: flowNode.objectives.map((o) => ({
+						id: makeId("obj"),
+						title: o.key,
+						description: o.description,
+						field: o.field ?? "",
+						options: o.options,
+						maxAttempts: o.maxAttempts,
+						sensitivity: o.sensitivity,
+					})),
+				},
+			});
+			const target = flowNode.exits[0]?.target;
+			if (target) {
+				edges.push({
+					id: makeId("edge"),
+					source: flowNode.id,
+					sourceHandle: OBJECTIVE_NEXT_HANDLE_ID,
+					target,
+				});
 			}
 			continue;
 		}
@@ -733,6 +1005,34 @@ export function newStatementNodeData(): StatementNodeData {
 	return { title: "Statement", say: "" };
 }
 
+/** Fresh Objective node data — one blank objective to fill in. */
+export function newObjectiveNodeData(): ObjectiveNodeData {
+	return {
+		title: "Objective",
+		entryMessage: "",
+		objectives: [{ id: makeId("obj"), title: "", description: "", field: "" }],
+	};
+}
+
+/** Fresh Set Field node data. */
+export function newSetFieldNodeData(): SetFieldNodeData {
+	return { title: "Set Field", field: "", value: "" };
+}
+
+/** Fresh Modify Tags node data. */
+export function newModifyTagsNodeData(): ModifyTagsNodeData {
+	return { title: "Modify Tags", addTags: [], removeTags: [] };
+}
+
+/** Fresh Transfer node data (used by the Actions palette). */
+export function newTransferNodeData(): TransferNodeData {
+	return {
+		title: "Transfer",
+		say: "One moment please — let me transfer you to the right person.",
+		holdSeconds: 4,
+	};
+}
+
 /** Fresh Custom Scenario node data (used by the Actions palette). */
 export function newScenarioNodeData(): ScenarioNodeData {
 	return { title: "Custom Scenario", description: "" };
@@ -742,28 +1042,18 @@ const BOOKING_INSTRUCTIONS =
 	"Book the caller into an appointment. Use check_availability to find open times (the agent's configured booking calendar is used automatically). Offer two or three options conversationally — never read a long list. Once they pick one, use book_appointment with that exact slot time and confirm the booked time back to them. If nothing fits or the calendar is unavailable, reassure them someone will call back to schedule, then take the 'No time worked' exit.";
 
 /**
- * The Booking palette preset — a pre-configured agent node (CloseBot's
- * "Booking" action). `liveToolIds` = the CRM live check_availability /
- * book_appointment tool ids, resolved by the caller at creation time
- * ([] when no CRM is connected — the user can attach tools later).
+ * Fresh Booking node data (CloseBot's dedicated "Booking" node). `liveToolIds`
+ * = the CRM live check_availability / book_appointment tool ids, baked in at
+ * creation ([] when no CRM is connected — booking won't work until reconnected).
  */
-export function newBookingNodeData(liveToolIds: string[]): AgentNodeData {
+export function newBookingNodeData(liveToolIds: string[]): BookingNodeData {
 	return {
 		title: "Booking",
-		sections: [{ id: makeId("sec"), body: textToTiptapDoc(BOOKING_INSTRUCTIONS) }],
-		entryMessage: "Offer to get them booked in right now.",
-		exits: [
-			{
-				id: makeId("exit"),
-				name: "Booked",
-				description: "The appointment is booked and confirmed.",
-			},
-			{
-				id: makeId("exit"),
-				name: "No time worked",
-				description: "No slot worked or the calendar was unavailable; a callback was promised.",
-			},
-		],
+		calendarName: "",
+		description: "Book a 30 minute appointment with the contact.",
+		extraPrompt: "",
+		appointmentTitle: "",
+		failedBookingTag: "",
 		toolIds: [...liveToolIds],
 	};
 }

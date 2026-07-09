@@ -66,7 +66,7 @@ interface VoiceOption {
 
 const CUSTOM_VOICE = "__custom__";
 
-const VOICE_GROUPS: { provider: string; label: string; voices: VoiceOption[] }[] = [
+export const VOICE_GROUPS: { provider: string; label: string; voices: VoiceOption[] }[] = [
 	{
 		provider: "xai",
 		label: "xAI",

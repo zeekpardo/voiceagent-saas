@@ -36,17 +36,24 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAgentCalendarsQuery } from "../../lib/api";
-import { MODEL_GROUPS } from "../AgentForm";
+import { MODEL_GROUPS, VOICE_GROUPS } from "../AgentForm";
 import { makeId, textToTiptapDoc } from "./compile";
 import type {
 	AgentNodeData,
+	BookingNodeData,
 	FlowNodeData,
 	FlowNodeKind,
+	ModifyTagsNodeData,
+	ObjectiveDoc,
+	ObjectiveNodeData,
 	ScenarioNodeData,
+	SetFieldNodeData,
 	StatementNodeData,
 	SwitchNodeData,
+	TransferNodeData,
 	TrueFalseNodeData,
 } from "./flow-types";
+import { OBJECTIVE_OUTPUT_VARIABLES } from "./flow-types";
 import { createFlowMentionExtension, type MentionItem } from "./mentions";
 import { SectionEditor } from "./SectionEditor";
 
@@ -95,6 +102,11 @@ const SHEET_META: Record<FlowNodeKind, { title: string; description: string }> =
 		description:
 			"This node never speaks — the AI checks the conversation against a question and follows the matching case.",
 	},
+	objective: {
+		title: "Edit Objective",
+		description:
+			"Gather information from the caller, one question at a time. The system verifies each objective as they answer, saves it to the chosen field, and moves on automatically once every objective is met.",
+	},
 	statement: {
 		title: "Edit Statement",
 		description:
@@ -104,6 +116,26 @@ const SHEET_META: Record<FlowNodeKind, { title: string; description: string }> =
 		title: "Edit Scenario",
 		description:
 			"A global detector — checked continuously from every stage. When it matches, the call jumps to the connected node.",
+	},
+	booking: {
+		title: "Edit Booking",
+		description:
+			"Conversationally book an appointment onto a calendar, then branch on the outcome (booked, or no time worked).",
+	},
+	set_field: {
+		title: "Edit Set Field",
+		description:
+			"Deterministically write one CRM field, then continue. No conversation — the value is saved silently and the flow moves on.",
+	},
+	modify_tags: {
+		title: "Edit Modify Tags",
+		description:
+			"Deterministically add or remove contact tags, then continue. No conversation — the tags change silently and the flow moves on.",
+	},
+	transfer: {
+		title: "Edit Transfer",
+		description:
+			"A simulated warm hand-off: an optional announcement, hold music, then the connected node continues with a new voice.",
 	},
 };
 
@@ -155,6 +187,28 @@ export function NodeEditorPanel({
 	// Selecting a different node resets the secondary aside.
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useEffect(() => setSubPanel(null), [nodeId]);
+
+	// Enabling a booking tool (via the Tools panel or a @@chip) opens the
+	// settings aside so the calendar picker is right there.
+	const toolIds = Array.isArray((data as AgentNodeData | null)?.toolIds)
+		? (data as AgentNodeData).toolIds
+		: [];
+	const toolIdsKey = toolIds.join(",");
+	const prevToolIdsRef = useRef<{ nodeId: string | null; ids: string[] }>({
+		nodeId: null,
+		ids: [],
+	});
+	useEffect(() => {
+		const prev = prevToolIdsRef.current;
+		if (prev.nodeId === nodeId) {
+			const added = toolIds.filter((id) => !prev.ids.includes(id));
+			if (added.some((id) => bookingToolIds.includes(id))) {
+				setSubPanel("settings");
+			}
+		}
+		prevToolIdsRef.current = { nodeId, ids: toolIds };
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [nodeId, toolIdsKey, bookingToolIds]);
 
 	const mentionExtension = useMemo(
 		() =>
@@ -331,6 +385,14 @@ export function NodeEditorPanel({
 						{nodeType === "switch" && (
 							<SwitchNodeEditor nodeId={nodeId} data={data as SwitchNodeData} onChange={onChange} />
 						)}
+						{nodeType === "objective" && (
+							<ObjectiveNodeEditor
+								nodeId={nodeId}
+								data={data as ObjectiveNodeData}
+								isEntry={isEntry}
+								onChange={onChange}
+							/>
+						)}
 						{nodeType === "statement" && (
 							<StatementNodeEditor
 								nodeId={nodeId}
@@ -340,6 +402,27 @@ export function NodeEditorPanel({
 						)}
 						{nodeType === "scenario" && (
 							<ScenarioNodeEditor nodeId={nodeId} data={data as ScenarioNodeData} onChange={onChange} />
+						)}
+						{nodeType === "booking" && (
+							<BookingNodeEditor
+								agentId={agentId}
+								nodeId={nodeId}
+								data={data as BookingNodeData}
+								onChange={onChange}
+							/>
+						)}
+						{nodeType === "set_field" && (
+							<SetFieldNodeEditor nodeId={nodeId} data={data as SetFieldNodeData} onChange={onChange} />
+						)}
+						{nodeType === "modify_tags" && (
+							<ModifyTagsNodeEditor
+								nodeId={nodeId}
+								data={data as ModifyTagsNodeData}
+								onChange={onChange}
+							/>
+						)}
+						{nodeType === "transfer" && (
+							<TransferNodeEditor nodeId={nodeId} data={data as TransferNodeData} onChange={onChange} />
 						)}
 						{footer}
 					</>
@@ -795,6 +878,454 @@ function TrueFalseNodeEditor({
 	);
 }
 
+const OBJECTIVE_CUSTOM_FIELD = "__custom__";
+const OBJECTIVE_NO_FIELD = "__none__";
+
+function ObjectiveNodeEditor({
+	nodeId,
+	data,
+	isEntry,
+	onChange,
+}: {
+	nodeId: string;
+	data: ObjectiveNodeData;
+	isEntry: boolean;
+	onChange: (nodeId: string, data: FlowNodeData) => void;
+}) {
+	const patch = (partial: Partial<ObjectiveNodeData>) => onChange(nodeId, { ...data, ...partial });
+	const patchObjective = (id: string, partial: Partial<ObjectiveDoc>) =>
+		patch({
+			objectives: data.objectives.map((o) => (o.id === id ? { ...o, ...partial } : o)),
+		});
+	const knownField = (field: string) => OBJECTIVE_OUTPUT_VARIABLES.some((v) => v.field === field);
+
+	return (
+		<>
+			<div className="flex flex-col gap-1.5">
+				<Label>Title</Label>
+				<Input
+					value={data.title}
+					onChange={(e) => patch({ title: e.target.value })}
+					placeholder="Confirm Contact Info"
+				/>
+			</div>
+
+			<div className="flex flex-col gap-3">
+				<Label>Objectives</Label>
+				{data.objectives.map((objective, index) => {
+					const isComposite = OBJECTIVE_OUTPUT_VARIABLES.find(
+						(v) => v.field === objective.field,
+					)?.composite;
+					const selectValue = objective.field
+						? knownField(objective.field)
+							? objective.field
+							: OBJECTIVE_CUSTOM_FIELD
+						: OBJECTIVE_NO_FIELD;
+					return (
+						<div
+							key={objective.id}
+							className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3"
+						>
+							<div className="flex items-center justify-between">
+								<span className="font-medium text-xs opacity-60">Objective {index + 1}</span>
+								{data.objectives.length > 1 && (
+									<button
+										type="button"
+										aria-label="Remove objective"
+										onClick={() =>
+											patch({ objectives: data.objectives.filter((o) => o.id !== objective.id) })
+										}
+										className="text-muted-foreground hover:text-destructive"
+									>
+										<Trash2Icon className="size-4" />
+									</button>
+								)}
+							</div>
+
+							<div className="flex flex-col gap-1.5">
+								<Label className="text-xs">Output variable</Label>
+								<Select
+									value={selectValue}
+									onValueChange={(value) => {
+										if (value === OBJECTIVE_NO_FIELD) patchObjective(objective.id, { field: "" });
+										else if (value === OBJECTIVE_CUSTOM_FIELD)
+											patchObjective(objective.id, {
+												field: knownField(objective.field) ? "" : objective.field,
+											});
+										else patchObjective(objective.id, { field: value });
+									}}
+								>
+									<SelectTrigger className="h-9">
+										<SelectValue placeholder="Where to save it" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value={OBJECTIVE_NO_FIELD}>Don't save (gather only)</SelectItem>
+										<SelectGroup>
+											<SelectLabel>Standard fields</SelectLabel>
+											{OBJECTIVE_OUTPUT_VARIABLES.map((v) => (
+												<SelectItem key={v.field} value={v.field}>
+													{v.label}
+													{v.composite ? " — fills all parts" : ""}
+												</SelectItem>
+											))}
+										</SelectGroup>
+										<SelectItem value={OBJECTIVE_CUSTOM_FIELD}>Custom field…</SelectItem>
+									</SelectContent>
+								</Select>
+								{selectValue === OBJECTIVE_CUSTOM_FIELD && (
+									<Input
+										className="mt-1 h-9"
+										value={objective.field}
+										onChange={(e) => patchObjective(objective.id, { field: e.target.value })}
+										placeholder="Exact CRM field name, e.g. Reason for Selling"
+									/>
+								)}
+								{isComposite && (
+									<p className="text-xs opacity-50">
+										One objective fills every part (street, city, state, zip / first &amp; last name)
+										from what the caller says.
+									</p>
+								)}
+							</div>
+
+							<div className="flex flex-col gap-1.5">
+								<Label className="text-xs">Short description</Label>
+								<Textarea
+									rows={2}
+									value={objective.description}
+									onChange={(e) => patchObjective(objective.id, { description: e.target.value })}
+									placeholder="the caller's full property address"
+								/>
+								<p className="text-xs opacity-50">
+									Describe what to <em>find out</em> — "the caller's full address", not "ask for the
+									address".
+								</p>
+							</div>
+
+							<details className="text-xs">
+								<summary className="cursor-pointer text-primary">Advanced</summary>
+								<div className="mt-2 flex flex-col gap-3">
+									<div className="flex flex-col gap-1.5">
+										<Label className="text-xs">
+											Sensitivity {objective.sensitivity ?? 90} / 100
+										</Label>
+										<input
+											type="range"
+											min={10}
+											max={100}
+											step={5}
+											value={objective.sensitivity ?? 90}
+											onChange={(e) =>
+												patchObjective(objective.id, { sensitivity: Number(e.target.value) })
+											}
+											className="w-full accent-primary"
+										/>
+										<p className="opacity-50">
+											Higher = stricter before the objective counts as met.
+										</p>
+									</div>
+									<div className="flex flex-col gap-1.5">
+										<Label className="text-xs">Max attempts</Label>
+										<Input
+											type="number"
+											min={1}
+											max={10}
+											className="h-9"
+											value={objective.maxAttempts ?? ""}
+											onChange={(e) =>
+												patchObjective(objective.id, {
+													maxAttempts: e.target.value ? Number(e.target.value) : undefined,
+												})
+											}
+											placeholder="Keep trying (default)"
+										/>
+										<p className="opacity-50">
+											Give up and move on after this many caller turns. Leave blank to always wait.
+										</p>
+									</div>
+								</div>
+							</details>
+						</div>
+					);
+				})}
+				<button
+					type="button"
+					onClick={() =>
+						patch({
+							objectives: [
+								...data.objectives,
+								{ id: makeId("obj"), title: "", description: "", field: "" },
+							],
+						})
+					}
+					className="flex items-center gap-2 text-primary text-sm"
+				>
+					<PlusIcon className="size-4" /> Add objective
+				</button>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label className={isEntry ? "opacity-50" : ""}>Entry message</Label>
+				<Textarea
+					rows={2}
+					disabled={isEntry}
+					value={data.entryMessage}
+					onChange={(e) => patch({ entryMessage: e.target.value })}
+					placeholder="Move naturally into collecting these details."
+				/>
+				<p className="text-xs opacity-50">
+					{isEntry
+						? "The greeting opens the entry node, so this is ignored here."
+						: "Spoken when the flow reaches this node, before the first objective question."}
+				</p>
+			</div>
+		</>
+	);
+}
+
+function BookingNodeEditor({
+	agentId,
+	nodeId,
+	data,
+	onChange,
+}: {
+	agentId: string;
+	nodeId: string;
+	data: BookingNodeData;
+	onChange: (nodeId: string, data: FlowNodeData) => void;
+}) {
+	const patch = (partial: Partial<BookingNodeData>) => onChange(nodeId, { ...data, ...partial });
+	const { data: crmCalendars } = useAgentCalendarsQuery(agentId, true);
+	const [showAdvanced, setShowAdvanced] = useState(
+		!!(data.extraPrompt || data.appointmentTitle || data.failedBookingTag),
+	);
+
+	return (
+		<>
+			<div className="flex flex-col gap-1.5">
+				<Label>Calendar</Label>
+				{crmCalendars && crmCalendars.length === 0 ? (
+					<p className="text-sm opacity-50">
+						No calendars visible. Enable calendar scopes on your GHL marketplace app and reconnect.
+					</p>
+				) : (
+					<Select
+						value={data.calendarName || AGENT_DEFAULT_CALENDAR}
+						onValueChange={(value) =>
+							patch({ calendarName: value === AGENT_DEFAULT_CALENDAR ? "" : value })
+						}
+					>
+						<SelectTrigger className="h-9">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={AGENT_DEFAULT_CALENDAR}>Use agent default</SelectItem>
+							{data.calendarName &&
+								!crmCalendars?.some((c) => c.name === data.calendarName) && (
+									<SelectItem value={data.calendarName}>{data.calendarName}</SelectItem>
+								)}
+							{crmCalendars?.map((c) => (
+								<SelectItem key={c.id} value={c.name}>
+									{c.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				)}
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Title</Label>
+				<Input
+					value={data.title}
+					onChange={(e) => patch({ title: e.target.value })}
+					placeholder="Booking"
+				/>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Short description</Label>
+				<Textarea
+					rows={2}
+					value={data.description}
+					onChange={(e) => patch({ description: e.target.value })}
+					placeholder="Book a 30 minute appointment with the contact."
+				/>
+				<p className="text-xs opacity-50">
+					What the agent should book. It offers times, confirms, and books automatically.
+				</p>
+			</div>
+
+			<div className="flex flex-col gap-2">
+				<button
+					type="button"
+					onClick={() => setShowAdvanced((v) => !v)}
+					className="flex w-fit items-center gap-1 text-primary text-sm"
+				>
+					Advanced settings
+				</button>
+				{showAdvanced && (
+					<div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
+						<div className="flex flex-col gap-1.5">
+							<Label className="text-xs">Extra prompt</Label>
+							<Textarea
+								rows={2}
+								value={data.extraPrompt}
+								onChange={(e) => patch({ extraPrompt: e.target.value })}
+								placeholder="Extra context used only while booking."
+							/>
+						</div>
+						<div className="flex flex-col gap-1.5">
+							<Label className="text-xs">Appointment title</Label>
+							<Input
+								className="h-9"
+								value={data.appointmentTitle}
+								onChange={(e) => patch({ appointmentTitle: e.target.value })}
+								placeholder="Intro call with {{contact_first_name}}"
+							/>
+						</div>
+						<div className="flex flex-col gap-1.5">
+							<Label className="text-xs">Tag if booking fails</Label>
+							<Input
+								className="h-9"
+								value={data.failedBookingTag}
+								onChange={(e) => patch({ failedBookingTag: e.target.value })}
+								placeholder="booking-failed"
+							/>
+						</div>
+					</div>
+				)}
+			</div>
+		</>
+	);
+}
+
+function SetFieldNodeEditor({
+	nodeId,
+	data,
+	onChange,
+}: {
+	nodeId: string;
+	data: SetFieldNodeData;
+	onChange: (nodeId: string, data: FlowNodeData) => void;
+}) {
+	const patch = (partial: Partial<SetFieldNodeData>) => onChange(nodeId, { ...data, ...partial });
+	const knownField = OBJECTIVE_OUTPUT_VARIABLES.some((v) => v.field === data.field);
+	const selectValue = data.field ? (knownField ? data.field : OBJECTIVE_CUSTOM_FIELD) : "";
+
+	return (
+		<>
+			<div className="flex flex-col gap-1.5">
+				<Label>Title</Label>
+				<Input
+					value={data.title}
+					onChange={(e) => patch({ title: e.target.value })}
+					placeholder="Mark as qualified"
+				/>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Field</Label>
+				<Select
+					value={selectValue}
+					onValueChange={(value) =>
+						patch({ field: value === OBJECTIVE_CUSTOM_FIELD ? (knownField ? "" : data.field) : value })
+					}
+				>
+					<SelectTrigger className="h-9">
+						<SelectValue placeholder="Which field to set" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectGroup>
+							<SelectLabel>Standard fields</SelectLabel>
+							{OBJECTIVE_OUTPUT_VARIABLES.map((v) => (
+								<SelectItem key={v.field} value={v.field}>
+									{v.label}
+								</SelectItem>
+							))}
+						</SelectGroup>
+						<SelectItem value={OBJECTIVE_CUSTOM_FIELD}>Custom field…</SelectItem>
+					</SelectContent>
+				</Select>
+				{selectValue === OBJECTIVE_CUSTOM_FIELD && (
+					<Input
+						className="mt-1 h-9"
+						value={data.field}
+						onChange={(e) => patch({ field: e.target.value })}
+						placeholder="Exact CRM field name, e.g. Lead Type"
+					/>
+				)}
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Value</Label>
+				<Textarea
+					rows={2}
+					value={data.value}
+					onChange={(e) => patch({ value: e.target.value })}
+					placeholder="Seller"
+				/>
+				<p className="text-xs opacity-50">
+					Written exactly as typed — supports {"{{variables}}"}. Saved silently, then the flow
+					continues.
+				</p>
+			</div>
+		</>
+	);
+}
+
+function ModifyTagsNodeEditor({
+	nodeId,
+	data,
+	onChange,
+}: {
+	nodeId: string;
+	data: ModifyTagsNodeData;
+	onChange: (nodeId: string, data: FlowNodeData) => void;
+}) {
+	const patch = (partial: Partial<ModifyTagsNodeData>) => onChange(nodeId, { ...data, ...partial });
+	const toList = (raw: string) =>
+		raw
+			.split(",")
+			.map((t) => t.trim())
+			.filter(Boolean);
+
+	return (
+		<>
+			<div className="flex flex-col gap-1.5">
+				<Label>Title</Label>
+				<Input
+					value={data.title}
+					onChange={(e) => patch({ title: e.target.value })}
+					placeholder="Tag as hot lead"
+				/>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Add tags</Label>
+				<Input
+					value={data.addTags.join(", ")}
+					onChange={(e) => patch({ addTags: toList(e.target.value) })}
+					placeholder="hot seller, qualified"
+				/>
+				<p className="text-xs opacity-50">Comma-separated. Added to the contact silently.</p>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Remove tags</Label>
+				<Input
+					value={data.removeTags.join(", ")}
+					onChange={(e) => patch({ removeTags: toList(e.target.value) })}
+					placeholder="cold, unqualified"
+				/>
+				<p className="text-xs opacity-50">
+					Comma-separated. Tag removal isn't wired to the CRM yet — adds work today.
+				</p>
+			</div>
+		</>
+	);
+}
+
 function StatementNodeEditor({
 	nodeId,
 	data,
@@ -867,6 +1398,103 @@ function ScenarioNodeEditor({
 				<p className="text-xs opacity-50">
 					Checked continuously from every stage — the call jumps to the connected node the moment
 					this is detected.
+				</p>
+			</div>
+		</>
+	);
+}
+
+const KEEP_VOICE = "__keep__";
+
+function TransferNodeEditor({
+	nodeId,
+	data,
+	onChange,
+}: {
+	nodeId: string;
+	data: TransferNodeData;
+	onChange: (nodeId: string, data: FlowNodeData) => void;
+}) {
+	const patch = (partial: Partial<TransferNodeData>) => onChange(nodeId, { ...data, ...partial });
+
+	return (
+		<>
+			<div className="flex flex-col gap-1.5">
+				<Label>Title</Label>
+				<Input
+					value={data.title}
+					onChange={(e) => patch({ title: e.target.value })}
+					placeholder="Transfer to booking"
+				/>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Announcement</Label>
+				<Textarea
+					rows={2}
+					value={data.say}
+					onChange={(e) => patch({ say: e.target.value })}
+					placeholder="One moment please — let me transfer you to the right person."
+				/>
+				<p className="text-xs opacity-50">
+					Spoken in the current voice right before the hold music. Supports {"{{variables}}"};
+					leave empty to jump straight to the music.
+				</p>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Hold music (seconds)</Label>
+				<Input
+					type="number"
+					min={0}
+					max={30}
+					step={1}
+					value={data.holdSeconds}
+					onChange={(e) =>
+						patch({ holdSeconds: Math.max(0, Math.min(30, Number(e.target.value) || 0)) })
+					}
+				/>
+				<p className="text-xs opacity-50">
+					How long the caller hears hold music before the next "person" picks up. 0 skips the
+					music.
+				</p>
+			</div>
+
+			<div className="flex flex-col gap-1.5">
+				<Label>Voice after the transfer</Label>
+				<Select
+					value={data.voiceId ?? KEEP_VOICE}
+					onValueChange={(value) => {
+						if (value === KEEP_VOICE) {
+							patch({ voiceId: undefined, voiceProvider: undefined });
+							return;
+						}
+						const voice = VOICE_GROUPS.flatMap((group) => group.voices).find(
+							(v) => v.id === value,
+						);
+						patch({ voiceId: value, voiceProvider: voice?.provider });
+					}}
+				>
+					<SelectTrigger>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value={KEEP_VOICE}>Keep the current voice</SelectItem>
+						{VOICE_GROUPS.map((group) => (
+							<SelectGroup key={group.provider}>
+								<SelectLabel>{group.label}</SelectLabel>
+								{group.voices.map((voice) => (
+									<SelectItem key={voice.id} value={voice.id}>
+										{voice.label}
+									</SelectItem>
+								))}
+							</SelectGroup>
+						))}
+					</SelectContent>
+				</Select>
+				<p className="text-xs opacity-50">
+					The caller hears this voice from here on — pick a different one so the transfer feels
+					like a real hand-off.
 				</p>
 			</div>
 		</>

@@ -172,7 +172,9 @@ export class GhlClient {
 
 	async updateContact(
 		id: string,
-		data: { customFields?: GhlCustomFieldValue[]; tags?: string[] },
+		// Standard contact fields (address1, city, state, postalCode, firstName…)
+		// ride the same PUT as customFields/tags.
+		data: { customFields?: GhlCustomFieldValue[]; tags?: string[] } & Record<string, unknown>,
 	): Promise<void> {
 		await this.request("PUT", `/contacts/${id}`, data);
 	}

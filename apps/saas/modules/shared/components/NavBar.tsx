@@ -37,6 +37,7 @@ import {
 	PanelLeftCloseIcon,
 	PanelLeftOpenIcon,
 	PhoneCallIcon,
+	PhoneIncomingIcon,
 	SettingsIcon,
 	ShieldUserIcon,
 	UserCogIcon,
@@ -342,6 +343,12 @@ export function NavBar() {
 				href: "/calls",
 				icon: PhoneCallIcon,
 				isActive: pathname.startsWith("/calls"),
+			},
+			{
+				label: t("app.menu.phoneNumbers"),
+				href: "/phone-numbers",
+				icon: PhoneIncomingIcon,
+				isActive: pathname.startsWith("/phone-numbers"),
 			},
 			...(organizationSubItems
 				? [

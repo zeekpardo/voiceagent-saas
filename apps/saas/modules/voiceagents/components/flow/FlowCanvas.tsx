@@ -28,23 +28,33 @@ import {
 	newAgentNodeData,
 	newAggressionScenarioData,
 	newBookingNodeData,
+	newModifyTagsNodeData,
+	newObjectiveNodeData,
 	newScenarioNodeData,
+	newSetFieldNodeData,
 	newStatementNodeData,
 	newSwitchNodeData,
+	newTransferNodeData,
 	newTrueFalseNodeData,
 } from "./compile";
 import type {
 	AgentNodeData,
+	BookingNodeData,
 	CanvasDoc,
 	FlowNodeData,
 	FlowNodeKind,
 	FlowPaletteKind,
+	ModifyTagsNodeData,
+	ObjectiveNodeData,
 	ScenarioNodeData,
+	SetFieldNodeData,
 	StatementNodeData,
 	SwitchNodeData,
+	TransferNodeData,
 	TrueFalseNodeData,
 } from "./flow-types";
 import {
+	BOOKING_BOOKED_HANDLE_ID,
 	FALSE_HANDLE_ID,
 	FLOW_NODE_DRAG_TYPE,
 	FLOW_PALETTE_KINDS,
@@ -52,31 +62,47 @@ import {
 	SCENARIO_JUMP_HANDLE_ID,
 	START_NODE_ID,
 	STATEMENT_NEXT_HANDLE_ID,
+	TRANSFER_NEXT_HANDLE_ID,
 	TRUE_HANDLE_ID,
 } from "./flow-types";
 import type { MentionItem } from "./mentions";
 import { NodeEditorPanel, type FlowToolOption } from "./NodeEditorPanel";
+import { BookingNode, type BookingRFNode } from "./BookingNode";
+import { ModifyTagsNode, type ModifyTagsRFNode } from "./ModifyTagsNode";
+import { ObjectiveNode, type ObjectiveRFNode } from "./ObjectiveNode";
 import { ScenarioNode, type ScenarioRFNode } from "./ScenarioNode";
+import { SetFieldNode, type SetFieldRFNode } from "./SetFieldNode";
 import { StartNode, type StartRFNode } from "./StartNode";
 import { StatementNode, type StatementRFNode } from "./StatementNode";
 import { SwitchNode, type SwitchRFNode } from "./SwitchNode";
+import { TransferNode, type TransferRFNode } from "./TransferNode";
 import { TrueFalseNode, type TrueFalseRFNode } from "./TrueFalseNode";
 
 type CanvasRFNode =
 	| AgentRFNode
+	| ObjectiveRFNode
+	| SetFieldRFNode
+	| ModifyTagsRFNode
+	| BookingRFNode
 	| StartRFNode
 	| TrueFalseRFNode
 	| SwitchRFNode
 	| StatementRFNode
-	| ScenarioRFNode;
+	| ScenarioRFNode
+	| TransferRFNode;
 
 const NODE_TYPES = {
 	start: StartNode,
 	agent: AgentFlowNode,
+	objective: ObjectiveNode,
 	truefalse: TrueFalseNode,
 	switch: SwitchNode,
 	statement: StatementNode,
 	scenario: ScenarioNode,
+	transfer: TransferNode,
+	set_field: SetFieldNode,
+	modify_tags: ModifyTagsNode,
+	booking: BookingNode,
 };
 
 const DEFAULT_EDGE_OPTIONS = {
@@ -130,6 +156,9 @@ function edgeLabelFor(edge: Edge, nodes: CanvasRFNode[]): string | undefined {
 	if (source.type === "truefalse") {
 		return edge.sourceHandle === TRUE_HANDLE_ID ? "True" : "False";
 	}
+	if (source.type === "booking") {
+		return edge.sourceHandle === BOOKING_BOOKED_HANDLE_ID ? "Booked" : "No time worked";
+	}
 	if (source.type === "switch") {
 		if (edge.sourceHandle === OTHERWISE_HANDLE_ID) {
 			return "Otherwise";
@@ -142,8 +171,14 @@ function edgeLabelFor(edge: Edge, nodes: CanvasRFNode[]): string | undefined {
 	if (source.type === "scenario") {
 		return source.data.title.trim() || undefined;
 	}
-	// Statement nodes just continue — their single Next edge stays unlabeled.
-	if (source.type === "statement") {
+	// Statement/transfer/objective/action nodes just continue — single edge, unlabeled.
+	if (
+		source.type === "statement" ||
+		source.type === "transfer" ||
+		source.type === "objective" ||
+		source.type === "set_field" ||
+		source.type === "modify_tags"
+	) {
 		return undefined;
 	}
 	return (
@@ -163,12 +198,20 @@ function newPaletteNode(
 			return { type: "switch", data: newSwitchNodeData() };
 		case "statement":
 			return { type: "statement", data: newStatementNodeData() };
+		case "objective":
+			return { type: "objective", data: newObjectiveNodeData() };
+		case "set_field":
+			return { type: "set_field", data: newSetFieldNodeData() };
+		case "modify_tags":
+			return { type: "modify_tags", data: newModifyTagsNodeData() };
 		case "scenario":
 			return { type: "scenario", data: newScenarioNodeData() };
 		case "scenario_aggression":
 			return { type: "scenario", data: newAggressionScenarioData() };
 		case "booking":
-			return { type: "agent", data: newBookingNodeData(bookingToolIds) };
+			return { type: "booking", data: newBookingNodeData(bookingToolIds) };
+		case "transfer":
+			return { type: "transfer", data: newTransferNodeData() };
 		default:
 			return { type: "agent", data: newAgentNodeData("New agent") };
 	}
@@ -191,6 +234,9 @@ function validSourceHandles(node: CanvasRFNode): Set<string> {
 	}
 	if (node.type === "statement") {
 		return new Set([STATEMENT_NEXT_HANDLE_ID]);
+	}
+	if (node.type === "transfer") {
+		return new Set([TRANSFER_NEXT_HANDLE_ID]);
 	}
 	if (node.type === "scenario") {
 		return new Set([SCENARIO_JUMP_HANDLE_ID]);
@@ -230,6 +276,34 @@ function docToNodes(doc: CanvasDoc): CanvasRFNode[] {
 					position: node.position,
 					data: node.data ?? newStatementNodeData(),
 				} satisfies StatementRFNode;
+			case "objective":
+				return {
+					id: node.id,
+					type: "objective",
+					position: node.position,
+					data: node.data ?? newObjectiveNodeData(),
+				} satisfies ObjectiveRFNode;
+			case "set_field":
+				return {
+					id: node.id,
+					type: "set_field",
+					position: node.position,
+					data: node.data ?? newSetFieldNodeData(),
+				} satisfies SetFieldRFNode;
+			case "modify_tags":
+				return {
+					id: node.id,
+					type: "modify_tags",
+					position: node.position,
+					data: node.data ?? newModifyTagsNodeData(),
+				} satisfies ModifyTagsRFNode;
+			case "booking":
+				return {
+					id: node.id,
+					type: "booking",
+					position: node.position,
+					data: node.data ?? newBookingNodeData([]),
+				} satisfies BookingRFNode;
 			case "scenario":
 				return {
 					id: node.id,
@@ -237,6 +311,13 @@ function docToNodes(doc: CanvasDoc): CanvasRFNode[] {
 					position: node.position,
 					data: node.data ?? newScenarioNodeData(),
 				} satisfies ScenarioRFNode;
+			case "transfer":
+				return {
+					id: node.id,
+					type: "transfer",
+					position: node.position,
+					data: node.data ?? newTransferNodeData(),
+				} satisfies TransferRFNode;
 			default:
 				return {
 					id: node.id,
@@ -463,6 +544,41 @@ function FlowCanvasInner({
 							type: "scenario" as const,
 							position: node.position,
 							data: node.data as ScenarioNodeData,
+						};
+					case "transfer":
+						return {
+							id: node.id,
+							type: "transfer" as const,
+							position: node.position,
+							data: node.data as TransferNodeData,
+						};
+					case "objective":
+						return {
+							id: node.id,
+							type: "objective" as const,
+							position: node.position,
+							data: node.data as ObjectiveNodeData,
+						};
+					case "set_field":
+						return {
+							id: node.id,
+							type: "set_field" as const,
+							position: node.position,
+							data: node.data as SetFieldNodeData,
+						};
+					case "modify_tags":
+						return {
+							id: node.id,
+							type: "modify_tags" as const,
+							position: node.position,
+							data: node.data as ModifyTagsNodeData,
+						};
+					case "booking":
+						return {
+							id: node.id,
+							type: "booking" as const,
+							position: node.position,
+							data: node.data as BookingNodeData,
 						};
 					default:
 						return {

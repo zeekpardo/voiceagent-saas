@@ -35,6 +35,10 @@ export interface CrmProvider {
 	/** Write custom field values onto a contact. */
 	updateContactFields(contactId: string, fields: CrmFieldWrite[]): Promise<void>;
 
+	/** Write STANDARD contact fields (address1, city, state, postalCode,
+	 * firstName, lastName, email, phone…) directly onto the contact record. */
+	updateContactStandard(contactId: string, fields: Record<string, string>): Promise<void>;
+
 	/** Additively apply tags (idempotent — never clobbers the CRM's tag set). */
 	addContactTags(contactId: string, tags: string[]): Promise<void>;
 

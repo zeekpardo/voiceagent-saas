@@ -15,6 +15,12 @@ export const agentConfigInput = z.object({
 	 *  rides in the config doc so the form can round-trip the selection. The
 	 *  engine ignores it. */
 	personaId: z.string().nullish(),
+	/** Job-specific limits on what the agent will discuss or do. Compiled into
+	 *  `instructions` as the `## GUARDRAILS` block (on top of an always-on safety
+	 *  baseline) at save/publish; also rides on the config doc as opaque metadata
+	 *  so the form round-trips it, exactly like personaId. The engine treats it as
+	 *  an opaque builder field. */
+	guardrails: z.string().max(3000).nullish(),
 	/** Words/phrases the agent must never say — enforced globally across all flow nodes. */
 	prohibitedWords: z.array(z.string()).default([]),
 	greeting: z.string().optional(),
@@ -92,17 +98,18 @@ const TAG_WRITE_TOOL_NAME = "add_tag";
  * Reshape the builder config into the engine payload.
  *
  * `persona` (resolved from input.personaId by the caller — this function has no
- * DB access) is compiled into `instructions`: personaPrompt + the baseline
- * voice-style block are PREPENDED to the builder's instructions. The baseline
- * is applied even when no persona is attached, fixing the "thanks/name every
- * turn" behavior globally. personaId stays on the config as opaque metadata for
- * round-tripping; the engine only ever reads the resulting instruction text.
+ * DB access) plus the builder's `instructions` (the job's Goal) and `guardrails`
+ * are compiled into the final `instructions`: composeInstructions assembles
+ * persona → GOAL → GUARDRAILS → VOICE STYLE. The safety baseline and voice-style
+ * block apply even when no persona/guardrails are attached. personaId and
+ * guardrails stay on the config as opaque metadata for round-tripping (carried
+ * by `...rest`); the engine only ever reads the resulting instruction text.
  */
 export function toGatewayConfig(input: AgentConfigInput, persona?: PersonaPromptInput | null) {
 	const { postCall, stt, instructions, ...rest } = input;
 	return {
 		...rest,
-		instructions: composeInstructions(instructions, persona),
+		instructions: composeInstructions(instructions, persona, input.guardrails),
 		// Self-describing config: name the tools the engine invokes for its
 		// automatic field/tag writes (objectives + set_field/modify_tags fallback).
 		fieldWriteToolId: FIELD_WRITE_TOOL_NAME,

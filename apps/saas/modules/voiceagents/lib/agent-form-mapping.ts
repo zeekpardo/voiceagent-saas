@@ -25,6 +25,7 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 		name: c.name || "placeholder",
 		description: c.description ?? "",
 		instructions: c.instructions || "placeholder",
+		guardrails: c.guardrails ?? "",
 		prohibitedWords: Array.isArray(c.prohibitedWords) ? c.prohibitedWords.map(String) : [],
 		greeting: c.greeting ?? "",
 		language: c.language ?? "en",

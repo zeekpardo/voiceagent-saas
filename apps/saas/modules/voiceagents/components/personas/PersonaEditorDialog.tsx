@@ -33,7 +33,6 @@ import {
 	useCreatePersonaMutation,
 	useUpdatePersonaMutation,
 } from "../../lib/personas-api";
-import { PersonaAvatar } from "./PersonaAvatar";
 import {
 	DEFAULT_PERSONA_THEME_COLOR,
 	HOW_TO_RESPOND_MAX,
@@ -42,6 +41,7 @@ import {
 	PERSONA_STYLE_SUGGESTIONS,
 	PERSONA_THEME_COLORS,
 } from "./persona-constants";
+import { PersonaAvatar } from "./PersonaAvatar";
 
 const personaFormSchema = z.object({
 	name: z.string().min(1, "Name is required").max(80),
@@ -146,7 +146,7 @@ export function PersonaEditorDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+			<DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>{isEditing ? "Edit persona" : "New persona"}</DialogTitle>
 					<DialogDescription>
@@ -169,7 +169,7 @@ export function PersonaEditorDialog({
 								control={form.control}
 								name="themeColor"
 								render={({ field }) => (
-									<FormItem className="min-w-0 flex-1 space-y-1.5">
+									<FormItem className="min-w-0 space-y-1.5 flex-1">
 										<FormLabel>Theme color</FormLabel>
 										<div className="gap-2 flex flex-wrap">
 											{PERSONA_THEME_COLORS.map((color) => (
@@ -275,10 +275,7 @@ export function PersonaEditorDialog({
 									))}
 								</div>
 							)}
-							<StyleEntryInput
-								disabled={styles.length >= MAX_PERSONA_STYLES}
-								onAdd={addStyle}
-							/>
+							<StyleEntryInput disabled={styles.length >= MAX_PERSONA_STYLES} onAdd={addStyle} />
 							{availableSuggestions.length > 0 && styles.length < MAX_PERSONA_STYLES && (
 								<div className="gap-1.5 mt-1 flex flex-wrap">
 									{availableSuggestions.map((suggestion) => (
@@ -307,7 +304,7 @@ export function PersonaEditorDialog({
 										<FormLabel>How to respond</FormLabel>
 										<span
 											className={cn(
-												"text-xs tabular-nums text-muted-foreground",
+												"text-xs text-muted-foreground tabular-nums",
 												howToRespond.length > HOW_TO_RESPOND_MAX && "text-destructive",
 											)}
 										>
@@ -323,8 +320,8 @@ export function PersonaEditorDialog({
 										/>
 									</FormControl>
 									<FormDescription>
-										Guidance the agent applies whenever it speaks — phrasing, pacing, and
-										do's and don'ts.
+										Guidance the agent applies whenever it speaks — phrasing, pacing, and do's and
+										don'ts.
 									</FormDescription>
 									<FormMessage />
 								</FormItem>

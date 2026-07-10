@@ -101,7 +101,9 @@ export function useAttachPersonaMutation() {
 }
 
 /** Read the attached persona id off an agent config (undefined when none). */
-export function agentPersonaId(agent: Pick<GatewayAgent, "config"> | undefined): string | undefined {
+export function agentPersonaId(
+	agent: Pick<GatewayAgent, "config"> | undefined,
+): string | undefined {
 	const raw = (agent?.config as Record<string, unknown> | undefined)?.personaId;
 	return typeof raw === "string" ? raw : undefined;
 }

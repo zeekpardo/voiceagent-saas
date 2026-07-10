@@ -43,7 +43,7 @@ export function PersonaAvatar({
 		<span
 			aria-hidden
 			className={cn(
-				"shrink-0 inline-flex items-center justify-center rounded-full font-semibold",
+				"font-semibold inline-flex shrink-0 items-center justify-center rounded-full",
 				sizeClass,
 				textClass,
 				className,

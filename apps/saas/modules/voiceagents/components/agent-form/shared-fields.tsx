@@ -1,5 +1,7 @@
 "use client";
 
+import { GUARDRAILS_MAX_CHARS } from "@repo/api/modules/voiceagents/lib/persona-prompt";
+import { cn } from "@repo/ui";
 import {
 	FormControl,
 	FormDescription,
@@ -9,7 +11,8 @@ import {
 	FormMessage,
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
-import { XIcon } from "lucide-react";
+import { Textarea } from "@repo/ui/components/textarea";
+import { InfoIcon, XIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
@@ -87,9 +90,11 @@ export function ChipsInput({ value, onChange, placeholder }: ChipsInputProps) {
 function InstructionsEditor({
 	value,
 	onChange,
+	hint,
 }: {
 	value: string;
 	onChange: (next: string) => void;
+	hint?: string;
 }) {
 	// Hydrate once — the editor owns the text after mount.
 	const [initialBody] = useState<unknown>(() => textToTiptapDoc(value));
@@ -116,7 +121,7 @@ function InstructionsEditor({
 			initialBody={initialBody}
 			mentionExtension={mentionExtension}
 			onBodyChange={(doc) => onChange(tiptapToText(doc))}
-			hint="Type @ to insert a variable — location and contact details fill in per call"
+			hint={hint ?? "Type @ to insert a variable — location and contact details fill in per call"}
 			editorClassName="min-h-44"
 		/>
 	);
@@ -131,26 +136,97 @@ interface AgentFormFieldProps {
  * "job" variant. Each is a standalone component so both layouts can render
  * the same fields in their own order.
  */
-export function InstructionsField({ form }: AgentFormFieldProps) {
+interface InstructionsFieldProps extends AgentFormFieldProps {
+	/** Label + helper override so the same field can render as "Goal" in the Job
+	 *  panel while staying "Instructions" on the full create form. */
+	label?: string;
+	description?: string;
+	/** Helper line under the editor (e.g. an example objective). */
+	hint?: string;
+}
+
+export function InstructionsField({
+	form,
+	label = "Instructions",
+	description = "The agent's identity, business information, style, and hard rules. For flow agents this is the Job Information — every node inherits it, so write it once here and keep node prompts focused on their stage.",
+	hint,
+}: InstructionsFieldProps) {
 	return (
 		<FormField
 			control={form.control}
 			name="instructions"
 			render={({ field }) => (
 				<FormItem>
-					<FormLabel>Instructions</FormLabel>
-					<FormDescription>
-						The agent's identity, business information, style, and hard rules. For flow agents this
-						is the Job Information — every node inherits it, so write it once here and keep node
-						prompts focused on their stage.
-					</FormDescription>
+					<FormLabel>{label}</FormLabel>
+					<FormDescription>{description}</FormDescription>
 					<FormControl>
-						<InstructionsEditor value={field.value} onChange={field.onChange} />
+						<InstructionsEditor value={field.value} onChange={field.onChange} hint={hint} />
 					</FormControl>
 					<FormMessage />
 				</FormItem>
 			)}
 		/>
+	);
+}
+
+/**
+ * Job-specific guardrails. Stored raw on the config (round-trips like personaId)
+ * and compiled into the prompt's `## GUARDRAILS` block on top of an always-on
+ * safety baseline — so this field is purely additive rules for THIS job.
+ */
+export function GuardrailsField({ form }: AgentFormFieldProps) {
+	return (
+		<FormField
+			control={form.control}
+			name="guardrails"
+			render={({ field }) => (
+				<FormItem>
+					<div className="flex items-center justify-between">
+						<FormLabel>Guardrails</FormLabel>
+						<span
+							className={cn(
+								"text-xs text-muted-foreground tabular-nums",
+								(field.value?.length ?? 0) > GUARDRAILS_MAX_CHARS && "text-destructive",
+							)}
+						>
+							{field.value?.length ?? 0}/{GUARDRAILS_MAX_CHARS}
+						</span>
+					</div>
+					<FormDescription>
+						Limits on what the agent will discuss or do. Baseline safety guardrails are always
+						applied — add rules specific to this job.
+					</FormDescription>
+					<FormControl>
+						<Textarea
+							rows={3}
+							maxLength={GUARDRAILS_MAX_CHARS}
+							className="max-h-72 field-sizing-content"
+							placeholder="Never quote exact pricing — say the team will confirm. Don't discuss competitors."
+							value={field.value ?? ""}
+							onChange={field.onChange}
+							onBlur={field.onBlur}
+							name={field.name}
+							ref={field.ref}
+						/>
+					</FormControl>
+					<FormMessage />
+				</FormItem>
+			)}
+		/>
+	);
+}
+
+/** Read-only note: caller/CRM details are injected automatically per call. */
+export function UserInfoNote() {
+	return (
+		<div className="gap-2 p-3 text-sm flex rounded-md border bg-muted/40 text-muted-foreground">
+			<InfoIcon className="mt-0.5 size-4 shrink-0" />
+			<p>
+				Caller details from your CRM — name, custom fields, and tags — are automatically added to
+				every call. Use variables like <code className="text-xs">{"{{contact_first_name}}"}</code>{" "}
+				anywhere in your prompts and they fill in per caller.
+			</p>
+		</div>
 	);
 }
 

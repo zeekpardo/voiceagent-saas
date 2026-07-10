@@ -111,7 +111,8 @@ export function PersonaGallery() {
 		});
 	};
 
-	const scrollBy = (delta: number) => scrollerRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+	const scrollBy = (delta: number) =>
+		scrollerRef.current?.scrollBy({ left: delta, behavior: "smooth" });
 
 	return (
 		<section className="gap-3 mb-4 flex flex-col">
@@ -142,13 +143,13 @@ export function PersonaGallery() {
 			{isLoading ? (
 				<div className="gap-3 flex">
 					{Array.from({ length: 5 }, (_, i) => (
-						<Skeleton key={i} className="h-[132px] w-28 rounded-xl" />
+						<Skeleton key={i} className="w-28 h-[132px] rounded-xl" />
 					))}
 				</div>
 			) : (personas?.length ?? 0) === 0 ? (
 				<EmptyState onCreate={openCreate} />
 			) : filtered.length === 0 ? (
-				<p className="py-6 text-center text-sm text-muted-foreground">
+				<p className="py-6 text-sm text-center text-muted-foreground">
 					No personas match "{search}".
 				</p>
 			) : (
@@ -157,13 +158,13 @@ export function PersonaGallery() {
 						type="button"
 						aria-label="Scroll personas left"
 						onClick={() => scrollBy(-320)}
-						className="-left-3 top-1/2 size-7 opacity-0 group-hover/carousel:opacity-100 absolute z-10 -translate-y-1/2 flex items-center justify-center rounded-full border bg-card shadow-sm transition-opacity hover:bg-accent"
+						className="-left-3 size-7 shadow-sm absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full border bg-card opacity-0 transition-opacity group-hover/carousel:opacity-100 hover:bg-accent"
 					>
 						<ChevronLeftIcon className="size-4" />
 					</button>
 					<div
 						ref={scrollerRef}
-						className="gap-3 pb-1 flex overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+						className="gap-3 pb-1 flex [scrollbar-width:none] overflow-x-auto scroll-smooth [&::-webkit-scrollbar]:hidden"
 					>
 						{filtered.map((persona) => (
 							<PersonaCard
@@ -179,7 +180,7 @@ export function PersonaGallery() {
 						type="button"
 						aria-label="Scroll personas right"
 						onClick={() => scrollBy(320)}
-						className="-right-3 top-1/2 size-7 opacity-0 group-hover/carousel:opacity-100 absolute z-10 -translate-y-1/2 flex items-center justify-center rounded-full border bg-card shadow-sm transition-opacity hover:bg-accent"
+						className="-right-3 size-7 shadow-sm absolute top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full border bg-card opacity-0 transition-opacity group-hover/carousel:opacity-100 hover:bg-accent"
 					>
 						<ChevronRightIcon className="size-4" />
 					</button>
@@ -206,7 +207,7 @@ function PersonaCard({
 		<TooltipProvider delayDuration={200}>
 			<Tooltip>
 				<TooltipTrigger asChild>
-					<div className="group/card relative w-28 shrink-0">
+					<div className="group/card w-28 relative shrink-0">
 						<button
 							type="button"
 							onClick={onEdit}
@@ -224,14 +225,14 @@ function PersonaCard({
 									textClass="text-base"
 								/>
 							</span>
-							<span className="w-full truncate text-sm font-medium">{persona.name}</span>
+							<span className="text-sm font-medium w-full truncate">{persona.name}</span>
 							{agentCount > 0 && (
 								<span className="text-xs text-muted-foreground">
 									{agentCount} {agentCount === 1 ? "agent" : "agents"}
 								</span>
 							)}
 						</button>
-						<div className="top-1 right-1 opacity-0 group-hover/card:opacity-100 focus-within:opacity-100 absolute transition-opacity">
+						<div className="top-1 right-1 absolute opacity-0 transition-opacity group-hover/card:opacity-100 focus-within:opacity-100">
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
 									<Button

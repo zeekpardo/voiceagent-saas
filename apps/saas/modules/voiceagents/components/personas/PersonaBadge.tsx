@@ -10,13 +10,7 @@ import { PersonaAvatar } from "./PersonaAvatar";
  * (avatar + name). Renders nothing when no persona is attached. Clicking it
  * opens the Personas aside via `onClick`.
  */
-export function PersonaBadge({
-	agent,
-	onClick,
-}: {
-	agent: GatewayAgent;
-	onClick?: () => void;
-}) {
+export function PersonaBadge({ agent, onClick }: { agent: GatewayAgent; onClick?: () => void }) {
 	const { data: personas } = usePersonasQuery();
 	const attachedId = agentPersonaId(agent);
 	const persona = personas?.find((p) => p.id === attachedId);
@@ -39,7 +33,7 @@ export function PersonaBadge({
 				sizeClass="size-6"
 				textClass="text-[10px]"
 			/>
-			<span className="max-w-32 truncate text-xs font-medium">{persona.name}</span>
+			<span className="max-w-32 text-xs font-medium truncate">{persona.name}</span>
 		</button>
 	);
 }

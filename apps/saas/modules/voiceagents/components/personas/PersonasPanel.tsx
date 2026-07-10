@@ -87,13 +87,13 @@ export function PersonasPanel({ agent }: { agent: GatewayAgent }) {
 					/>
 					<div className="min-w-0 flex-1">
 						<div className="gap-2 flex items-center">
-							<span className="truncate font-medium text-sm">{attached.name}</span>
-							<span className="gap-1 px-1.5 py-0.5 text-[10px] font-medium uppercase inline-flex items-center rounded-full bg-primary/10 text-primary">
+							<span className="font-medium text-sm truncate">{attached.name}</span>
+							<span className="gap-1 px-1.5 py-0.5 font-medium inline-flex items-center rounded-full bg-primary/10 text-[10px] text-primary uppercase">
 								<CheckIcon className="size-3" /> Attached
 							</span>
 						</div>
 						{attached.styles.length > 0 && (
-							<p className="truncate text-xs capitalize text-muted-foreground">
+							<p className="text-xs truncate text-muted-foreground capitalize">
 								{attached.styles.join(" · ")}
 							</p>
 						)}
@@ -143,7 +143,7 @@ export function PersonasPanel({ agent }: { agent: GatewayAgent }) {
 			</div>
 
 			{others.length === 0 ? (
-				<p className="py-4 text-center text-sm text-muted-foreground">
+				<p className="py-4 text-sm text-center text-muted-foreground">
 					{(personas?.length ?? 0) === 0
 						? "No personas yet — create your first."
 						: "No other personas match."}
@@ -167,9 +167,9 @@ export function PersonasPanel({ agent }: { agent: GatewayAgent }) {
 									sizeClass="size-9"
 								/>
 								<div className="min-w-0 flex-1">
-									<span className="block truncate font-medium text-sm">{persona.name}</span>
+									<span className="font-medium text-sm block truncate">{persona.name}</span>
 									{persona.styles.length > 0 && (
-										<span className="block truncate text-xs capitalize text-muted-foreground">
+										<span className="text-xs block truncate text-muted-foreground capitalize">
 											{persona.styles.join(" · ")}
 										</span>
 									)}

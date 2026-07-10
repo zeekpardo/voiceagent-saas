@@ -3,8 +3,8 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { PhoneIncomingIcon } from "lucide-react";
 
-import { PersonaAvatar } from "../personas/PersonaAvatar";
 import { useAttachedPersona } from "../personas/persona-flow-context";
+import { PersonaAvatar } from "../personas/PersonaAvatar";
 import { START_HANDLE_ID } from "./flow-types";
 
 export type StartRFNode = Node<Record<string, unknown>, "start">;
@@ -36,7 +36,7 @@ export function StartNode(_props: NodeProps<StartRFNode>) {
 			<span className="font-medium text-sm">
 				Start
 				{persona ? (
-					<span className="text-muted-foreground font-normal"> · {persona.name}</span>
+					<span className="font-normal text-muted-foreground"> · {persona.name}</span>
 				) : null}
 			</span>
 			<Handle

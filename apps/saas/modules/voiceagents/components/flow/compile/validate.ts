@@ -25,15 +25,38 @@ export function validateFlowDoc(doc: CanvasDoc): string[] {
 		errors.push("Add at least one agent, objective, or booking node.");
 	}
 
+	// The Greeter is a required, single fixture: Start → Greeter → entry. Its
+	// text becomes config.greeting and its outgoing edge target is the flow
+	// entry — so the "which node takes the call first" checks apply to the
+	// Greeter's edge, not the Start edge.
+	const greeters = doc.nodes.filter((n) => n.type === "greeter");
+	if (greeters.length === 0) {
+		errors.push("The flow is missing its Greeter — reopen the flow to restore it.");
+	} else if (greeters.length > 1) {
+		errors.push("A flow can only have one Greeter.");
+	}
+	const greeter = greeters[0];
+
 	const startEdges = doc.edges.filter((e) => e.source === START_NODE_ID);
 	if (startEdges.length === 0) {
-		errors.push("Connect the Start node to the node the call should begin on.");
+		errors.push("Connect the Start node to the Greeter.");
 	} else if (startEdges.length > 1) {
 		errors.push("The Start node must connect to exactly one node.");
-	} else if (!conversationalIds.has(startEdges[0].target)) {
-		errors.push(
-			"The call must start on an Agent, Objective, or Booking node — a branch or action node can't take the call first.",
-		);
+	} else if (greeter && startEdges[0].target !== greeter.id) {
+		errors.push("The Start node must connect to the Greeter.");
+	}
+
+	if (greeter) {
+		const greeterEdges = doc.edges.filter((e) => e.source === greeter.id);
+		if (greeterEdges.length === 0) {
+			errors.push("Connect the Greeter to the node the call should begin on.");
+		} else if (greeterEdges.length > 1) {
+			errors.push("The Greeter must connect to exactly one node.");
+		} else if (!conversationalIds.has(greeterEdges[0].target)) {
+			errors.push(
+				"The call must start on an Agent, Objective, or Booking node — a branch or action node can't take the call first.",
+			);
+		}
 	}
 
 	for (const edge of doc.edges) {

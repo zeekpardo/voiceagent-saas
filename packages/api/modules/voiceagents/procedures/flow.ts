@@ -110,6 +110,9 @@ export const saveFlow = protectedProcedure
 			flow: flowInput,
 			canvas: z.unknown(),
 			toolIds: z.array(z.string()),
+			// The Greeter node owns the connect-time greeting on the canvas; it
+			// compiles into config.greeting so the engine speaks it at go-live.
+			greeting: z.string().optional(),
 		}),
 	)
 	.handler(async ({ input, context }) => {
@@ -118,5 +121,6 @@ export const saveFlow = protectedProcedure
 			flow: input.flow,
 			canvas: input.canvas,
 			toolIds: input.toolIds,
+			greeting: input.greeting ?? "",
 		});
 	});

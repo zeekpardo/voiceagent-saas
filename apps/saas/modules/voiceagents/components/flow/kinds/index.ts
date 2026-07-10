@@ -10,6 +10,7 @@ import {
 import { agentKind } from "./agent";
 import { bookingKind } from "./booking";
 import { conversationKind } from "./conversation";
+import { greeterKind } from "./greeter";
 import { modifyTagsKind } from "./modify-tags";
 import { objectiveKind } from "./objective";
 import { scenarioKind } from "./scenario";
@@ -44,6 +45,7 @@ export type {
 // Entries are heterogeneous in their `TData` (invariant in the function params);
 // `<any>` widens them into one list, exactly like the old kind-meta table did.
 export const FLOW_KIND_LIST: FlowKindDefinition<any>[] = [
+	greeterKind,
 	agentKind,
 	objectiveKind,
 	conversationKind,

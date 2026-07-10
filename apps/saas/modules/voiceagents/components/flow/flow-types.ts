@@ -9,6 +9,14 @@ import { z } from "zod";
 export const START_NODE_ID = "__start__";
 export const START_HANDLE_ID = "start";
 
+/**
+ * The single "Start" source handle on the Greeter fixture — it wires the
+ * greeting into the flow's real entry node. The Greeter is a canvas-level
+ * fixture (like Start), not an engine flow node: its text compiles into
+ * config.greeting and its outgoing edge target becomes the flow entry.
+ */
+export const GREETER_NEXT_HANDLE_ID = "next";
+
 /** Fixed source-handle ids on a True/False branch node. */
 export const TRUE_HANDLE_ID = "true";
 export const FALSE_HANDLE_ID = "false";
@@ -38,6 +46,7 @@ export const FLOW_NODE_DRAG_TYPE = "application/x-voiceagent-flow-node";
 
 /** Editable canvas node kinds (everything but the fixed Start node). */
 export type FlowNodeKind =
+	| "greeter"
 	| "agent"
 	| "objective"
 	| "conversation"
@@ -112,6 +121,19 @@ export interface FlowExitDoc {
 	description: string;
 	/** Advanced: gate this exit on the caller's CRM tags (Phase 5b). */
 	tagRules?: ExitTagRules;
+}
+
+/**
+ * The Greeter fixture's data. `greeting` is spoken as soon as the call connects
+ * (after the AI disclosure). It is NOT an engine flow node — the compiler folds
+ * this text into config.greeting and treats the greeter's outgoing edge target
+ * as the flow entry.
+ */
+export interface GreeterNodeData {
+	title: string;
+	/** Spoken first, right after the AI disclosure. Empty = the caller speaks first. */
+	greeting: string;
+	[key: string]: unknown;
 }
 
 export interface AgentNodeData {
@@ -273,6 +295,7 @@ export interface TransferNodeData {
 }
 
 export type FlowNodeData =
+	| GreeterNodeData
 	| AgentNodeData
 	| ObjectiveNodeData
 	| ConversationNodeData
@@ -290,6 +313,13 @@ export interface StartCanvasNodeDoc {
 	type: "start";
 	position: { x: number; y: number };
 	data?: undefined;
+}
+
+export interface GreeterCanvasNodeDoc {
+	id: string;
+	type: "greeter";
+	position: { x: number; y: number };
+	data?: GreeterNodeData;
 }
 
 export interface AgentCanvasNodeDoc {
@@ -371,6 +401,7 @@ export interface BookingCanvasNodeDoc {
 
 export type CanvasNodeDoc =
 	| StartCanvasNodeDoc
+	| GreeterCanvasNodeDoc
 	| AgentCanvasNodeDoc
 	| ObjectiveCanvasNodeDoc
 	| ConversationCanvasNodeDoc
@@ -496,6 +527,11 @@ const flowExitSchema = z.object({
 			cantHave: z.array(z.string()).optional(),
 		})
 		.optional(),
+});
+
+export const greeterNodeDataSchema = z.object({
+	title: z.string(),
+	greeting: z.string().default(""),
 });
 
 export const agentNodeDataSchema = z.object({

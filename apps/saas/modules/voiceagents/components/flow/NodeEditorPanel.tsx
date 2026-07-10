@@ -152,11 +152,17 @@ export function NodeEditorPanel({
 	const AgentEditor = FLOW_KINDS.agent.editor;
 	const NodeEditor = FLOW_KINDS[nodeType].editor;
 
+	// The Greeter is a fixture (like Start) — it can be edited but never deleted.
+	const isFixture = nodeType === "greeter";
 	const footer = (
 		<div className="mt-2 pt-4 flex justify-between border-t">
-			<Button type="button" variant="destructive" size="sm" onClick={() => onDelete(nodeId)}>
-				<Trash2Icon className="size-4" /> Delete node
-			</Button>
+			{isFixture ? (
+				<span />
+			) : (
+				<Button type="button" variant="destructive" size="sm" onClick={() => onDelete(nodeId)}>
+					<Trash2Icon className="size-4" /> Delete node
+				</Button>
+			)}
 			<Button type="button" variant="outline" size="sm" onClick={onClose}>
 				Done
 			</Button>

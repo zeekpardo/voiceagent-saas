@@ -68,6 +68,7 @@ export function FlowNodeShell({
 	shape = "square",
 	hasTargetHandle = true,
 	unwiredEndsCall = true,
+	deletable = true,
 }: {
 	id: string;
 	selected?: boolean;
@@ -94,6 +95,8 @@ export function FlowNodeShell({
 	hasTargetHandle?: boolean;
 	/** Whether an unwired source handle means the call ends there (phone-off glyph). */
 	unwiredEndsCall?: boolean;
+	/** Fixtures (Greeter) can't be removed — hide the hover delete affordance. */
+	deletable?: boolean;
 }) {
 	const edges = useEdges();
 	const { deleteElements } = useReactFlow();
@@ -116,18 +119,20 @@ export function FlowNodeShell({
 					)}
 				/>
 			)}
-			<button
-				type="button"
-				title="Delete node"
-				aria-label="Delete node"
-				onClick={(event) => {
-					event.stopPropagation();
-					void deleteElements({ nodes: [{ id }] });
-				}}
-				className="-top-7 nodrag right-0 size-6 shadow-sm absolute flex items-center justify-center rounded-md border bg-background text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
-			>
-				<Trash2Icon className="size-3.5" />
-			</button>
+			{deletable && (
+				<button
+					type="button"
+					title="Delete node"
+					aria-label="Delete node"
+					onClick={(event) => {
+						event.stopPropagation();
+						void deleteElements({ nodes: [{ id }] });
+					}}
+					className="-top-7 nodrag right-0 size-6 shadow-sm absolute flex items-center justify-center rounded-md border bg-background text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
+				>
+					<Trash2Icon className="size-3.5" />
+				</button>
+			)}
 
 			<div
 				className={cn(

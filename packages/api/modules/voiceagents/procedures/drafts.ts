@@ -31,6 +31,9 @@ const draftBodyInput = z.object({
 	flow: flowInput,
 	canvas: z.unknown(),
 	toolIds: z.array(z.string()),
+	// The Greeter node's text — folded into config.greeting on the draft so a
+	// publish carries it into the new version (the engine speaks it at go-live).
+	greeting: z.string().optional(),
 });
 
 export const saveDraft = protectedProcedure
@@ -46,7 +49,12 @@ export const saveDraft = protectedProcedure
 		return gatewayFetch<{ updated_at: string }>(
 			"PUT",
 			`/v1/agents/${encodeURIComponent(input.id)}/draft`,
-			{ flow: input.flow, canvas: input.canvas, toolIds: input.toolIds },
+			{
+				flow: input.flow,
+				canvas: input.canvas,
+				toolIds: input.toolIds,
+				greeting: input.greeting ?? "",
+			},
 		);
 	});
 

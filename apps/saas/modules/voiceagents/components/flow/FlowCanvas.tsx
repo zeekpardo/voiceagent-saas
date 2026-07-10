@@ -29,6 +29,7 @@ import { makeId, newAggressionScenarioData } from "./compile";
 import type { ConversationRFNode } from "./ConversationNode";
 import type { CanvasDoc, CanvasNodeDoc, FlowNodeData, FlowPaletteKind } from "./flow-types";
 import { FLOW_NODE_DRAG_TYPE, FLOW_PALETTE_KINDS, START_NODE_ID } from "./flow-types";
+import type { GreeterRFNode } from "./GreeterNode";
 import { FLOW_KIND_META, isFlowNodeKind } from "./kind-meta";
 import type { MentionItem } from "./mentions";
 import type { ModifyTagsRFNode } from "./ModifyTagsNode";
@@ -43,6 +44,7 @@ import type { TransferRFNode } from "./TransferNode";
 import type { TrueFalseRFNode } from "./TrueFalseNode";
 
 type CanvasRFNode =
+	| GreeterRFNode
 	| AgentRFNode
 	| ObjectiveRFNode
 	| ConversationRFNode
@@ -158,6 +160,8 @@ function docToNodes(doc: CanvasDoc): CanvasRFNode[] {
 			type: kind,
 			position: node.position,
 			data: node.data ?? (meta.createFallbackData ?? meta.createData)([]),
+			// The Greeter is a fixture like Start — not deletable via key/panel.
+			...(kind === "greeter" ? { deletable: false } : {}),
 		} as CanvasRFNode;
 	});
 }
@@ -388,6 +392,13 @@ function FlowCanvasInner({
 			node.id === selectedNodeId && node.type !== "start",
 	);
 	const startEdge = edges.find((edge) => edge.source === START_NODE_ID);
+	// The real flow entry is the Greeter's outgoing edge target (Start now wires
+	// into the Greeter fixture). Used to gray out the ignored entry-message field
+	// on the node that actually takes the call first.
+	const greeterNode = nodes.find((node) => node.type === "greeter");
+	const entryNodeId = greeterNode
+		? edges.find((edge) => edge.source === greeterNode.id)?.target
+		: startEdge?.target;
 
 	// Display-only: the live-call trace is injected into node data at render
 	// time (never into the stored state, so saving stays trace-free).
@@ -420,13 +431,18 @@ function FlowCanvasInner({
 		const takenPairs = new Set(
 			(trace?.takenEdges ?? []).map((taken) => `${taken.source} ${taken.target}`),
 		);
-		const entryNodeId = trace?.visitedNodeIds[0];
+		const firstVisited = trace?.visitedNodeIds[0];
+		// The engine never visits the Greeter fixture, so the initial hop runs
+		// Start → Greeter → entry across two edges; light both.
+		const greeterId = nodes.find((node) => node.type === "greeter")?.id;
 		return edges.map((edge) => {
 			const label = edgeLabelFor(edge, nodes);
 			const labeled = label ? { ...edge, label, ...EDGE_LABEL_PROPS } : edge;
-			const isTaken =
-				takenPairs.has(`${edge.source} ${edge.target}`) ||
-				(edge.source === START_NODE_ID && !!entryNodeId && edge.target === entryNodeId);
+			const isInitialHop =
+				!!firstVisited &&
+				(edge.source === START_NODE_ID ||
+					(!!greeterId && edge.source === greeterId && edge.target === firstVisited));
+			const isTaken = takenPairs.has(`${edge.source} ${edge.target}`) || isInitialHop;
 			if (!isTaken) {
 				return labeled;
 			}
@@ -507,7 +523,7 @@ function FlowCanvasInner({
 				nodeId={selectedNode?.id ?? null}
 				nodeType={selectedNode?.type ?? null}
 				data={selectedNode?.data ?? null}
-				isEntry={!!selectedNode && startEdge?.target === selectedNode.id}
+				isEntry={!!selectedNode && entryNodeId === selectedNode.id}
 				tools={tools}
 				bookingToolIds={bookingToolIds}
 				variableItems={variableItems}

@@ -5,15 +5,15 @@ import type { UseFormReturn } from "react-hook-form";
 
 import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import {
-	GreetingField,
 	GuardrailsField,
 	InstructionsField,
 	ProhibitedWordsField,
 	UserInfoNote,
 } from "./shared-fields";
 
-/** The "job" variant's card: Goal, Guardrails, Greeting, Prohibited words, plus
- *  a read-only note about auto-injected caller/CRM details. */
+/** The "job" variant's card: Goal, Guardrails, Prohibited words, plus a
+ *  read-only note about auto-injected caller/CRM details. The connect-time
+ *  greeting is owned by the flow's Greeter node (canvas), not this panel. */
 export function JobInformationSection({ form }: { form: UseFormReturn<AgentFormValues> }) {
 	return (
 		<Card>
@@ -28,7 +28,6 @@ export function JobInformationSection({ form }: { form: UseFormReturn<AgentFormV
 					hint="For example: Qualify inbound seller leads. You will: learn why they're selling and their timeline, capture the property details, and book a callback with the team."
 				/>
 				<GuardrailsField form={form} />
-				<GreetingField form={form} />
 				<ProhibitedWordsField form={form} />
 				<UserInfoNote />
 			</CardContent>

@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
 	canvasFromFlow,
 	compileCanvas,
+	ensureGreeter,
 	extractVariableNames,
+	newCanvas,
 	prettifyVariable,
 	sanitizeExitName,
 	sectionsToInstructions,
@@ -14,6 +16,7 @@ import {
 import type { CanvasDoc } from "./flow-types";
 import {
 	FALSE_HANDLE_ID,
+	GREETER_NEXT_HANDLE_ID,
 	OBJECTIVE_NEXT_HANDLE_ID,
 	OTHERWISE_HANDLE_ID,
 	SCENARIO_JUMP_HANDLE_ID,
@@ -22,6 +25,47 @@ import {
 	STATEMENT_NEXT_HANDLE_ID,
 	TRUE_HANDLE_ID,
 } from "./flow-types";
+
+/** Fixed id for the Greeter fixture in test docs (real canvases generate one). */
+const GREETER_ID = "greeter";
+
+/**
+ * Insert the Greeter fixture into a legacy-shaped doc (Start → entry): the
+ * greeter is appended (so positional node access in tests is unaffected) and
+ * the Start edge is rerouted Start → Greeter → entry. Mirrors the production
+ * invariant that every canvas has exactly one greeter.
+ */
+function withGreeter(doc: CanvasDoc, greeting = ""): CanvasDoc {
+	const startEdge = doc.edges.find((e) => e.source === START_NODE_ID);
+	const entry = startEdge?.target ?? "";
+	return {
+		...doc,
+		nodes: [
+			...doc.nodes,
+			{
+				id: GREETER_ID,
+				type: "greeter" as const,
+				position: { x: 180, y: 0 },
+				data: { title: "Greeter", greeting },
+			},
+		],
+		edges: [
+			{
+				id: "e_start_greeter",
+				source: START_NODE_ID,
+				sourceHandle: START_HANDLE_ID,
+				target: GREETER_ID,
+			},
+			{
+				id: "e_greeter_entry",
+				source: GREETER_ID,
+				sourceHandle: GREETER_NEXT_HANDLE_ID,
+				target: entry,
+			},
+			...doc.edges.filter((e) => e.source !== START_NODE_ID),
+		],
+	};
+}
 
 function sectionBody(content: unknown[]): unknown {
 	return { type: "doc", content: [{ type: "paragraph", content }] };
@@ -129,7 +173,7 @@ function makeDoc(): CanvasDoc {
 
 describe("validateFlowDoc", () => {
 	it("passes a well-formed doc", () => {
-		expect(validateFlowDoc(makeDoc())).toEqual([]);
+		expect(validateFlowDoc(withGreeter(makeDoc()))).toEqual([]);
 	});
 
 	it("flags missing start edge, empty instructions and duplicate exits", () => {
@@ -315,7 +359,7 @@ describe("branch nodes", () => {
 	});
 
 	it("validates a well-formed branch doc", () => {
-		expect(validateFlowDoc(makeBranchDoc())).toEqual([]);
+		expect(validateFlowDoc(withGreeter(makeBranchDoc()))).toEqual([]);
 	});
 
 	it("rejects a branch node as the entry", () => {
@@ -462,7 +506,7 @@ describe("statement nodes", () => {
 	});
 
 	it("validates a well-formed statement doc", () => {
-		expect(validateFlowDoc(makeStatementDoc())).toEqual([]);
+		expect(validateFlowDoc(withGreeter(makeStatementDoc()))).toEqual([]);
 	});
 
 	it("flags an empty say and rejects a statement as the entry", () => {
@@ -581,7 +625,7 @@ describe("scenario nodes", () => {
 	});
 
 	it("validates a well-formed scenario doc", () => {
-		expect(validateFlowDoc(makeScenarioDoc())).toEqual([]);
+		expect(validateFlowDoc(withGreeter(makeScenarioDoc()))).toEqual([]);
 	});
 
 	it("flags an unconnected scenario, empty description and duplicate titles", () => {
@@ -725,7 +769,7 @@ describe("conversation nodes", () => {
 	});
 
 	it("validates a well-formed conversation doc", () => {
-		expect(validateFlowDoc(makeConversationDoc())).toEqual([]);
+		expect(validateFlowDoc(withGreeter(makeConversationDoc()))).toEqual([]);
 	});
 
 	it("flags a missing reason and a wrap-up exit that points nowhere", () => {
@@ -1049,5 +1093,99 @@ describe("exit tag rules (tag-driven routing)", () => {
 		const { flow } = compileCanvas(doc, []);
 		const exit = flow.nodes.find((n) => n.id === "n1")!.exits.find((e) => e.name === "qualified")!;
 		expect(exit.tagRules).toBeUndefined();
+	});
+});
+
+// --- Greeter fixture --------------------------------------------------------
+
+describe("greeter fixture", () => {
+	it("newCanvas contains exactly one greeter wired Start → Greeter → agent", () => {
+		const doc = newCanvas();
+		const greeters = doc.nodes.filter((n) => n.type === "greeter");
+		expect(greeters).toHaveLength(1);
+		const greeter = greeters[0]!;
+
+		// Start's only edge goes to the greeter.
+		const startEdges = doc.edges.filter((e) => e.source === START_NODE_ID);
+		expect(startEdges).toHaveLength(1);
+		expect(startEdges[0]!.target).toBe(greeter.id);
+
+		// The greeter has one outgoing edge into the (agent) entry node.
+		const greeterEdges = doc.edges.filter((e) => e.source === greeter.id);
+		expect(greeterEdges).toHaveLength(1);
+		expect(greeterEdges[0]!.sourceHandle).toBe(GREETER_NEXT_HANDLE_ID);
+		const entry = doc.nodes.find((n) => n.id === greeterEdges[0]!.target);
+		expect(entry?.type).toBe("agent");
+
+		// The greeter wiring itself is valid (the fresh agent's empty prompt is a
+		// separate, expected error — assert only that no greeter/Start issue fires).
+		const errors = validateFlowDoc(doc);
+		expect(errors.some((e) => e.includes("Greeter"))).toBe(false);
+		expect(errors.some((e) => e.includes("Start"))).toBe(false);
+	});
+
+	it("compiles the greeter text into greeting and its edge target into entry", () => {
+		const doc = withGreeter(makeDoc(), "Hi there, thanks for calling!");
+		const { flow, greeting } = compileCanvas(doc, []);
+		expect(greeting).toBe("Hi there, thanks for calling!");
+		expect(flow.entry).toBe("n1");
+		// The greeter is a fixture, never an engine node.
+		expect(flow.nodes.some((n) => n.id === GREETER_ID)).toBe(false);
+	});
+
+	it("errors when the flow has no greeter", () => {
+		const errors = validateFlowDoc(makeDoc());
+		expect(errors.some((e) => e.includes("missing its Greeter"))).toBe(true);
+	});
+
+	it("errors when the flow has more than one greeter", () => {
+		const doc = withGreeter(makeDoc());
+		doc.nodes.push({
+			id: "greeter2",
+			type: "greeter",
+			position: { x: 180, y: 200 },
+			data: { title: "Greeter", greeting: "" },
+		});
+		const errors = validateFlowDoc(doc);
+		expect(errors.some((e) => e.includes("only have one Greeter"))).toBe(true);
+	});
+
+	it("round-trips greeting through flow → canvas → flow", () => {
+		const source = withGreeter(makeDoc(), "Welcome, how can I help?");
+		const original = compileCanvas(source, []);
+		// Reconstruct a canvas from the engine flow + greeting, then recompile.
+		const rebuilt = canvasFromFlow(original.flow, original.greeting);
+		expect(validateFlowDoc(rebuilt)).toEqual([]);
+		const recompiled = compileCanvas(rebuilt, []);
+		expect(recompiled.greeting).toBe("Welcome, how can I help?");
+		expect(recompiled.flow.entry).toBe(original.flow.entry);
+	});
+
+	it("migrates a legacy canvas (Start → agent, no greeter) on load", () => {
+		const legacy = makeDoc(); // Start → n1 directly, no greeter
+		expect(legacy.nodes.some((n) => n.type === "greeter")).toBe(false);
+
+		const migrated = ensureGreeter(legacy, "Legacy greeting");
+		const greeters = migrated.nodes.filter((n) => n.type === "greeter");
+		expect(greeters).toHaveLength(1);
+		const greeter = greeters[0]!;
+
+		// Start now points at the greeter; the greeter points at the old entry.
+		const startEdges = migrated.edges.filter((e) => e.source === START_NODE_ID);
+		expect(startEdges).toHaveLength(1);
+		expect(startEdges[0]!.target).toBe(greeter.id);
+		const greeterEdge = migrated.edges.find((e) => e.source === greeter.id);
+		expect(greeterEdge?.target).toBe("n1");
+
+		expect(validateFlowDoc(migrated)).toEqual([]);
+		const { flow, greeting } = compileCanvas(migrated, []);
+		expect(flow.entry).toBe("n1");
+		expect(greeting).toBe("Legacy greeting");
+	});
+
+	it("leaves a canvas that already has a greeter unchanged", () => {
+		const doc = withGreeter(makeDoc(), "Existing");
+		const result = ensureGreeter(doc, "Should be ignored");
+		expect(result).toBe(doc);
 	});
 });

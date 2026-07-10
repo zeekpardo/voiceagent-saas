@@ -18,6 +18,7 @@ import {
 import {
 	canvasFromFlow,
 	compileCanvas,
+	ensureGreeter,
 	extractVariableNames,
 	newCanvas,
 	validateFlowDoc,
@@ -69,26 +70,37 @@ export function FlowTab({
 	// reconstruct from an existing flow; else start fresh. Read at mount time —
 	// the render is gated on the draft query below so `draft` is settled here.
 	const initialDoc = useMemo<CanvasDoc>(() => {
-		const draftCanvas = (draft?.config as Record<string, unknown> | undefined)?.canvas;
+		// The Greeter fixture owns config.greeting on the canvas. Legacy canvases
+		// (Start → entry, no greeter) are migrated on load, carrying the config's
+		// current greeting into a freshly inserted Greeter.
+		const draftConfig = draft?.config as Record<string, unknown> | undefined;
+		const publishedGreeting = typeof config.greeting === "string" ? config.greeting : "";
+		const draftGreeting =
+			typeof draftConfig?.greeting === "string" ? draftConfig.greeting : publishedGreeting;
+
+		const draftCanvas = draftConfig?.canvas;
 		const savedDraftCanvas = canvasDocSchema.safeParse(draftCanvas);
 		if (savedDraftCanvas.success) {
-			return savedDraftCanvas.data;
+			return ensureGreeter(savedDraftCanvas.data, draftGreeting);
 		}
 		const savedCanvas = canvasDocSchema.safeParse(config.canvas);
 		if (savedCanvas.success) {
-			return savedCanvas.data;
+			return ensureGreeter(savedCanvas.data, publishedGreeting);
 		}
 		const savedFlow = engineFlowSchema.safeParse(config.flow);
 		if (savedFlow.success) {
-			return canvasFromFlow({
-				entry: savedFlow.data.entry,
-				nodes: savedFlow.data.nodes.map((node) => ({
-					...node,
-					toolIds: node.toolIds ?? [],
-					exits: node.exits ?? [],
-				})),
-				scenarios: savedFlow.data.scenarios,
-			});
+			return canvasFromFlow(
+				{
+					entry: savedFlow.data.entry,
+					nodes: savedFlow.data.nodes.map((node) => ({
+						...node,
+						toolIds: node.toolIds ?? [],
+						exits: node.exits ?? [],
+					})),
+					scenarios: savedFlow.data.scenarios,
+				},
+				publishedGreeting,
+			);
 		}
 		return newCanvas();
 		// Rebuild only when switching agents, when a publish/restore bumps the
@@ -136,9 +148,9 @@ export function FlowTab({
 			return;
 		}
 		const baseToolIds = Array.isArray(config.toolIds) ? (config.toolIds as string[]) : [];
-		const { flow, toolIds } = compileCanvas(doc, baseToolIds);
+		const { flow, toolIds, greeting } = compileCanvas(doc, baseToolIds);
 		try {
-			await saveDraftMutation.mutateAsync({ flow, canvas: doc, toolIds });
+			await saveDraftMutation.mutateAsync({ flow, canvas: doc, toolIds, greeting });
 			toastSuccess("Draft saved");
 		} catch (err) {
 			toastError(err instanceof Error ? err.message : "Could not save the draft");

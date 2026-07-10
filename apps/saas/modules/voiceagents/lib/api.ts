@@ -125,6 +125,7 @@ export function useSaveFlowMutation(agentId: string) {
 			};
 			canvas: unknown;
 			toolIds: string[];
+			greeting?: string;
 		}) => orpcClient.voiceagents.flow.save({ id: agentId, ...input }),
 		onSuccess: () => {
 			void queryClient.invalidateQueries({ queryKey: agentQueryKey(agentId) });
@@ -152,7 +153,7 @@ type DraftBody = Parameters<typeof orpcClient.voiceagents.flow.save>[0] extends 
 	canvas: infer C;
 	toolIds: infer T;
 }
-	? { flow: F; canvas: C; toolIds: T }
+	? { flow: F; canvas: C; toolIds: T; greeting?: string }
 	: never;
 
 export function useSaveDraftMutation(agentId: string) {

@@ -45,12 +45,16 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 	const extractFields = useFieldArray({ control: form.control, name: "postCall.extract" });
 
 	const onSubmit = form.handleSubmit(async (values) => {
+		// For flow agents the Greeter node owns config.greeting, so the Job panel
+		// must not submit greeting — dropping it keeps it out of the PATCH body so
+		// the gateway preserves whatever the flow last wrote.
+		const payload = variant === "job" ? { ...values, greeting: undefined } : values;
 		try {
 			if (agent) {
-				await updateMutation.mutateAsync(values);
+				await updateMutation.mutateAsync(payload);
 				toastSuccess(`Saved — now v${agent.version + 1}`);
 			} else {
-				const created = await createMutation.mutateAsync(values);
+				const created = await createMutation.mutateAsync(payload);
 				toastSuccess("Agent created");
 				router.push(`/voice-agents/${created.id}`);
 			}

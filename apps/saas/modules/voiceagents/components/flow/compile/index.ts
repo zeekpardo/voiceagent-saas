@@ -6,10 +6,11 @@ import type {
 	EngineFlowNode,
 	EngineFlowScenario,
 } from "../flow-types";
-import { START_HANDLE_ID, START_NODE_ID } from "../flow-types";
+import { GREETER_NEXT_HANDLE_ID, START_HANDLE_ID, START_NODE_ID } from "../flow-types";
 import { FLOW_KINDS, isFlowNodeKind } from "../kinds";
 import { decompileAgentNode } from "./nodes/agent";
 import { decompileConversationNode } from "./nodes/conversation";
+import { newGreeterNodeData } from "./nodes/greeter";
 import { decompileModifyTagsNode } from "./nodes/modify-tags";
 import { decompileObjectiveNode } from "./nodes/objective";
 import { decompileRouterNode } from "./nodes/router";
@@ -33,6 +34,7 @@ export { validateFlowDoc } from "./validate";
 export { newAgentNodeData } from "./nodes/agent";
 export { newBookingNodeData } from "./nodes/booking";
 export { newConversationNodeData } from "./nodes/conversation";
+export { newGreeterNodeData } from "./nodes/greeter";
 export { newModifyTagsNodeData } from "./nodes/modify-tags";
 export { newObjectiveNodeData } from "./nodes/objective";
 export { newSwitchNodeData, newTrueFalseNodeData } from "./nodes/router";
@@ -49,9 +51,20 @@ export { newTransferNodeData } from "./nodes/transfer";
 export function compileCanvas(
 	doc: CanvasDoc,
 	baseToolIds: string[],
-): { flow: EngineFlow; toolIds: string[] } {
+): { flow: EngineFlow; toolIds: string[]; greeting: string } {
+	// The Greeter fixture owns the connect-time greeting and points at the real
+	// flow entry. It is not an engine node: its text folds into config.greeting
+	// and its outgoing edge target becomes `entry`. Legacy canvases without a
+	// greeter (never produced once migration runs, but guard anyway) fall back
+	// to the classic Start → entry wiring.
+	const greeter = doc.nodes.find((n) => n.type === "greeter");
+	const greeting = greeter
+		? ((greeter.data as { greeting?: string } | undefined)?.greeting ?? "")
+		: "";
 	const startEdge = doc.edges.find((e) => e.source === START_NODE_ID);
-	const entry = startEdge?.target ?? "";
+	const entry = greeter
+		? (doc.edges.find((e) => e.source === greeter.id)?.target ?? "")
+		: (startEdge?.target ?? "");
 
 	// CloseBot parity: when a conversation node is designated the flow default,
 	// every dangling/unconnected exit falls back to it (instead of ending the
@@ -92,15 +105,80 @@ export function compileCanvas(
 
 	const toolIds = [...new Set([...baseToolIds, ...nodes.flatMap((n) => n.toolIds)])];
 
-	return { flow: { entry, nodes, scenarios }, toolIds };
+	return { flow: { entry, nodes, scenarios }, toolIds, greeting };
+}
+
+/**
+ * Build the Greeter fixture + its wiring for a given entry node: Start →
+ * Greeter → entry. Shared by newCanvas, canvasFromFlow and the on-load
+ * migration (insertGreeter into a legacy Start → entry canvas).
+ */
+function greeterNodeAndEdges(
+	entryId: string,
+	greeting: string,
+	position: { x: number; y: number },
+): { node: CanvasNodeDoc; startEdge: CanvasEdgeDoc; greeterEdge: CanvasEdgeDoc } {
+	const greeterId = makeId("greeter");
+	return {
+		node: { id: greeterId, type: "greeter", position, data: newGreeterNodeData(greeting) },
+		startEdge: {
+			id: makeId("edge"),
+			source: START_NODE_ID,
+			sourceHandle: START_HANDLE_ID,
+			target: greeterId,
+		},
+		greeterEdge: {
+			id: makeId("edge"),
+			source: greeterId,
+			sourceHandle: GREETER_NEXT_HANDLE_ID,
+			target: entryId,
+		},
+	};
+}
+
+/**
+ * Migrate a persisted canvas that predates the Greeter fixture (Start → entry,
+ * no greeter) by inserting a Greeter carrying the config's current greeting
+ * between Start and the entry node. Canvases that already have a greeter are
+ * returned unchanged. Applied wherever a saved canvas is loaded (FlowTab).
+ */
+export function ensureGreeter(doc: CanvasDoc, greeting: string): CanvasDoc {
+	if (doc.nodes.some((n) => n.type === "greeter")) {
+		return doc;
+	}
+	const startEdge = doc.edges.find((e) => e.source === START_NODE_ID);
+	const entryId = startEdge?.target;
+	const startNode = doc.nodes.find((n) => n.type === "start");
+	const position = {
+		x: (startNode?.position.x ?? 40) + 140,
+		y: startNode?.position.y ?? 140,
+	};
+	// No entry to wire into (empty/broken canvas): still insert an unwired
+	// greeter so the invariant "exactly one greeter" holds; validation will
+	// flag the missing entry.
+	const {
+		node,
+		startEdge: newStartEdge,
+		greeterEdge,
+	} = greeterNodeAndEdges(entryId ?? "", greeting, position);
+	const edges = doc.edges.filter((e) => e.source !== START_NODE_ID);
+	edges.push(newStartEdge);
+	if (entryId) {
+		edges.push(greeterEdge);
+	}
+	return { ...doc, nodes: [...doc.nodes, node], edges };
 }
 
 /* ------------------------------------------------------------------ */
 /* Reconstruction: engine flow / blank slate → canvas document          */
 /* ------------------------------------------------------------------ */
 
-/** Best-effort canvas from an engine flow (used when config.canvas is absent). */
-export function canvasFromFlow(flow: EngineFlow): CanvasDoc {
+/**
+ * Best-effort canvas from an engine flow (used when config.canvas is absent).
+ * Inserts the Greeter fixture between Start and the flow entry, carrying the
+ * config's current greeting so existing flows keep their connect-time greeting.
+ */
+export function canvasFromFlow(flow: EngineFlow, greeting = ""): CanvasDoc {
 	// BFS from the entry node to lay columns out left → right.
 	const columnOf = new Map<string, number>();
 	const queue: { id: string; col: number }[] = [{ id: flow.entry, col: 0 }];
@@ -126,17 +204,12 @@ export function canvasFromFlow(flow: EngineFlow): CanvasDoc {
 	}
 
 	const rowsInCol = new Map<number, number>();
+	const greeter = greeterNodeAndEdges(flow.entry, greeting, { x: 180, y: 120 });
 	const nodes: CanvasNodeDoc[] = [
 		{ id: START_NODE_ID, type: "start", position: { x: 40, y: 120 } },
+		greeter.node,
 	];
-	const edges: CanvasEdgeDoc[] = [
-		{
-			id: makeId("edge"),
-			source: START_NODE_ID,
-			sourceHandle: START_HANDLE_ID,
-			target: flow.entry,
-		},
-	];
+	const edges: CanvasEdgeDoc[] = [greeter.startEdge, greeter.greeterEdge];
 
 	for (const flowNode of flow.nodes) {
 		const col = columnOf.get(flowNode.id) ?? 0;
@@ -218,17 +291,19 @@ export function canvasFromFlow(flow: EngineFlow): CanvasDoc {
 	return { version: 1, nodes, edges };
 }
 
-/** A fresh canvas: Start wired into one empty agent node. */
+/** A fresh canvas: Start → Greeter → one empty agent node. */
 export function newCanvas(): CanvasDoc {
 	const nodeId = makeId("node");
+	const greeter = greeterNodeAndEdges(nodeId, "", { x: 180, y: 140 });
 	return {
 		version: 1,
 		nodes: [
 			{ id: START_NODE_ID, type: "start", position: { x: 40, y: 140 } },
+			greeter.node,
 			{
 				id: nodeId,
 				type: "agent",
-				position: { x: 300, y: 80 },
+				position: { x: 320, y: 80 },
 				data: {
 					title: "New agent",
 					sections: [{ id: makeId("sec"), body: textToTiptapDoc("") }],
@@ -238,8 +313,6 @@ export function newCanvas(): CanvasDoc {
 				},
 			},
 		],
-		edges: [
-			{ id: makeId("edge"), source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: nodeId },
-		],
+		edges: [greeter.startEdge, greeter.greeterEdge],
 	};
 }

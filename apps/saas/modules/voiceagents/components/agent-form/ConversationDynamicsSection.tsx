@@ -20,8 +20,11 @@ import { Switch } from "@repo/ui/components/switch";
 import type { UseFormReturn } from "react-hook-form";
 
 import type { AgentFormValues } from "../../lib/agent-form-mapping";
+import { GreetingField } from "./shared-fields";
 
-/** "Conversation dynamics" card: turn-taking, timeouts, and AI-disclosure compliance. */
+/** "Conversation dynamics" card: greeting, turn-taking, timeouts, and
+ *  AI-disclosure compliance. The greeting lives here for single (non-flow)
+ *  agents; flow agents set it on the Greeter node instead. */
 export function ConversationDynamicsSection({ form }: { form: UseFormReturn<AgentFormValues> }) {
 	return (
 		<Card>
@@ -29,6 +32,9 @@ export function ConversationDynamicsSection({ form }: { form: UseFormReturn<Agen
 				<CardTitle>Conversation dynamics</CardTitle>
 			</CardHeader>
 			<CardContent className="gap-4 @xl:grid-cols-2 grid">
+				<div className="@xl:col-span-2">
+					<GreetingField form={form} />
+				</div>
 				<FormField
 					control={form.control}
 					name="turnDetection.preemptiveGeneration"

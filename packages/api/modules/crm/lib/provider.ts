@@ -79,6 +79,15 @@ export interface CrmProvider {
 	getContactContext(contactId: string): Promise<Record<string, string>>;
 
 	/**
+	 * The contact's current field values keyed by unified `contact.*` key
+	 * (standard slots AND custom fields), for building the KNOWN CONTACT INFO
+	 * prompt block (contact state). Only present, non-empty values appear —
+	 * an absent key means the CRM has no value (renders UNRESOLVED). Keys line
+	 * up with the field-mapping catalog so a mapped target resolves here.
+	 */
+	getContactFieldValues(contactId: string): Promise<Record<string, string>>;
+
+	/**
 	 * Flat variable map about the connected ACCOUNT/location
 	 * (location_name, location_address, …) — what makes one agent reusable
 	 * across many subaccounts.

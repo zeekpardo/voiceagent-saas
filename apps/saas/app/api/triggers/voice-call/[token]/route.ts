@@ -1,3 +1,4 @@
+import { buildContactState } from "@repo/api/modules/crm/lib/contact-state";
 import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
 import { normalizePhone } from "@repo/api/modules/crm/lib/normalize";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
@@ -117,11 +118,22 @@ export async function POST(
 		return Response.json({ queued: false, skipped: "contact does not match this source's tag filters" });
 	}
 
+	// Known-contact snapshot for the engine's KNOWN CONTACT INFO block. Only
+	// when a contact resolved; never blocks the call if building it fails.
+	const contactState = contactId
+		? await buildContactState({
+				sourceId: identity.sourceId,
+				agentId: identity.agentId,
+				contactId,
+			})
+		: undefined;
+
 	try {
 		const call = await gatewayFetch<{ id: string; status: string }>("POST", "/v1/calls", {
 			agent_id: identity.agentId,
 			to: phone,
 			variables,
+			...(contactState ? { contactState } : {}),
 			metadata: {
 				source: "crm_workflow",
 				source_id: identity.sourceId,

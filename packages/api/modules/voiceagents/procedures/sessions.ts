@@ -1,6 +1,7 @@
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
+import { buildContactState } from "../../crm/lib/contact-state";
 import { normalizePhone } from "../../crm/lib/normalize";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { requireOwnedSource } from "../../sources/lib/require-owned-source";
@@ -68,6 +69,17 @@ export const createTestSession = protectedProcedure
 			crmVariables = { ...account, ...contact };
 		}
 
+		// Known-contact snapshot for the engine's KNOWN CONTACT INFO block. Only
+		// when a contact resolved; never blocks the session if building it fails.
+		const contactState =
+			input.sourceId && crmContactId
+				? await buildContactState({
+						sourceId: input.sourceId,
+						agentId: input.agentId,
+						contactId: crmContactId,
+					})
+				: undefined;
+
 		return gatewayFetch<{
 			call_id: string;
 			room_url: string;
@@ -81,6 +93,7 @@ export const createTestSession = protectedProcedure
 				...crmVariables,
 				...input.variables, // explicit values override CRM-derived ones
 			},
+			...(contactState ? { contactState } : {}),
 			metadata: {
 				source: "builder-test",
 				user_id: context.user.id,

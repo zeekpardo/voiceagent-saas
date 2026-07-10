@@ -5,6 +5,7 @@ import type {
 	CrmPipeline,
 	CrmProvider,
 } from "../provider";
+import { normalizeName } from "../normalize";
 import { type CrmProviderContext, registerCrmProvider } from "../registry";
 import { GhlClient } from "./ghl-client";
 import { exchangeGhlCode, getGhlAuthUrl, ghlOauthConfigured, refreshGhlToken } from "./ghl-oauth";
@@ -184,6 +185,52 @@ export class GoHighLevelProvider implements CrmProvider {
 		return Object.fromEntries(
 			Object.entries(entries).filter(([, v]) => v != null && v !== "") as [string, string][],
 		);
+	}
+
+	async getContactFieldValues(contactId: string): Promise<Record<string, string>> {
+		await this.ensureFreshToken();
+		const c = (await this.client.getContact(contactId)) as unknown as Record<string, unknown> & {
+			customFields?: { id: string; value: unknown }[];
+		};
+		const str = (v: unknown): string | undefined => {
+			if (typeof v === "string") return v.trim() || undefined;
+			if (typeof v === "number") return String(v);
+			if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean).join(", ") || undefined;
+			return undefined;
+		};
+		const out: Record<string, string> = {};
+		const set = (key: string, v: unknown) => {
+			const s = str(v);
+			if (s) out[key] = s;
+		};
+		// Standard slots, keyed the catalog way (contact.first_name, …).
+		set("contact.first_name", c.firstName);
+		set("contact.last_name", c.lastName);
+		set(
+			"contact.name",
+			c.contactName ?? [str(c.firstName), str(c.lastName)].filter(Boolean).join(" ") ?? undefined,
+		);
+		set("contact.email", c.email);
+		set("contact.phone", c.phone);
+		set("contact.address1", c.address1);
+		set("contact.city", c.city);
+		set("contact.state", c.state);
+		set("contact.postal_code", c.postalCode);
+		set("contact.country", c.country);
+		set("contact.website", c.website);
+		// Custom fields: resolve each value's field id to the unified key the
+		// mapping catalog uses (fieldKey, else contact.<normalized name>).
+		const values = c.customFields ?? [];
+		if (values.length > 0) {
+			const defs = await this.client.getCustomFields();
+			const byId = new Map(defs.map((d) => [d.id, d]));
+			for (const cf of values) {
+				const def = byId.get(cf.id);
+				if (!def) continue;
+				set(def.fieldKey || `contact.${normalizeName(def.name)}`, cf.value);
+			}
+		}
+		return out;
 	}
 
 	/** IANA timezone of the connected location — cached per provider instance. */

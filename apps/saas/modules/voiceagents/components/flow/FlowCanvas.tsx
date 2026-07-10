@@ -22,61 +22,23 @@ import { useTheme } from "next-themes";
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FlowTrace } from "../../hooks/use-flow-trace";
-import { AgentFlowNode, type AgentRFNode } from "./AgentFlowNode";
-import {
-	makeId,
-	newAgentNodeData,
-	newAggressionScenarioData,
-	newBookingNodeData,
-	newModifyTagsNodeData,
-	newObjectiveNodeData,
-	newScenarioNodeData,
-	newSetFieldNodeData,
-	newStatementNodeData,
-	newSwitchNodeData,
-	newTransferNodeData,
-	newTrueFalseNodeData,
-} from "./compile";
-import type {
-	AgentNodeData,
-	BookingNodeData,
-	CanvasDoc,
-	FlowNodeData,
-	FlowNodeKind,
-	FlowPaletteKind,
-	ModifyTagsNodeData,
-	ObjectiveNodeData,
-	ScenarioNodeData,
-	SetFieldNodeData,
-	StatementNodeData,
-	SwitchNodeData,
-	TransferNodeData,
-	TrueFalseNodeData,
-} from "./flow-types";
-import {
-	BOOKING_BOOKED_HANDLE_ID,
-	FALSE_HANDLE_ID,
-	FLOW_NODE_DRAG_TYPE,
-	FLOW_PALETTE_KINDS,
-	OTHERWISE_HANDLE_ID,
-	SCENARIO_JUMP_HANDLE_ID,
-	START_NODE_ID,
-	STATEMENT_NEXT_HANDLE_ID,
-	TRANSFER_NEXT_HANDLE_ID,
-	TRUE_HANDLE_ID,
-} from "./flow-types";
+import type { AgentRFNode } from "./AgentFlowNode";
+import { makeId, newAggressionScenarioData } from "./compile";
+import type { CanvasDoc, CanvasNodeDoc, FlowNodeData, FlowPaletteKind } from "./flow-types";
+import { FLOW_NODE_DRAG_TYPE, FLOW_PALETTE_KINDS, START_NODE_ID } from "./flow-types";
+import { FLOW_KIND_META, isFlowNodeKind } from "./kind-meta";
 import type { MentionItem } from "./mentions";
 import { NodeEditorPanel, type FlowToolOption } from "./NodeEditorPanel";
-import { BookingNode, type BookingRFNode } from "./BookingNode";
-import { ModifyTagsNode, type ModifyTagsRFNode } from "./ModifyTagsNode";
-import { ObjectiveNode, type ObjectiveRFNode } from "./ObjectiveNode";
-import { ScenarioNode, type ScenarioRFNode } from "./ScenarioNode";
-import { SetFieldNode, type SetFieldRFNode } from "./SetFieldNode";
+import type { BookingRFNode } from "./BookingNode";
+import type { ModifyTagsRFNode } from "./ModifyTagsNode";
+import type { ObjectiveRFNode } from "./ObjectiveNode";
+import type { ScenarioRFNode } from "./ScenarioNode";
+import type { SetFieldRFNode } from "./SetFieldNode";
 import { StartNode, type StartRFNode } from "./StartNode";
-import { StatementNode, type StatementRFNode } from "./StatementNode";
-import { SwitchNode, type SwitchRFNode } from "./SwitchNode";
-import { TransferNode, type TransferRFNode } from "./TransferNode";
-import { TrueFalseNode, type TrueFalseRFNode } from "./TrueFalseNode";
+import type { StatementRFNode } from "./StatementNode";
+import type { SwitchRFNode } from "./SwitchNode";
+import type { TransferRFNode } from "./TransferNode";
+import type { TrueFalseRFNode } from "./TrueFalseNode";
 
 type CanvasRFNode =
 	| AgentRFNode
@@ -91,18 +53,12 @@ type CanvasRFNode =
 	| ScenarioRFNode
 	| TransferRFNode;
 
+/** React Flow's nodeTypes map, derived from the per-kind metadata table (+ the fixed Start node). */
 const NODE_TYPES = {
 	start: StartNode,
-	agent: AgentFlowNode,
-	objective: ObjectiveNode,
-	truefalse: TrueFalseNode,
-	switch: SwitchNode,
-	statement: StatementNode,
-	scenario: ScenarioNode,
-	transfer: TransferNode,
-	set_field: SetFieldNode,
-	modify_tags: ModifyTagsNode,
-	booking: BookingNode,
+	...Object.fromEntries(
+		Object.entries(FLOW_KIND_META).map(([kind, meta]) => [kind, meta.component]),
+	),
 };
 
 const DEFAULT_EDGE_OPTIONS = {
@@ -146,186 +102,57 @@ const EDGE_LABEL_PROPS = {
 /**
  * Exit names live on the edges, not in the compact node cards. Labels are
  * derived from the source node's data at render time so renaming an exit /
- * case updates the wire immediately (Start → entry stays unlabeled).
+ * case updates the wire immediately (Start → entry stays unlabeled). Kind
+ * lookup + label derivation both come from the FLOW_KIND_META table.
  */
 function edgeLabelFor(edge: Edge, nodes: CanvasRFNode[]): string | undefined {
 	const source = nodes.find((node) => node.id === edge.source);
-	if (!source || source.type === "start") {
+	if (!source || !isFlowNodeKind(source.type)) {
 		return undefined;
 	}
-	if (source.type === "truefalse") {
-		return edge.sourceHandle === TRUE_HANDLE_ID ? "True" : "False";
-	}
-	if (source.type === "booking") {
-		return edge.sourceHandle === BOOKING_BOOKED_HANDLE_ID ? "Booked" : "No time worked";
-	}
-	if (source.type === "switch") {
-		if (edge.sourceHandle === OTHERWISE_HANDLE_ID) {
-			return "Otherwise";
-		}
-		return source.data.cases
-			.find((switchCase) => switchCase.id === edge.sourceHandle)
-			?.name.trim() || undefined;
-	}
-	// Scenario edges carry the scenario title (the jump's "why").
-	if (source.type === "scenario") {
-		return source.data.title.trim() || undefined;
-	}
-	// Statement/transfer/objective/action nodes just continue — single edge, unlabeled.
-	if (
-		source.type === "statement" ||
-		source.type === "transfer" ||
-		source.type === "objective" ||
-		source.type === "set_field" ||
-		source.type === "modify_tags"
-	) {
-		return undefined;
-	}
-	return (
-		source.data.exits.find((exit) => exit.id === edge.sourceHandle)?.name.trim() || undefined
-	);
+	return FLOW_KIND_META[source.type].edgeLabel(source.data as never, edge.sourceHandle ?? undefined);
 }
 
 /** Palette entry → the canvas node kind + fresh data it drops (presets pre-fill data). */
 function newPaletteNode(
 	kind: FlowPaletteKind,
 	bookingToolIds: string[],
-): { type: FlowNodeKind; data: FlowNodeData } {
-	switch (kind) {
-		case "truefalse":
-			return { type: "truefalse", data: newTrueFalseNodeData() };
-		case "switch":
-			return { type: "switch", data: newSwitchNodeData() };
-		case "statement":
-			return { type: "statement", data: newStatementNodeData() };
-		case "objective":
-			return { type: "objective", data: newObjectiveNodeData() };
-		case "set_field":
-			return { type: "set_field", data: newSetFieldNodeData() };
-		case "modify_tags":
-			return { type: "modify_tags", data: newModifyTagsNodeData() };
-		case "scenario":
-			return { type: "scenario", data: newScenarioNodeData() };
-		case "scenario_aggression":
-			return { type: "scenario", data: newAggressionScenarioData() };
-		case "booking":
-			return { type: "booking", data: newBookingNodeData(bookingToolIds) };
-		case "transfer":
-			return { type: "transfer", data: newTransferNodeData() };
-		default:
-			return { type: "agent", data: newAgentNodeData("New agent") };
+): { type: keyof typeof FLOW_KIND_META; data: FlowNodeData } {
+	// "scenario_aggression" is a preset on top of the scenario kind, not a kind of its own.
+	if (kind === "scenario_aggression") {
+		return { type: "scenario", data: newAggressionScenarioData() };
 	}
+	const nodeKind = isFlowNodeKind(kind) ? kind : "agent";
+	return { type: nodeKind, data: FLOW_KIND_META[nodeKind].createData(bookingToolIds) };
 }
 
 /** Source handles a node's edges may legally use after a data update. */
 function validSourceHandles(node: CanvasRFNode): Set<string> {
-	if (node.type === "agent") {
-		return new Set(node.data.exits.map((exit) => exit.id));
+	if (!isFlowNodeKind(node.type)) {
+		return new Set();
 	}
-	if (node.type === "truefalse") {
-		return new Set([TRUE_HANDLE_ID, FALSE_HANDLE_ID]);
-	}
-	if (node.type === "switch") {
-		const handles = new Set(node.data.cases.map((switchCase) => switchCase.id));
-		if (node.data.includeOtherwise) {
-			handles.add(OTHERWISE_HANDLE_ID);
-		}
-		return handles;
-	}
-	if (node.type === "statement") {
-		return new Set([STATEMENT_NEXT_HANDLE_ID]);
-	}
-	if (node.type === "transfer") {
-		return new Set([TRANSFER_NEXT_HANDLE_ID]);
-	}
-	if (node.type === "scenario") {
-		return new Set([SCENARIO_JUMP_HANDLE_ID]);
-	}
-	return new Set();
+	return FLOW_KIND_META[node.type].sourceHandles(node.data as never);
 }
 
 function docToNodes(doc: CanvasDoc): CanvasRFNode[] {
 	return doc.nodes.map((node): CanvasRFNode => {
-		switch (node.type) {
-			case "start":
-				return {
-					id: node.id,
-					type: "start",
-					position: node.position,
-					data: {},
-					deletable: false,
-				} satisfies StartRFNode;
-			case "truefalse":
-				return {
-					id: node.id,
-					type: "truefalse",
-					position: node.position,
-					data: node.data ?? newTrueFalseNodeData(),
-				} satisfies TrueFalseRFNode;
-			case "switch":
-				return {
-					id: node.id,
-					type: "switch",
-					position: node.position,
-					data: node.data ?? newSwitchNodeData(),
-				} satisfies SwitchRFNode;
-			case "statement":
-				return {
-					id: node.id,
-					type: "statement",
-					position: node.position,
-					data: node.data ?? newStatementNodeData(),
-				} satisfies StatementRFNode;
-			case "objective":
-				return {
-					id: node.id,
-					type: "objective",
-					position: node.position,
-					data: node.data ?? newObjectiveNodeData(),
-				} satisfies ObjectiveRFNode;
-			case "set_field":
-				return {
-					id: node.id,
-					type: "set_field",
-					position: node.position,
-					data: node.data ?? newSetFieldNodeData(),
-				} satisfies SetFieldRFNode;
-			case "modify_tags":
-				return {
-					id: node.id,
-					type: "modify_tags",
-					position: node.position,
-					data: node.data ?? newModifyTagsNodeData(),
-				} satisfies ModifyTagsRFNode;
-			case "booking":
-				return {
-					id: node.id,
-					type: "booking",
-					position: node.position,
-					data: node.data ?? newBookingNodeData([]),
-				} satisfies BookingRFNode;
-			case "scenario":
-				return {
-					id: node.id,
-					type: "scenario",
-					position: node.position,
-					data: node.data ?? newScenarioNodeData(),
-				} satisfies ScenarioRFNode;
-			case "transfer":
-				return {
-					id: node.id,
-					type: "transfer",
-					position: node.position,
-					data: node.data ?? newTransferNodeData(),
-				} satisfies TransferRFNode;
-			default:
-				return {
-					id: node.id,
-					type: "agent",
-					position: node.position,
-					data: node.data ?? newAgentNodeData("Untitled agent"),
-				} satisfies AgentRFNode;
+		if (node.type === "start") {
+			return {
+				id: node.id,
+				type: "start",
+				position: node.position,
+				data: {},
+				deletable: false,
+			} satisfies StartRFNode;
 		}
+		const kind = isFlowNodeKind(node.type) ? node.type : "agent";
+		const meta = FLOW_KIND_META[kind];
+		return {
+			id: node.id,
+			type: kind,
+			position: node.position,
+			data: node.data ?? (meta.createFallbackData ?? meta.createData)([]),
+		} as CanvasRFNode;
 	});
 }
 
@@ -513,81 +340,14 @@ function FlowCanvasInner({
 	const handleSave = () => {
 		const doc: CanvasDoc = {
 			version: 1,
-			nodes: nodes.map((node) => {
-				switch (node.type) {
-					case "start":
-						return { id: node.id, type: "start" as const, position: node.position };
-					case "truefalse":
-						return {
-							id: node.id,
-							type: "truefalse" as const,
-							position: node.position,
-							data: node.data as TrueFalseNodeData,
-						};
-					case "switch":
-						return {
-							id: node.id,
-							type: "switch" as const,
-							position: node.position,
-							data: node.data as SwitchNodeData,
-						};
-					case "statement":
-						return {
-							id: node.id,
-							type: "statement" as const,
-							position: node.position,
-							data: node.data as StatementNodeData,
-						};
-					case "scenario":
-						return {
-							id: node.id,
-							type: "scenario" as const,
-							position: node.position,
-							data: node.data as ScenarioNodeData,
-						};
-					case "transfer":
-						return {
-							id: node.id,
-							type: "transfer" as const,
-							position: node.position,
-							data: node.data as TransferNodeData,
-						};
-					case "objective":
-						return {
-							id: node.id,
-							type: "objective" as const,
-							position: node.position,
-							data: node.data as ObjectiveNodeData,
-						};
-					case "set_field":
-						return {
-							id: node.id,
-							type: "set_field" as const,
-							position: node.position,
-							data: node.data as SetFieldNodeData,
-						};
-					case "modify_tags":
-						return {
-							id: node.id,
-							type: "modify_tags" as const,
-							position: node.position,
-							data: node.data as ModifyTagsNodeData,
-						};
-					case "booking":
-						return {
-							id: node.id,
-							type: "booking" as const,
-							position: node.position,
-							data: node.data as BookingNodeData,
-						};
-					default:
-						return {
-							id: node.id,
-							type: "agent" as const,
-							position: node.position,
-							data: node.data as AgentNodeData,
-						};
+			// Every kind saves the same shape ({id, type, position, data}); the
+			// FLOW_KIND_META table only decides the fallback kind for a rogue type.
+			nodes: nodes.map((node): CanvasNodeDoc => {
+				if (node.type === "start") {
+					return { id: node.id, type: "start", position: node.position };
 				}
+				const kind = isFlowNodeKind(node.type) ? node.type : "agent";
+				return { id: node.id, type: kind, position: node.position, data: node.data } as CanvasNodeDoc;
 			}),
 			edges: edges.map((edge) => ({
 				id: edge.id,

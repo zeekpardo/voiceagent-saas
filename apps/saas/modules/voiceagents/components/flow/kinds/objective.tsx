@@ -47,8 +47,9 @@ export const objectiveKind = defineKind<ObjectiveNodeData>({
 	kind: "objective",
 	schema: objectiveNodeDataSchema,
 	canvasNode: ObjectiveNode,
-	editor: ({ nodeId, data, isEntry, onChange }) => (
+	editor: ({ agentId, nodeId, data, isEntry, onChange }) => (
 		<ObjectiveNodeEditor
+			agentId={agentId}
 			nodeId={nodeId}
 			data={data as ObjectiveNodeData}
 			isEntry={isEntry}

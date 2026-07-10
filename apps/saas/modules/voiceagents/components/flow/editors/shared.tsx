@@ -14,10 +14,6 @@ export interface FlowToolOption {
 /** Sentinel for "use the agent's default calendar" in calendar selects. */
 export const AGENT_DEFAULT_CALENDAR = "__agent_default__";
 
-/** Sentinels for the objective/set-field "where to save it" field selects. */
-export const OBJECTIVE_CUSTOM_FIELD = "__custom__";
-export const OBJECTIVE_NO_FIELD = "__none__";
-
 /**
  * Generic "patch this node's data" closure — every per-kind node editor
  * merges a partial update into the node's current data and hands the result

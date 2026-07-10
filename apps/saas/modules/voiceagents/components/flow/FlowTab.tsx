@@ -4,6 +4,7 @@ import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { useConfirmationAlert } from "@shared/components/ConfirmationAlertProvider";
+import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { useMemo, useState } from "react";
 
 import type { FlowTrace } from "../../hooks/use-flow-trace";
@@ -130,6 +131,7 @@ export function FlowTab({
 		[liveTools],
 	);
 
+	const { data: contactFields } = useContactFieldsQuery(agent.id);
 	const variableItems = useMemo(
 		() =>
 			buildVariableItems(
@@ -137,8 +139,9 @@ export function FlowTab({
 					typeof config.instructions === "string" ? config.instructions : undefined,
 					typeof config.greeting === "string" ? config.greeting : undefined,
 				),
+				contactFields?.fields ?? [],
 			),
-		[config.instructions, config.greeting],
+		[config.instructions, config.greeting, contactFields],
 	);
 
 	const handleSaveDraft = async (doc: CanvasDoc) => {

@@ -11,6 +11,10 @@ export interface CrmCustomFieldDef {
 	name: string;
 	/** The CRM's stable key for the field, when it has one. */
 	key?: string;
+	/** The CRM's data type for the field (e.g. "TEXT", "SINGLE_OPTIONS"), when known. */
+	dataType?: string;
+	/** Picklist values, when the field is a single/multi-select and the CRM exposes them. */
+	options?: string[];
 }
 
 /** A field value write: { fieldId, value } in the provider's id space. */

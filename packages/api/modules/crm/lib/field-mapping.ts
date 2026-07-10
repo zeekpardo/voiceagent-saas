@@ -14,9 +14,74 @@ import { STANDARD_CONTACT_FIELDS, normalizeName, toStandardWrite } from "./stand
  */
 
 export interface ContactFieldOption {
+	/** Unified stable key, e.g. "contact.email" / "contact.pool" / "location.city". */
 	key: string;
+	/** Human label for the picker, e.g. "Email". */
 	label: string;
+	/** "standard" = a fixed catalog field; "custom" = a CRM-defined custom field. */
 	kind: "standard" | "custom";
+	/**
+	 * Which record the field belongs to. Defaults to "contact" when omitted (kept
+	 * optional so existing consumers of the contact-only list are unaffected).
+	 */
+	namespace?: "contact" | "location";
+	/** The CRM's data type for a custom field (e.g. "TEXT", "SINGLE_OPTIONS"), when known. */
+	dataType?: string;
+	/** Picklist values when the CRM exposes them (single/multi-select fields). */
+	options?: string[];
+}
+
+/**
+ * The fixed LOCATION field catalog (the connected sub-account/location itself),
+ * CloseBot-style, keyed `location.*`. Always listed — like the standard contact
+ * fields — so the builder can reference the account's own details regardless of
+ * whether a live CRM fetch succeeds. There are no per-location "custom" fields
+ * in this catalog; it's a stable set every provider exposes the same way.
+ */
+export const LOCATION_FIELDS: { key: string; label: string }[] = [
+	{ key: "location.name", label: "Location Name" },
+	{ key: "location.address", label: "Location Address" },
+	{ key: "location.city", label: "Location City" },
+	{ key: "location.state", label: "Location State" },
+	{ key: "location.postal_code", label: "Location Postal Code" },
+	{ key: "location.country", label: "Location Country" },
+	{ key: "location.phone", label: "Location Phone" },
+	{ key: "location.email", label: "Location Email" },
+	{ key: "location.website", label: "Location Website" },
+	{ key: "location.timezone", label: "Location Timezone" },
+	{ key: "location.id", label: "Location ID" },
+];
+
+/** The standard contact catalog as picker options (no CRM call — always available). */
+export function standardContactFieldOptions(): ContactFieldOption[] {
+	return STANDARD_CONTACT_FIELDS.map((f) => ({
+		key: f.key,
+		label: f.label,
+		kind: "standard",
+		namespace: "contact",
+	}));
+}
+
+/** The location catalog as picker options (no CRM call — always available). */
+export function locationFieldOptions(): ContactFieldOption[] {
+	return LOCATION_FIELDS.map((f) => ({
+		key: f.key,
+		label: f.label,
+		kind: "standard",
+		namespace: "location",
+	}));
+}
+
+/** Dedupe options by key, first occurrence wins (preserves order). */
+export function dedupeFieldOptions(options: ContactFieldOption[]): ContactFieldOption[] {
+	const seen = new Set<string>();
+	const out: ContactFieldOption[] = [];
+	for (const o of options) {
+		if (seen.has(o.key)) continue;
+		seen.add(o.key);
+		out.push(o);
+	}
+	return out;
 }
 
 /** "callback_number" / "contact.callback_number" → "Callback Number". */
@@ -30,11 +95,7 @@ export function humanizeKey(key: string): string {
 
 /** Standard catalog + the subaccount's custom fields, ready for the picker. */
 export async function listContactFields(provider: CrmProvider): Promise<ContactFieldOption[]> {
-	const standard: ContactFieldOption[] = STANDARD_CONTACT_FIELDS.map((f) => ({
-		key: f.key,
-		label: f.label,
-		kind: "standard",
-	}));
+	const standard = standardContactFieldOptions();
 	const custom = await provider.listCustomFields();
 	const seen = new Set(standard.map((s) => s.key));
 	const customOptions: ContactFieldOption[] = [];
@@ -42,7 +103,14 @@ export async function listContactFields(provider: CrmProvider): Promise<ContactF
 		const key = f.key || `contact.${normalizeName(f.name)}`;
 		if (seen.has(key)) continue; // a custom field shadowing a standard key — skip the dupe
 		seen.add(key);
-		customOptions.push({ key, label: f.name, kind: "custom" });
+		customOptions.push({
+			key,
+			label: f.name,
+			kind: "custom",
+			namespace: "contact",
+			dataType: f.dataType,
+			options: f.options?.length ? f.options : undefined,
+		});
 	}
 	return [...standard, ...customOptions];
 }

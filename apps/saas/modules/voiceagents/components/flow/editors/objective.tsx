@@ -3,29 +3,24 @@
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectLabel,
-	SelectTrigger,
-	SelectValue,
-} from "@repo/ui/components/select";
 import { Textarea } from "@repo/ui/components/textarea";
+import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { makeId } from "../compile";
+import { ContactWriteFieldCombobox } from "../ContactWriteFieldCombobox";
+import { fieldOptionsFor, fieldToKey, isCompositeField, keyToStored } from "../field-adapter";
 import type { FlowNodeData, ObjectiveDoc, ObjectiveNodeData } from "../flow-types";
-import { OBJECTIVE_OUTPUT_VARIABLES } from "../flow-types";
-import { OBJECTIVE_CUSTOM_FIELD, OBJECTIVE_NO_FIELD, TitleInput, usePatch } from "./shared";
+import { TitleInput, usePatch } from "./shared";
 
 export function ObjectiveNodeEditor({
+	agentId,
 	nodeId,
 	data,
 	isEntry,
 	onChange,
 }: {
+	agentId: string;
 	nodeId: string;
 	data: ObjectiveNodeData;
 	isEntry: boolean;
@@ -36,7 +31,8 @@ export function ObjectiveNodeEditor({
 		patch({
 			objectives: data.objectives.map((o) => (o.id === id ? { ...o, ...partial } : o)),
 		});
-	const knownField = (field: string) => OBJECTIVE_OUTPUT_VARIABLES.some((v) => v.field === field);
+	const { data: fieldsData } = useContactFieldsQuery(agentId);
+	const fields = fieldsData?.fields ?? [];
 
 	return (
 		<>
@@ -49,14 +45,8 @@ export function ObjectiveNodeEditor({
 			<div className="gap-3 flex flex-col">
 				<Label>Objectives</Label>
 				{data.objectives.map((objective, index) => {
-					const isComposite = OBJECTIVE_OUTPUT_VARIABLES.find(
-						(v) => v.field === objective.field,
-					)?.composite;
-					const selectValue = objective.field
-						? knownField(objective.field)
-							? objective.field
-							: OBJECTIVE_CUSTOM_FIELD
-						: OBJECTIVE_NO_FIELD;
+					const isComposite = isCompositeField(objective.field, fields);
+					const pickOptions = fieldOptionsFor(objective.field, fields);
 					return (
 						<div
 							key={objective.id}
@@ -80,41 +70,26 @@ export function ObjectiveNodeEditor({
 
 							<div className="gap-1.5 flex flex-col">
 								<Label className="text-xs">Output variable</Label>
-								<Select
-									value={selectValue}
-									onValueChange={(value) => {
-										if (value === OBJECTIVE_NO_FIELD) patchObjective(objective.id, { field: "" });
-										else if (value === OBJECTIVE_CUSTOM_FIELD)
-											patchObjective(objective.id, {
-												field: knownField(objective.field) ? "" : objective.field,
-											});
-										else patchObjective(objective.id, { field: value });
-									}}
-								>
-									<SelectTrigger className="h-9">
-										<SelectValue placeholder="Where to save it" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value={OBJECTIVE_NO_FIELD}>Don't save (gather only)</SelectItem>
-										<SelectGroup>
-											<SelectLabel>Standard fields</SelectLabel>
-											{OBJECTIVE_OUTPUT_VARIABLES.map((v) => (
-												<SelectItem key={v.field} value={v.field}>
-													{v.label}
-													{v.composite ? " — fills all parts" : ""}
-												</SelectItem>
-											))}
-										</SelectGroup>
-										<SelectItem value={OBJECTIVE_CUSTOM_FIELD}>Custom field…</SelectItem>
-									</SelectContent>
-								</Select>
-								{selectValue === OBJECTIVE_CUSTOM_FIELD && (
-									<Input
-										className="mt-1 h-9"
-										value={objective.field}
-										onChange={(e) => patchObjective(objective.id, { field: e.target.value })}
-										placeholder="Exact CRM field name, e.g. Reason for Selling"
-									/>
+								<ContactWriteFieldCombobox
+									agentId={agentId}
+									value={fieldToKey(objective.field, fields)}
+									onChange={(key) =>
+										patchObjective(objective.id, { field: keyToStored(key, fields) })
+									}
+									allowEmpty
+									allowCustomKey
+									placeholder="Leave Empty (gather only)"
+								/>
+								{pickOptions && (
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										className="mt-1 self-start"
+										onClick={() => patchObjective(objective.id, { options: pickOptions })}
+									>
+										Use field's options
+									</Button>
 								)}
 								{isComposite && (
 									<p className="text-xs opacity-50">

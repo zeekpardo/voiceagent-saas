@@ -68,7 +68,13 @@ export class GoHighLevelProvider implements CrmProvider {
 	async listCustomFields(): Promise<CrmCustomFieldDef[]> {
 		await this.ensureFreshToken();
 		const fields = await this.client.getCustomFields();
-		return fields.map((f) => ({ id: f.id, name: f.name, key: f.fieldKey }));
+		return fields.map((f) => ({
+			id: f.id,
+			name: f.name,
+			key: f.fieldKey,
+			dataType: f.dataType,
+			options: f.picklistOptions?.length ? f.picklistOptions : undefined,
+		}));
 	}
 
 	async createCustomField(name: string): Promise<CrmCustomFieldDef> {

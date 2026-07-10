@@ -38,19 +38,89 @@ export interface MentionSources {
 	onToolInserted?: (toolName: string) => void;
 }
 
-export const STANDARD_VARIABLES = [
+/**
+ * Runtime dynamic-variable catalog — the EXACT names the platform substitutes
+ * at call time. BOTH dispatch paths (builder-test `sessions.ts` and the
+ * production trigger `voice-call/[token]/route.ts`) merge only these:
+ *   - contact_*  ← GHL getContactContext()  (packages/api/.../providers/gohighlevel.ts:169)
+ *   - location_* ← GHL getAccountContext()   (…/gohighlevel.ts:305)
+ *   - caller_*   ← dispatch/session (caller_name is set on the test path; caller_number kept as legacy)
+ *
+ * Names MUST stay byte-identical to that provider code — a mismatch yields a
+ * mention chip that silently resolves to nothing at call time. Custom CRM
+ * fields are deliberately absent: getContactContext emits only standard slots,
+ * so no {{contact_<custom>}} variable exists at runtime (custom values reach
+ * the prompt via the engine's KNOWN CONTACT INFO block, not interpolation).
+ */
+export const RUNTIME_CONTACT_VARIABLES = [
 	"contact_first_name",
 	"contact_last_name",
 	"contact_full_name",
 	"contact_email",
 	"contact_phone",
+	"contact_company",
+	"contact_address",
+	"contact_city",
+	"contact_state",
+	"contact_postal_code",
 	"contact_full_address",
 	"contact_tags",
+	"contact_source",
+	"contact_timezone",
+];
+
+export const RUNTIME_LOCATION_VARIABLES = [
 	"location_name",
 	"location_address",
+	"location_city",
+	"location_state",
+	"location_postal_code",
+	"location_full_address",
 	"location_phone",
-	"caller_number",
+	"location_website",
+	"location_timezone",
 ];
+
+export const RUNTIME_CALLER_VARIABLES = ["caller_name", "caller_number"];
+
+export const STANDARD_VARIABLES = [
+	...RUNTIME_CONTACT_VARIABLES,
+	...RUNTIME_LOCATION_VARIABLES,
+	...RUNTIME_CALLER_VARIABLES,
+];
+
+/**
+ * Unified-field-source key → the runtime variable it interpolates to, for keys
+ * the dispatch merge actually emits. This is how the contact-fields source is
+ * wired into the mention list: a catalog field becomes a chip only if its key
+ * maps to a real runtime variable. Custom keys (contact.<slug>) and standard
+ * keys with no runtime variable (contact.country / contact.website;
+ * location.country / location.email / location.id) are absent here, so they are
+ * skipped. Note the non-1:1 spots vs a naive `key.replace(".","_")`:
+ *   contact.name    → contact_full_name   (runtime has no contact_name)
+ *   contact.address → contact_full_address (catalog "Full Address" is composite)
+ *   contact.address1→ contact_address      (runtime contact_address is the street)
+ */
+const KEY_TO_RUNTIME_VARIABLE: Record<string, string> = {
+	"contact.first_name": "contact_first_name",
+	"contact.last_name": "contact_last_name",
+	"contact.name": "contact_full_name",
+	"contact.email": "contact_email",
+	"contact.phone": "contact_phone",
+	"contact.address": "contact_full_address",
+	"contact.address1": "contact_address",
+	"contact.city": "contact_city",
+	"contact.state": "contact_state",
+	"contact.postal_code": "contact_postal_code",
+	"location.name": "location_name",
+	"location.address": "location_address",
+	"location.city": "location_city",
+	"location.state": "location_state",
+	"location.postal_code": "location_postal_code",
+	"location.phone": "location_phone",
+	"location.website": "location_website",
+	"location.timezone": "location_timezone",
+};
 
 interface ChipStyle {
 	prefix: string;
@@ -299,9 +369,24 @@ export function createFlowMentionExtension(sources: MentionSources): AnyExtensio
 	});
 }
 
-/** Build the variable mention list: standard set + names found in existing config text. */
-export function buildVariableItems(extraNames: string[]): MentionItem[] {
-	const names = [...new Set([...STANDARD_VARIABLES, ...extraNames])];
+/**
+ * Build the variable mention list: the runtime dynamic-variable catalog, plus
+ * any unified-source contact/location fields whose key maps to a real runtime
+ * variable, plus names already referenced in the config text. Deduped; searchable
+ * by label or key (filterItems matches id/label/sub).
+ *
+ * `fields` comes from the unified contact-fields source (useContactFieldsQuery).
+ * Only fields that map to an emitted runtime variable are added — custom fields
+ * resolve to `undefined` here and are skipped, so no dead {{}} chips are offered.
+ */
+export function buildVariableItems(
+	extraNames: string[],
+	fields: { key: string }[] = [],
+): MentionItem[] {
+	const fromFields = fields
+		.map((f) => KEY_TO_RUNTIME_VARIABLE[f.key])
+		.filter((v): v is string => !!v);
+	const names = [...new Set([...STANDARD_VARIABLES, ...fromFields, ...extraNames])];
 	return names.map((name) => ({
 		id: name,
 		label: prettifyVariable(name),

@@ -82,20 +82,6 @@ export const FLOW_PALETTE_KINDS = [
  * to the contact record; anything else is a custom field (find-or-create by name).
  * The `field` value is what update_contact receives as field_name.
  */
-export const OBJECTIVE_OUTPUT_VARIABLES: { label: string; field: string; composite?: boolean }[] = [
-	{ label: "Full Address", field: "Full Address", composite: true },
-	{ label: "Full Name", field: "Full Name", composite: true },
-	{ label: "First Name", field: "First Name" },
-	{ label: "Last Name", field: "Last Name" },
-	{ label: "Email", field: "Email" },
-	{ label: "Phone", field: "Phone" },
-	{ label: "Street Address", field: "Street Address" },
-	{ label: "City", field: "City" },
-	{ label: "State", field: "State" },
-	{ label: "Postal Code", field: "Postal Code" },
-	{ label: "Country", field: "Country" },
-	{ label: "Website", field: "Website" },
-];
 export type FlowPaletteKind = (typeof FLOW_PALETTE_KINDS)[number];
 
 export interface FlowSectionDoc {

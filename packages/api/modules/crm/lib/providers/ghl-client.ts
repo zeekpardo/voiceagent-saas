@@ -17,6 +17,8 @@ export interface GhlCustomFieldDefinition {
 	fieldKey: string;
 	dataType: string;
 	model?: string;
+	/** Present for single/multi-select field types (RADIO, SINGLE_OPTIONS, CHECKBOX…). */
+	picklistOptions?: string[];
 }
 
 export interface GhlCustomFieldValue {

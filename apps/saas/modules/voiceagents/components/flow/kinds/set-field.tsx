@@ -13,8 +13,13 @@ export const setFieldKind = defineKind<SetFieldNodeData>({
 	kind: "set_field",
 	schema: setFieldNodeDataSchema,
 	canvasNode: SetFieldNode,
-	editor: ({ nodeId, data, onChange }) => (
-		<SetFieldNodeEditor nodeId={nodeId} data={data as SetFieldNodeData} onChange={onChange} />
+	editor: ({ agentId, nodeId, data, onChange }) => (
+		<SetFieldNodeEditor
+			agentId={agentId}
+			nodeId={nodeId}
+			data={data as SetFieldNodeData}
+			onChange={onChange}
+		/>
 	),
 	sheetMeta: {
 		title: "Edit Set Field",

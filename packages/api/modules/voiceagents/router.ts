@@ -13,6 +13,7 @@ import {
 } from "./procedures/agent-sources";
 import { createAgent, deleteAgent, getAgent, listAgents, updateAgent } from "./procedures/agents";
 import { getCallEvents, getTranscript, listCalls } from "./procedures/calls";
+import { listContactFieldOptionsProcedure } from "./procedures/contact-fields";
 import {
 	discardDraft,
 	getDraft,
@@ -90,6 +91,9 @@ export const voiceagentsRouter = {
 		getMapping: getAgentSourceMapping,
 		saveMapping: saveAgentSourceMappingProcedure,
 		contactFields: listContactFieldsProcedure,
+	},
+	contactFields: {
+		list: listContactFieldOptionsProcedure,
 	},
 	liveTools: listAgentLiveTools,
 	calendars: listAgentCalendars,

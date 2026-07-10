@@ -20,6 +20,7 @@ export default defineConfig({
 			"@ai": path.resolve(import.meta.dirname, "./modules/ai"),
 			"@onboarding": path.resolve(import.meta.dirname, "./modules/onboarding"),
 			"@settings": path.resolve(import.meta.dirname, "./modules/settings"),
+			"@voiceagents": path.resolve(import.meta.dirname, "./modules/voiceagents"),
 		},
 	},
 });

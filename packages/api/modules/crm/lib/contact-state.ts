@@ -2,7 +2,7 @@ import { getAgentSource } from "@repo/database";
 
 import { humanizeKey, type MappingEntry } from "./field-mapping";
 import { resolveCrmProvider } from "./resolve";
-import { STANDARD_CONTACT_FIELDS } from "./standard-fields";
+import { normalizeName, STANDARD_CONTACT_FIELDS } from "./standard-fields";
 
 /**
  * Contact state snapshot — the SaaS-side builder for the engine's KNOWN CONTACT
@@ -59,7 +59,7 @@ const CONVERSATION_STANDARD_KEYS = [
 ];
 
 /** Sensible ceiling so a huge custom-field set can't bloat the prompt. */
-const MAX_FIELDS = 40;
+const MAX_FIELDS = 100;
 
 const STANDARD_LABEL = new Map(STANDARD_CONTACT_FIELDS.map((f) => [f.key, f.label]));
 
@@ -70,9 +70,14 @@ function targetKey(m: MappingEntry): string | undefined {
 
 /**
  * Build the contact state array for a dispatch. The field set is the
- * conversation standard fields plus every field the agent's saved mappings
- * target (so a known answer suppresses its objective's question). Values come
- * from the live CRM contact record.
+ * conversation standard fields, every field the agent's saved mappings target,
+ * AND the source's ENTIRE custom-field catalog — so the live agent's KNOWN
+ * CONTACT INFO block lists every field it could gather (each with its current
+ * value or UNRESOLVED). Values come from the live CRM contact record.
+ *
+ * Order: standard conversation fields → mapped fields → custom fields WITH a
+ * value → remaining custom fields (UNRESOLVED). Deduped by key, capped at
+ * MAX_FIELDS with a loud truncation log (never silent).
  *
  * Failure-isolated: any CRM/DB error resolves to `undefined` so the caller
  * simply dispatches without contact state — building it must never block a call.
@@ -87,6 +92,10 @@ export async function buildContactState(input: {
 		const provider = await resolveCrmProvider(input.sourceId);
 		if (!provider) return undefined;
 
+		// The live contact record's values, keyed by unified `contact.*` key.
+		const values = await provider.getContactFieldValues(input.contactId);
+		const hasValue = (key: string) => values[key] != null && values[key] !== "";
+
 		// Assemble the desired key set (dedup, preserve order) + a label per key.
 		const labels = new Map<string, string>();
 		const order: string[] = [];
@@ -96,10 +105,12 @@ export async function buildContactState(input: {
 			order.push(key);
 		};
 
+		// 1) Standard conversation fields.
 		for (const key of CONVERSATION_STANDARD_KEYS) {
 			add(key, STANDARD_LABEL.get(key) ?? humanizeKey(key));
 		}
 
+		// 2) Fields the agent explicitly mapped (preserves their labels).
 		if (input.agentId) {
 			const mapping = await getAgentSource(input.agentId, input.sourceId).catch(() => null);
 			const mappings = (mapping?.fieldMappings as unknown as MappingEntry[]) ?? [];
@@ -114,11 +125,25 @@ export async function buildContactState(input: {
 			}
 		}
 
-		const keys = order.slice(0, MAX_FIELDS);
-		if (keys.length === 0) return undefined;
+		// 3) The source's ENTIRE custom-field catalog — known values first, then
+		//    UNRESOLVED — so the agent sees everything it could gather. One
+		//    listCustomFields fetch, reused; a failure here just yields no extras.
+		const customDefs = await provider.listCustomFields().catch(() => []);
+		const customOptions = customDefs.map((f) => ({
+			key: f.key || `contact.${normalizeName(f.name)}`,
+			label: f.name,
+		}));
+		for (const c of customOptions) if (hasValue(c.key)) add(c.key, c.label);
+		for (const c of customOptions) add(c.key, c.label);
 
-		const values = await provider.getContactFieldValues(input.contactId);
-		return keys.map((key) => ({
+		if (order.length === 0) return undefined;
+		if (order.length > MAX_FIELDS) {
+			console.warn(
+				`[contact-state] truncated ${order.length - MAX_FIELDS} fields (cap ${MAX_FIELDS})`,
+			);
+		}
+
+		return order.slice(0, MAX_FIELDS).map((key) => ({
 			key,
 			label: labels.get(key)!,
 			value: values[key] ?? null,

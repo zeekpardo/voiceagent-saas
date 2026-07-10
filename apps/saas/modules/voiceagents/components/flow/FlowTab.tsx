@@ -14,13 +14,9 @@ import {
 	newCanvas,
 	validateFlowDoc,
 } from "./compile";
-import {
-	type CanvasDoc,
-	canvasDocSchema,
-	engineFlowSchema,
-	type FlowPaletteKind,
-} from "./flow-types";
+import { type CanvasDoc, engineFlowSchema, type FlowPaletteKind } from "./flow-types";
 import { FlowCanvas } from "./FlowCanvas";
+import { canvasDocSchema } from "./kinds";
 import { buildVariableItems } from "./mentions";
 import type { FlowToolOption } from "./NodeEditorPanel";
 

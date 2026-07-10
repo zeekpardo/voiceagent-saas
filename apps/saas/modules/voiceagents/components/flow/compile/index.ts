@@ -1,41 +1,21 @@
 import type {
-	AgentCanvasNodeDoc,
-	AgentNodeData,
-	BookingCanvasNodeDoc,
-	BookingNodeData,
 	CanvasDoc,
 	CanvasEdgeDoc,
 	CanvasNodeDoc,
 	EngineFlow,
 	EngineFlowNode,
 	EngineFlowScenario,
-	ModifyTagsCanvasNodeDoc,
-	ModifyTagsNodeData,
-	ObjectiveCanvasNodeDoc,
-	ObjectiveNodeData,
-	ScenarioCanvasNodeDoc,
-	ScenarioNodeData,
-	SetFieldCanvasNodeDoc,
-	SetFieldNodeData,
-	StatementCanvasNodeDoc,
-	StatementNodeData,
-	SwitchCanvasNodeDoc,
-	SwitchNodeData,
-	TransferCanvasNodeDoc,
-	TransferNodeData,
-	TrueFalseCanvasNodeDoc,
-	TrueFalseNodeData,
 } from "../flow-types";
 import { START_HANDLE_ID, START_NODE_ID } from "../flow-types";
-import { compileAgentNode, decompileAgentNode } from "./nodes/agent";
-import { compileBookingNode } from "./nodes/booking";
-import { compileModifyTagsNode, decompileModifyTagsNode } from "./nodes/modify-tags";
-import { compileObjectiveNode, decompileObjectiveNode } from "./nodes/objective";
-import { compileSwitchNode, compileTrueFalseNode, decompileRouterNode } from "./nodes/router";
-import { compileScenarioNode, decompileScenario } from "./nodes/scenario";
-import { compileSetFieldNode, decompileSetFieldNode } from "./nodes/set-field";
-import { compileStatementNode, decompileStatementNode } from "./nodes/statement";
-import { compileTransferNode, decompileTransferNode } from "./nodes/transfer";
+import { FLOW_KINDS, isFlowNodeKind } from "../kinds";
+import { decompileAgentNode } from "./nodes/agent";
+import { decompileModifyTagsNode } from "./nodes/modify-tags";
+import { decompileObjectiveNode } from "./nodes/objective";
+import { decompileRouterNode } from "./nodes/router";
+import { decompileScenario } from "./nodes/scenario";
+import { decompileSetFieldNode } from "./nodes/set-field";
+import { decompileStatementNode } from "./nodes/statement";
+import { decompileTransferNode } from "./nodes/transfer";
 import { makeId, textToTiptapDoc } from "./text";
 
 export {
@@ -75,59 +55,21 @@ export function compileCanvas(
 	const targetOf = (nodeId: string, handleId: string) =>
 		doc.edges.find((e) => e.source === nodeId && e.sourceHandle === handleId)?.target;
 
+	// Per-kind compile lives on each registry entry (kinds/*). Scenario nodes emit
+	// a global scenario (flow.scenarios); every other kind emits a flow node. Nodes
+	// without data (never persisted, but guard anyway) and the Start node are skipped.
 	const nodes: EngineFlowNode[] = [];
 	const scenarios: EngineFlowScenario[] = [];
 	for (const node of doc.nodes) {
-		if (node.type === "scenario" && node.data) {
-			scenarios.push(
-				compileScenarioNode(node as ScenarioCanvasNodeDoc & { data: ScenarioNodeData }, targetOf),
-			);
-		} else if (node.type === "statement" && node.data) {
-			nodes.push(
-				compileStatementNode(node as StatementCanvasNodeDoc & { data: StatementNodeData }, targetOf),
-			);
-		} else if (node.type === "objective" && node.data) {
-			nodes.push(
-				compileObjectiveNode(
-					node as ObjectiveCanvasNodeDoc & { data: ObjectiveNodeData },
-					entry,
-					targetOf,
-				),
-			);
-		} else if (node.type === "booking" && node.data) {
-			nodes.push(
-				compileBookingNode(node as BookingCanvasNodeDoc & { data: BookingNodeData }, entry, targetOf),
-			);
-		} else if (node.type === "set_field" && node.data) {
-			nodes.push(
-				compileSetFieldNode(node as SetFieldCanvasNodeDoc & { data: SetFieldNodeData }, targetOf),
-			);
-		} else if (node.type === "modify_tags" && node.data) {
-			nodes.push(
-				compileModifyTagsNode(
-					node as ModifyTagsCanvasNodeDoc & { data: ModifyTagsNodeData },
-					targetOf,
-				),
-			);
-		} else if (node.type === "transfer" && node.data) {
-			nodes.push(
-				compileTransferNode(node as TransferCanvasNodeDoc & { data: TransferNodeData }, targetOf),
-			);
-		} else if (node.type === "agent" && node.data) {
-			nodes.push(
-				compileAgentNode(node as AgentCanvasNodeDoc & { data: AgentNodeData }, entry, targetOf),
-			);
-		} else if (node.type === "truefalse" && node.data) {
-			nodes.push(
-				compileTrueFalseNode(
-					node as TrueFalseCanvasNodeDoc & { data: TrueFalseNodeData },
-					targetOf,
-				),
-			);
-		} else if (node.type === "switch" && node.data) {
-			nodes.push(
-				compileSwitchNode(node as SwitchCanvasNodeDoc & { data: SwitchNodeData }, targetOf),
-			);
+		if (node.type === "start" || !node.data || !isFlowNodeKind(node.type)) {
+			continue;
+		}
+		const result = FLOW_KINDS[node.type].compile(node, { entry, targetOf });
+		if (result.node) {
+			nodes.push(result.node);
+		}
+		if (result.scenario) {
+			scenarios.push(result.scenario);
 		}
 	}
 

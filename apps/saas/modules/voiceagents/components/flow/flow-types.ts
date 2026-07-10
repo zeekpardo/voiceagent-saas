@@ -407,7 +407,7 @@ const flowExitSchema = z.object({
 	description: z.string(),
 });
 
-const agentNodeDataSchema = z.object({
+export const agentNodeDataSchema = z.object({
 	title: z.string(),
 	sections: z.array(flowSectionSchema),
 	entryMessage: z.string(),
@@ -419,7 +419,7 @@ const agentNodeDataSchema = z.object({
 	failedBookingTag: z.string().optional(),
 });
 
-const objectiveNodeDataSchema = z.object({
+export const objectiveNodeDataSchema = z.object({
 	title: z.string(),
 	entryMessage: z.string().default(""),
 	objectives: z.array(
@@ -435,12 +435,12 @@ const objectiveNodeDataSchema = z.object({
 	),
 });
 
-const trueFalseNodeDataSchema = z.object({
+export const trueFalseNodeDataSchema = z.object({
 	title: z.string(),
 	condition: z.string(),
 });
 
-const switchNodeDataSchema = z.object({
+export const switchNodeDataSchema = z.object({
 	title: z.string(),
 	condition: z.string(),
 	cases: z.array(
@@ -453,17 +453,17 @@ const switchNodeDataSchema = z.object({
 	includeOtherwise: z.boolean().default(true),
 });
 
-const statementNodeDataSchema = z.object({
+export const statementNodeDataSchema = z.object({
 	title: z.string(),
 	say: z.string(),
 });
 
-const scenarioNodeDataSchema = z.object({
+export const scenarioNodeDataSchema = z.object({
 	title: z.string(),
 	description: z.string(),
 });
 
-const transferNodeDataSchema = z.object({
+export const transferNodeDataSchema = z.object({
 	title: z.string(),
 	say: z.string(),
 	holdSeconds: z.number(),
@@ -471,19 +471,19 @@ const transferNodeDataSchema = z.object({
 	voiceProvider: z.string().optional(),
 });
 
-const setFieldNodeDataSchema = z.object({
+export const setFieldNodeDataSchema = z.object({
 	title: z.string(),
 	field: z.string(),
 	value: z.string(),
 });
 
-const modifyTagsNodeDataSchema = z.object({
+export const modifyTagsNodeDataSchema = z.object({
 	title: z.string(),
 	addTags: z.array(z.string()),
 	removeTags: z.array(z.string()),
 });
 
-const bookingNodeDataSchema = z.object({
+export const bookingNodeDataSchema = z.object({
 	title: z.string(),
 	calendarName: z.string().default(""),
 	description: z.string().default(""),
@@ -493,88 +493,28 @@ const bookingNodeDataSchema = z.object({
 	toolIds: z.array(z.string()).default([]),
 });
 
-const positionSchema = z.object({ x: z.number(), y: z.number() });
+export const positionSchema = z.object({ x: z.number(), y: z.number() });
 
-export const canvasDocSchema = z.object({
-	version: z.literal(1),
-	nodes: z.array(
-		z.discriminatedUnion("type", [
-			z.object({
-				id: z.string(),
-				type: z.literal("start"),
-				position: positionSchema,
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("agent"),
-				position: positionSchema,
-				data: agentNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("objective"),
-				position: positionSchema,
-				data: objectiveNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("truefalse"),
-				position: positionSchema,
-				data: trueFalseNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("switch"),
-				position: positionSchema,
-				data: switchNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("statement"),
-				position: positionSchema,
-				data: statementNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("scenario"),
-				position: positionSchema,
-				data: scenarioNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("transfer"),
-				position: positionSchema,
-				data: transferNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("set_field"),
-				position: positionSchema,
-				data: setFieldNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("modify_tags"),
-				position: positionSchema,
-				data: modifyTagsNodeDataSchema.optional(),
-			}),
-			z.object({
-				id: z.string(),
-				type: z.literal("booking"),
-				position: positionSchema,
-				data: bookingNodeDataSchema.optional(),
-			}),
-		]),
-	),
-	edges: z.array(
-		z.object({
-			id: z.string(),
-			source: z.string(),
-			sourceHandle: z.string().optional(),
-			target: z.string(),
-		}),
-	),
-	viewport: z.object({ x: z.number(), y: z.number(), zoom: z.number() }).optional(),
+export const canvasEdgeSchema = z.object({
+	id: z.string(),
+	source: z.string(),
+	sourceHandle: z.string().optional(),
+	target: z.string(),
+});
+
+export const canvasViewportSchema = z
+	.object({ x: z.number(), y: z.number(), zoom: z.number() })
+	.optional();
+
+/**
+ * The Start node's canvas schema. The editable kinds' node schemas are derived
+ * from the node-kind registry (see kinds/index.ts) so `canvasDocSchema` lives
+ * there — this keeps the fixed Start node's shape next to its constants.
+ */
+export const startCanvasNodeSchema = z.object({
+	id: z.string(),
+	type: z.literal("start"),
+	position: positionSchema,
 });
 
 export const engineFlowSchema = z.object({

@@ -9,116 +9,26 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@repo/ui/components/sheet";
-import {
-	ArrowRightIcon,
-	type LucideIcon,
-	SettingsIcon,
-	Trash2Icon,
-	WrenchIcon,
-} from "lucide-react";
+import { Trash2Icon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { AgentExitsPanel, AgentPromptEditor, AgentSettingsPanel, AgentToolsPanel } from "./editors/agent";
-import { BookingNodeEditor } from "./editors/booking";
-import { ModifyTagsNodeEditor } from "./editors/modify-tags";
-import { ObjectiveNodeEditor } from "./editors/objective";
-import { ScenarioNodeEditor } from "./editors/scenario";
-import { SetFieldNodeEditor } from "./editors/set-field";
+import { AgentExitsPanel, AgentSettingsPanel, AgentToolsPanel } from "./editors/agent";
 import type { FlowToolOption } from "./editors/shared";
-import { StatementNodeEditor } from "./editors/statement";
-import { SwitchNodeEditor } from "./editors/switch";
-import { TransferNodeEditor } from "./editors/transfer";
-import { TrueFalseNodeEditor } from "./editors/true-false";
-import type {
-	AgentNodeData,
-	BookingNodeData,
-	FlowNodeData,
-	FlowNodeKind,
-	ModifyTagsNodeData,
-	ObjectiveNodeData,
-	ScenarioNodeData,
-	SetFieldNodeData,
-	StatementNodeData,
-	SwitchNodeData,
-	TransferNodeData,
-	TrueFalseNodeData,
-} from "./flow-types";
+import type { AgentNodeData, FlowNodeData, FlowNodeKind } from "./flow-types";
+import { FLOW_KINDS } from "./kinds";
+import type { FlowKindSubPanel } from "./kinds";
 import { createFlowMentionExtension, type MentionItem } from "./mentions";
 
 export type { FlowToolOption } from "./editors/shared";
 
 type AgentSubPanel = "settings" | "tools" | "exits";
 
-const SUB_PANEL_META: Record<AgentSubPanel, { title: string; description: string; icon: LucideIcon }> = {
-	settings: {
-		title: "Node settings",
-		description: "Model override and booking behavior for this stage.",
-		icon: SettingsIcon,
-	},
-	tools: {
-		title: "Tools",
-		description: "What this node may call while it is active. @@chips check tools automatically.",
-		icon: WrenchIcon,
-	},
-	exits: {
-		title: "Exit paths",
-		description: "Mention exits in the prompt with @@@ to include them as AI exit choices.",
-		icon: ArrowRightIcon,
-	},
-};
-
-const SHEET_META: Record<FlowNodeKind, { title: string; description: string }> = {
-	agent: {
-		title: "Edit agent node",
-		description:
-			"The prompt is the star — type @ for variables, @@ for tools, @@@ for exits. Tools, exits and settings live in the side rail.",
-	},
-	truefalse: {
-		title: "Edit True/False branch",
-		description:
-			"This node never speaks — the AI checks the conversation against a statement and takes the True or False path.",
-	},
-	switch: {
-		title: "Edit Switch branch",
-		description:
-			"This node never speaks — the AI checks the conversation against a question and follows the matching case.",
-	},
-	objective: {
-		title: "Edit Objective",
-		description:
-			"Gather information from the caller, one question at a time. The system verifies each objective as they answer, saves it to the chosen field, and moves on automatically once every objective is met.",
-	},
-	statement: {
-		title: "Edit Statement",
-		description:
-			"This node speaks its text exactly as written, then the flow continues immediately.",
-	},
-	scenario: {
-		title: "Edit Scenario",
-		description:
-			"A global detector — checked continuously from every stage. When it matches, the call jumps to the connected node.",
-	},
-	booking: {
-		title: "Edit Booking",
-		description:
-			"Conversationally book an appointment onto a calendar, then branch on the outcome (booked, or no time worked).",
-	},
-	set_field: {
-		title: "Edit Set Field",
-		description:
-			"Deterministically write one CRM field, then continue. No conversation — the value is saved silently and the flow moves on.",
-	},
-	modify_tags: {
-		title: "Edit Modify Tags",
-		description:
-			"Deterministically add or remove contact tags, then continue. No conversation — the tags change silently and the flow moves on.",
-	},
-	transfer: {
-		title: "Edit Transfer",
-		description:
-			"A simulated warm hand-off: an optional announcement, hold music, then the connected node continues with a new voice.",
-	},
-};
+/**
+ * The agent node's mini icon-rail sub-panels (settings / tools / exits) — defined
+ * on the agent registry entry. The per-kind sheet header copy lives on each
+ * entry's `sheetMeta`; this panel reads both from the registry.
+ */
+const SUB_PANEL_META = FLOW_KINDS.agent.subPanels as Record<AgentSubPanel, FlowKindSubPanel>;
 
 /**
  * Right-side sheet for editing one flow node. Agent nodes get a CloseBot-style
@@ -235,6 +145,11 @@ export function NodeEditorPanel({
 	}
 
 	const isAgent = nodeType === "agent";
+	// Editor bodies come straight from the node-kind registry: the agent's editor
+	// is the prompt column (rendered inside the split layout below); every other
+	// kind's editor is a single-column body.
+	const AgentEditor = FLOW_KINDS.agent.editor;
+	const NodeEditor = FLOW_KINDS[nodeType].editor;
 
 	const footer = (
 		<div className="mt-2 flex justify-between border-t pt-4">
@@ -338,15 +253,18 @@ export function NodeEditorPanel({
 							</div>
 						)}
 
-						{/* Main column — the prompt is the focus. */}
+						{/* Main column — the prompt is the focus. The agent prompt editor
+						    is the agent registry entry's `editor` (it consumes the mention
+						    extension; every other kind ignores it). */}
 						<div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
 							<SheetHeader className="p-0">
-								<SheetTitle>{SHEET_META.agent.title}</SheetTitle>
-								<SheetDescription>{SHEET_META.agent.description}</SheetDescription>
+								<SheetTitle>{FLOW_KINDS.agent.sheetMeta.title}</SheetTitle>
+								<SheetDescription>{FLOW_KINDS.agent.sheetMeta.description}</SheetDescription>
 							</SheetHeader>
-							<AgentPromptEditor
+							<AgentEditor
+								agentId={agentId}
 								nodeId={nodeId}
-								data={data as AgentNodeData}
+								data={data}
 								isEntry={isEntry}
 								mentionExtension={mentionExtension}
 								onChange={onChange}
@@ -357,54 +275,18 @@ export function NodeEditorPanel({
 				) : (
 					<>
 						<SheetHeader>
-							<SheetTitle>{SHEET_META[nodeType].title}</SheetTitle>
-							<SheetDescription>{SHEET_META[nodeType].description}</SheetDescription>
+							<SheetTitle>{FLOW_KINDS[nodeType].sheetMeta.title}</SheetTitle>
+							<SheetDescription>{FLOW_KINDS[nodeType].sheetMeta.description}</SheetDescription>
 						</SheetHeader>
-						{nodeType === "truefalse" && (
-							<TrueFalseNodeEditor nodeId={nodeId} data={data as TrueFalseNodeData} onChange={onChange} />
-						)}
-						{nodeType === "switch" && (
-							<SwitchNodeEditor nodeId={nodeId} data={data as SwitchNodeData} onChange={onChange} />
-						)}
-						{nodeType === "objective" && (
-							<ObjectiveNodeEditor
-								nodeId={nodeId}
-								data={data as ObjectiveNodeData}
-								isEntry={isEntry}
-								onChange={onChange}
-							/>
-						)}
-						{nodeType === "statement" && (
-							<StatementNodeEditor
-								nodeId={nodeId}
-								data={data as StatementNodeData}
-								onChange={onChange}
-							/>
-						)}
-						{nodeType === "scenario" && (
-							<ScenarioNodeEditor nodeId={nodeId} data={data as ScenarioNodeData} onChange={onChange} />
-						)}
-						{nodeType === "booking" && (
-							<BookingNodeEditor
-								agentId={agentId}
-								nodeId={nodeId}
-								data={data as BookingNodeData}
-								onChange={onChange}
-							/>
-						)}
-						{nodeType === "set_field" && (
-							<SetFieldNodeEditor nodeId={nodeId} data={data as SetFieldNodeData} onChange={onChange} />
-						)}
-						{nodeType === "modify_tags" && (
-							<ModifyTagsNodeEditor
-								nodeId={nodeId}
-								data={data as ModifyTagsNodeData}
-								onChange={onChange}
-							/>
-						)}
-						{nodeType === "transfer" && (
-							<TransferNodeEditor nodeId={nodeId} data={data as TransferNodeData} onChange={onChange} />
-						)}
+						{/* Every non-agent kind's editor is a single-column body dispatched
+						    straight from the registry. */}
+						<NodeEditor
+							agentId={agentId}
+							nodeId={nodeId}
+							data={data}
+							isEntry={isEntry}
+							onChange={onChange}
+						/>
 						{footer}
 					</>
 				)}

@@ -735,3 +735,84 @@ Avoid `"use client"` for:
 - Ask for clarification on product requirements rather than guessing
 - Prefer incremental, well-scoped changes over sweeping rewrites
 - Follow the official documentation at [supastarter.dev/docs/nextjs](https://supastarter.dev/docs/nextjs)
+
+---
+
+# Voice Agent SaaS — Project Guide
+
+Everything below is specific to this repo (the voice AI SaaS). It extends the generic supastarter guidance above.
+
+## What this repo is (and is not)
+
+This is the **SaaS half** of a two-repo system:
+
+- **This repo (`voiceagent-saas`)** — the product: agent configuration UI, flow builder + compiler, CRM integrations, billing, orgs. ALL business logic, CRM shaping, field normalization, and prompt/flow compilation live HERE.
+- **`~/Projects/voice-agent-engine`** — a **generic LiveKit runtime**. It executes a compiled flow spec; it must never contain business or CRM-specific logic (no GHL naming, no field-mapping rules, no vertical-specific behavior).
+
+**Boundary rule:** if a change shapes CRM data, compiles prompts/flows, or encodes product behavior, it belongs in this repo. If it changes how a call session runs on LiveKit, it belongs in the engine. When a flow node kind affects runtime behavior, the SaaS compiles it into the engine's generic flow-spec format — the engine only learns new *generic* primitives, coordinated cross-repo.
+
+## Commands
+
+```bash
+pnpm type-check           # root; turbo across all 18 packages
+cd apps/saas && pnpm test # vitest (see baseline below)
+pnpm lint                 # oxlint (root)
+pnpm format               # oxfmt (root)
+pnpm dev                  # turbo dev (saas on :3000)
+```
+
+**Test baseline (do not "fix" unrelated to your change):** `apps/saas` vitest has **2 pre-existing failures** in `modules/voiceagents/components/flow/compile.test.ts` — "rejects a branch node as the entry" and "flags an empty say and rejects a statement as the entry" — with **36 passing**. A change is regression-free when those same 2 (and only those 2) fail.
+
+## Conventions
+
+- **Tabs** for indentation (enforced by oxfmt — run `pnpm format` or rely on the PostToolUse hook).
+- Named function components, no default exports, Zod + react-hook-form, oRPC procedures in `packages/api/modules/*` (all per the supastarter guide above).
+
+## Voice-agent architecture map
+
+### Flow builder — `apps/saas/modules/voiceagents/components/flow/`
+
+- `FlowCanvas.tsx`, `FlowTab.tsx`, `NodeEditorPanel.tsx`, `ActionsPanel.tsx` — canvas shell.
+- `flow-types.ts` — canvas/engine doc types, node-data Zod schemas, handle-id constants.
+- `kind-meta.ts` — `FLOW_KIND_META` table: per-kind canvas renderer, handles, edge labels (canvas-rendering counterpart of the registry).
+- `editors/*.tsx` — per-kind editor panels (`agent`, `statement`, `true-false`, `switch`, `scenario`, `transfer`, `booking`, `set-field`, `modify-tags`, plus `shared.tsx`).
+- `compile/` — per-kind compile/decompile in `compile/nodes/*.ts`, plus `text.ts`, `validate.ts`, `index.ts`. Output is the engine's generic flow spec.
+- `kinds/` — the **per-kind registry** (`defineKind` in `kinds/types.ts`; one file per kind bundling schema + canvas node + editor + newData + handles + compile/decompile + validate). This is actively being consolidated — check `kinds/` first; it supersedes scattered per-kind wiring as it lands.
+- Legacy per-kind node components (`StatementNode.tsx`, `SwitchNode.tsx`, …) sit at the flow/ root and are referenced by `kind-meta.ts` / `kinds/*`.
+
+**Adding a node kind:** use the `add-node-kind` skill (`.claude/skills/add-node-kind/SKILL.md`) — it walks the registry entry, canvas/editor/compile files, and the cross-repo engine note.
+
+### CRM layer — `packages/api/modules/crm/lib/`
+
+ALL CRM/business shaping lives here (never in the engine):
+
+- `provider.ts` — vendor-agnostic `CrmProvider` interface (contacts, custom fields, tags, notes, phone upsert).
+- `registry.ts` — `registerCrmProvider()` / `listCrmProviders()`; the ONE extension point for adding a CRM.
+- `providers/` — concrete providers (`gohighlevel.ts`, `ghl-client.ts`, `ghl-oauth.ts`).
+- `standard-fields.ts` — the CloseBot-style standard-field catalog (`contact.*` keys).
+- `field-mapping.ts`, `normalize.ts`, `resolve-source.ts`, `resolve.ts`, `custom-fields.ts` — key-based mapping + per-subaccount custom-field resolution + normalization.
+- `contact-tools.ts`, `live-tools.ts`, `tool-args.ts` — CRM tools exposed to live calls.
+- `calendar.ts`, `spoken-time.ts` — booking/calendar helpers and speech-friendly time rendering.
+- `sync.ts`, `webhook-registration.ts`, `oauth-state.ts`, `trigger-token.ts` — sync + auth plumbing.
+
+**Adding a provider:** use the `new-crm-provider` skill.
+
+### Shared SaaS UI — `apps/saas/modules/shared/`
+
+- `components/DataTable.tsx` + `hooks/use-table-state.ts` — the standard list/table pattern (use these, don't hand-roll tables).
+- `lib/avatar.ts` — avatar URL/initials helpers.
+- Other cross-cutting pieces: `PageHeader.tsx`, `Pagination.tsx`, `StatsTile.tsx`, `ConfirmationAlertProvider.tsx`.
+
+### Other voice modules
+
+- `apps/saas/modules/voiceagents/` — agent CRUD, settings, test-call UI (flow builder above lives inside it).
+- `apps/saas/modules/sources/` — knowledge/data sources.
+- `packages/api/modules/` — oRPC procedures (crm, notifications, etc.).
+
+## Subagents & skills
+
+- `.claude/agents/flow-builder.md` — flow canvas / editors / compile / kinds-registry work.
+- `.claude/agents/crm-integration.md` — crm/lib, providers, GHL.
+- `.claude/agents/ui-builder.md` — shared DataTable/shadcn UI conventions.
+- `.claude/agents/verifier.md` — read-only type-check + tests + lint vs the known baseline.
+- Skills: `add-node-kind`, `verify-saas`, `new-crm-provider` under `.claude/skills/`.

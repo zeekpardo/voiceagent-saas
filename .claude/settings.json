@@ -1,0 +1,15 @@
+{
+	"hooks": {
+		"PostToolUse": [
+			{
+				"matcher": "Edit|Write",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "jq -r '.tool_input.file_path // empty' | while IFS= read -r f; do case \"$f\" in *.ts|*.tsx) (cd \"$CLAUDE_PROJECT_DIR\" && pnpm exec oxfmt \"$f\") >/dev/null 2>&1 || true ;; esac; done"
+					}
+				]
+			}
+		]
+	}
+}

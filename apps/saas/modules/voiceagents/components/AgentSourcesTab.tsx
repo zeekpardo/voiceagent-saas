@@ -24,6 +24,9 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { normalizeName } from "@repo/api/modules/crm/lib/normalize";
+
+import { avatarClasses, initials } from "@shared/lib/avatar";
 import {
 	useAgentSourcesQuery,
 	useAttachSourceMutation,
@@ -43,44 +46,12 @@ interface TagFilter {
 	mode: "is" | "is_not";
 }
 
-/** Mirrors the server's `normalizeName` (crm/lib/standard-fields.ts) for deriving a fallback field key. */
-function normalize(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-/** Deterministic pastel per source name — same trick as the inbox avatars. */
-const AVATAR_COLORS = [
-	"bg-rose-400",
-	"bg-violet-400",
-	"bg-sky-400",
-	"bg-emerald-400",
-	"bg-amber-400",
-	"bg-slate-400",
-];
-
-function avatarColor(name: string): string {
-	let hash = 0;
-	for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
-	return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-
-function initials(name: string): string {
-	return (
-		name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((w) => w[0]!.toUpperCase())
-			.join("") || "?"
-	);
-}
-
 function SourceAvatar({ name }: { name: string }) {
 	return (
 		<span
 			className={cn(
-				"flex size-6 shrink-0 items-center justify-center rounded-full font-medium text-[10px] text-white",
-				avatarColor(name),
+				"flex size-6 shrink-0 items-center justify-center rounded-full font-medium text-[10px]",
+				avatarClasses(name),
 			)}
 		>
 			{initials(name)}
@@ -440,7 +411,7 @@ function SourceDetail({
 			// Mirror the unified key formula from listContactFields on the server
 			// (provider key, else "contact.<normalized name>") so the picker's
 			// cached list (invalidated by the mutation) resolves to the same entry.
-			const key = created.key || `contact.${normalize(created.name)}`;
+			const key = created.key || `contact.${normalizeName(created.name)}`;
 			setFieldMap((prev) => ({
 				...prev,
 				[extractField]: { contactField: key, contactFieldLabel: created.name },

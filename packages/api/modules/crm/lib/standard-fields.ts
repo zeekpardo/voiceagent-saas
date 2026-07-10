@@ -1,4 +1,6 @@
-import { normalizeEmail, normalizePhone, normalizeZip } from "./normalize";
+import { normalizeEmail, normalizeName, normalizePhone, normalizeZip } from "./normalize";
+
+export { normalizeName };
 
 /**
  * The single source of truth for GHL *standard* contact fields (the real
@@ -10,11 +12,6 @@ import { normalizeEmail, normalizePhone, normalizeZip } from "./normalize";
  * Both the mid-call live-tools route and the post-call sync resolve through
  * here. Lives in the SaaS — the voice engine knows none of this.
  */
-
-/** Lowercase alphanumerics only — tolerant matching for field/target names. */
-export function normalizeName(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
 
 const US_STATES = new Set([
 	"AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA",

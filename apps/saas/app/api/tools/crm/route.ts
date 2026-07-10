@@ -1,10 +1,14 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getAgentSource, getCrmLiveToolByName, getSoleEnabledAgentSource } from "@repo/database";
-import type { CrmCalendar, CrmProvider } from "@repo/api/modules/crm/lib/provider";
+import { getCrmLiveToolByName } from "@repo/database";
 import { GhlApiError } from "@repo/api/modules/crm/lib/providers/ghl-client";
-import { resolveCustomFieldIds } from "@repo/api/modules/crm/lib/custom-fields";
-import { normalizePhone } from "@repo/api/modules/crm/lib/normalize";
-import { normalizeName, toStandardWrite } from "@repo/api/modules/crm/lib/standard-fields";
+import { executeBookAppointment, executeCheckAvailability } from "@repo/api/modules/crm/lib/calendar";
+import {
+	executeAddTag,
+	executeMoveStage,
+	executeUpdateContact,
+	resolveContactId,
+} from "@repo/api/modules/crm/lib/contact-tools";
+import { resolveSourceIdForAgent } from "@repo/api/modules/crm/lib/resolve-source";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
 
 /**
@@ -23,6 +27,10 @@ import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
  * recovery message instead.
  *
  * This static route wins over the /api/[[...rest]] catch-all.
+ *
+ * This file is intentionally a thin verify+dispatch shell — per-tool
+ * handler logic lives in packages/api/modules/crm/lib (contact-tools.ts,
+ * calendar.ts, spoken-time.ts).
  */
 
 const TOLERANCE_SECONDS = 300;
@@ -49,299 +57,18 @@ function toolResult(result: unknown): Response {
 	return Response.json({ result });
 }
 
-/** LLM arguments should be strings per the schema, but never trust them. */
-function stringArg(value: unknown): string {
-	return typeof value === "string" ? value : "";
-}
-
 /**
  * Which Source this invocation acts on: explicit metadata.source_id wins
  * (stamped at call creation by sessions/trigger routes); otherwise an agent
- * with exactly one enabled attached Source resolves unambiguously.
+ * with exactly one enabled attached Source resolves unambiguously. See
+ * resolveSourceIdForAgent for the shared rule.
  */
 async function resolveSourceId(invocation: ToolInvocation): Promise<string | null> {
 	const explicit = invocation.metadata?.source_id;
-	if (typeof explicit === "string" && explicit) return explicit;
-	if (!invocation.agent_id) return null;
-	const sole = await getSoleEnabledAgentSource(invocation.agent_id);
-	return sole?.sourceId ?? null;
-}
-
-/** Builder-test calls carry no caller identity; their CRM writes land on a
- * stable, recognizable test contact so live tools behave exactly like
- * production and results are inspectable in the CRM. */
-const TEST_CONTACT_PHONE = "+15005550006";
-
-async function resolveContactId(
-	provider: CrmProvider,
-	metadata: Record<string, unknown> | null,
-): Promise<string | null> {
-	const contactId = metadata?.crm_contact_id;
-	if (typeof contactId === "string" && contactId) return contactId;
-
-	const fromNumber = metadata?.from_number;
-	if (typeof fromNumber === "string" && fromNumber) {
-		const { id } = await provider.upsertContactByPhone(normalizePhone(fromNumber));
-		return id;
-	}
-
-	if (metadata?.source === "builder-test") {
-		const { id } = await provider.upsertContactByPhone(TEST_CONTACT_PHONE);
-		return id;
-	}
-
-	return null;
-}
-
-async function executeUpdateContact(
-	provider: CrmProvider,
-	contactId: string,
-	args: Record<string, unknown>,
-): Promise<unknown> {
-	const fieldName = stringArg(args.field_name);
-	const value = stringArg(args.value);
-	if (!fieldName) {
-		return { error: "bad_arguments", message: "field_name is required." };
-	}
-
-	const wanted = normalizeName(fieldName);
-
-	// Standard / composite fields (email, phone, Full Address, Full Name, …)
-	// write to the real contact record, decomposed + normalized. Everything
-	// else falls through to custom-field find-or-create.
-	const standard = toStandardWrite(fieldName, value);
-	if (standard) {
-		if (Object.keys(standard).length === 0) {
-			return { silent: true, detail: `No parseable components in "${value}".` };
-		}
-		await provider.updateContactStandard(contactId, standard);
-		return { silent: true, detail: `Updated ${Object.keys(standard).join(", ")} from "${value}".` };
-	}
-
-	// Custom field: resolve by NAME in THIS subaccount (find-or-create) — same
-	// per-subaccount resolver the post-call sync uses, so ids are never hardcoded.
-	const idByName = await resolveCustomFieldIds(provider, [fieldName]);
-	const fieldId = idByName.get(wanted);
-	if (!fieldId) {
-		return { silent: true, detail: `Could not resolve custom field "${fieldName}".` };
-	}
-	await provider.updateContactFields(contactId, [{ fieldId, value }]);
-	// silent: fire-and-forget write — the worker returns no tool output to the
-	// LLM, so the SDK never generates a follow-up turn (which is what made the
-	// agent re-speak its question after every save). detail is for logs only.
-	return { silent: true, detail: `Updated custom field "${fieldName}" to "${value}".` };
-}
-
-async function executeAddTag(
-	provider: CrmProvider,
-	contactId: string,
-	args: Record<string, unknown>,
-): Promise<unknown> {
-	const tag = stringArg(args.tag);
-	if (!tag) {
-		return { error: "bad_arguments", message: "tag is required." };
-	}
-	await provider.addContactTags(contactId, [tag]);
-	return { silent: true, detail: `Added tag "${tag}".` };
-}
-
-async function executeMoveStage(
-	provider: CrmProvider,
-	contactId: string,
-	args: Record<string, unknown>,
-): Promise<unknown> {
-	const pipelineName = stringArg(args.pipeline);
-	const stageName = stringArg(args.stage);
-	if (!pipelineName || !stageName) {
-		return { error: "bad_arguments", message: "pipeline and stage are required." };
-	}
-
-	const pipelines = await provider.listPipelines();
-	const pipeline = pipelines.find((p) => p.name.toLowerCase() === pipelineName.toLowerCase());
-	const stage = pipeline?.stages.find((s) => s.name.toLowerCase() === stageName.toLowerCase());
-	if (!pipeline || !stage) {
-		return {
-			error: "not_found",
-			message: `No pipeline/stage named "${pipelineName}" / "${stageName}" in the CRM.`,
-		};
-	}
-
-	await provider.moveContactToStage(contactId, pipeline.id, stage.id);
-	return { silent: true, detail: `Moved contact to ${stage.name} in ${pipeline.name}.` };
-}
-
-// ---------------------------------------------------------------- calendar tools
-
-const DEFAULT_TIMEZONE = "America/Los_Angeles";
-const DEFAULT_SEARCH_DAYS = 5;
-const MAX_SEARCH_DAYS = 31; // GHL free-slots range limit
-const MAX_SPOKEN_SLOTS = 8;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** The account's IANA timezone for speech-friendly formatting (best-effort). */
-async function accountTimezone(provider: CrmProvider): Promise<string> {
-	try {
-		const context = await provider.getAccountContext();
-		return context.location_timezone || DEFAULT_TIMEZONE;
-	} catch {
-		return DEFAULT_TIMEZONE;
-	}
-}
-
-/**
- * Match a spoken calendar name against the account's calendars. Resolution
- * order: (a) explicit calendar_name argument → (b) the agent's configured
- * booking calendar for this source (verified to still exist) → (c) the sole
- * calendar when there's exactly one → (d) a spoken recovery message. Never a guess.
- */
-async function resolveCalendar(
-	provider: CrmProvider,
-	calendarName: string,
-	agentId: string,
-	sourceId: string,
-): Promise<{ calendar: CrmCalendar } | { error: string; message: string }> {
-	const calendars = await provider.listCalendars();
-	if (calendars.length === 0) {
-		return {
-			error: "calendar_not_found",
-			message: "No calendars exist in the CRM. Offer to have someone follow up to schedule.",
-		};
-	}
-
-	const notFound = {
-		error: "calendar_not_found",
-		message: `Available calendars: ${calendars.map((c) => c.name).join(", ")}. Ask which one.`,
-	};
-
-	// (a) The LLM named a calendar — exact match, then tolerant substring match.
-	const wanted = calendarName.trim().toLowerCase();
-	if (wanted) {
-		let matches = calendars.filter((c) => c.name.toLowerCase() === wanted);
-		if (matches.length === 0) {
-			matches = calendars.filter(
-				(c) => c.name.toLowerCase().includes(wanted) || wanted.includes(c.name.toLowerCase()),
-			);
-		}
-		if (matches.length === 1) return { calendar: matches[0] };
-		return notFound;
-	}
-
-	// (b) The agent's configured booking calendar for this source, if it still exists.
-	if (agentId) {
-		const mapping = await getAgentSource(agentId, sourceId);
-		if (mapping?.bookingCalendarId) {
-			const configured = calendars.find((c) => c.id === mapping.bookingCalendarId);
-			if (configured) return { calendar: configured };
-		}
-	}
-
-	// (c) Single-calendar accounts need no configuration at all.
-	if (calendars.length === 1) return { calendar: calendars[0] };
-
-	return notFound;
-}
-
-/** "Tuesday, July 14: 10:00 AM, 11:30 AM; Wednesday, July 15: 9:00 AM" */
-function formatSpokenSlots(isoSlots: string[], timeZone: string): string {
-	const dayFormat = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		weekday: "long",
-		month: "long",
-		day: "numeric",
+	return resolveSourceIdForAgent({
+		explicitSourceId: typeof explicit === "string" ? explicit : null,
+		agentId: invocation.agent_id,
 	});
-	const timeFormat = new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		hour: "numeric",
-		minute: "2-digit",
-	});
-	const byDay = new Map<string, string[]>();
-	for (const iso of isoSlots) {
-		const date = new Date(iso);
-		const day = dayFormat.format(date);
-		const times = byDay.get(day) ?? [];
-		times.push(timeFormat.format(date));
-		byDay.set(day, times);
-	}
-	return [...byDay.entries()].map(([day, times]) => `${day}: ${times.join(", ")}`).join("; ");
-}
-
-function formatSpokenTime(iso: string, timeZone: string): string {
-	return new Intl.DateTimeFormat("en-US", {
-		timeZone,
-		weekday: "long",
-		month: "long",
-		day: "numeric",
-		hour: "numeric",
-		minute: "2-digit",
-	}).format(new Date(iso));
-}
-
-async function executeCheckAvailability(
-	provider: CrmProvider,
-	args: Record<string, unknown>,
-	agentId: string,
-	sourceId: string,
-): Promise<unknown> {
-	const resolved = await resolveCalendar(provider, stringArg(args.calendar_name), agentId, sourceId);
-	if ("error" in resolved) return resolved;
-
-	const fromArg = stringArg(args.from_date);
-	const from = fromArg ? new Date(fromArg) : new Date();
-	if (Number.isNaN(from.getTime())) {
-		return { error: "bad_arguments", message: "from_date is not a valid ISO date." };
-	}
-	const days =
-		typeof args.days === "number" && Number.isFinite(args.days)
-			? Math.min(Math.max(Math.round(args.days), 1), MAX_SEARCH_DAYS)
-			: DEFAULT_SEARCH_DAYS;
-	const to = new Date(from.getTime() + days * DAY_MS);
-
-	const available = await provider.getAvailability({
-		calendarId: resolved.calendar.id,
-		fromISO: from.toISOString(),
-		toISO: to.toISOString(),
-	});
-	if (available.length === 0) {
-		return { error: "no_slots", message: "No open slots in that range. Try more days ahead." };
-	}
-
-	const timezone = await accountTimezone(provider);
-	const slots = available.slice(0, MAX_SPOKEN_SLOTS).map((s) => s.startISO);
-	return {
-		calendar: resolved.calendar.name,
-		slots,
-		spoken: formatSpokenSlots(slots, timezone),
-	};
-}
-
-async function executeBookAppointment(
-	provider: CrmProvider,
-	contactId: string,
-	args: Record<string, unknown>,
-	agentId: string,
-	sourceId: string,
-): Promise<unknown> {
-	const startTime = stringArg(args.start_time);
-	if (!startTime || Number.isNaN(Date.parse(startTime))) {
-		return {
-			error: "bad_arguments",
-			message: "start_time must be an exact ISO 8601 time from check_availability.",
-		};
-	}
-
-	const resolved = await resolveCalendar(provider, stringArg(args.calendar_name), agentId, sourceId);
-	if ("error" in resolved) return resolved;
-
-	const title = stringArg(args.title) || "Phone consultation — voice agent booking";
-	const booked = await provider.bookAppointment({
-		calendarId: resolved.calendar.id,
-		contactId,
-		startISO: startTime,
-		title,
-	});
-
-	const timezone = await accountTimezone(provider);
-	return `Booked for ${formatSpokenTime(booked.startISO, timezone)}. Confirmation id ${booked.id}.`;
 }
 
 export async function POST(req: Request): Promise<Response> {

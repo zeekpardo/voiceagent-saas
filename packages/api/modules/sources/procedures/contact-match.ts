@@ -1,10 +1,10 @@
-import { getSoleEnabledAgentSource } from "@repo/database";
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
 import type { CrmProvider } from "../../crm/lib/provider";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
+import { resolveSourceIdForAgent } from "../../crm/lib/resolve-source";
 
 /**
  * Resolve a call to its CRM contact for the inbox: by explicit contact id
@@ -54,7 +54,10 @@ export const matchContact = protectedProcedure
 		}),
 	)
 	.handler(async ({ input }): Promise<{ contact: MatchedContact | null }> => {
-		const sourceId = input.sourceId ?? (await soleSourceId(input.agentId));
+		const sourceId = await resolveSourceIdForAgent({
+			explicitSourceId: input.sourceId,
+			agentId: input.agentId,
+		});
 		if (!sourceId) return { contact: null };
 
 		const provider = await resolveCrmProvider(sourceId);
@@ -93,9 +96,3 @@ export const matchContact = protectedProcedure
 
 		return { contact: null };
 	});
-
-async function soleSourceId(agentId?: string): Promise<string | null> {
-	if (!agentId) return null;
-	const sole = await getSoleEnabledAgentSource(agentId);
-	return sole?.sourceId ?? null;
-}

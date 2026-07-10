@@ -1,9 +1,10 @@
-import { getAgentSource, getSoleEnabledAgentSource } from "@repo/database";
+import { getAgentSource } from "@repo/database";
 
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
 import { applyFieldMappings, type MappingEntry } from "./field-mapping";
 import { normalizePhone } from "./normalize";
 import { resolveCrmProvider } from "./resolve";
+import { resolveSourceIdForAgent } from "./resolve-source";
 
 /**
  * The heart of the integration: turn a completed voice call's extracted
@@ -64,13 +65,15 @@ function contactIdFrom(metadata: Record<string, unknown> | undefined): string | 
  * otherwise, an agent with exactly one enabled attached Source resolves
  * unambiguously. Agents monitoring multiple Sources need calls tagged with
  * source_id at creation time — ambiguous calls are skipped, never guessed.
+ * See resolveSourceIdForAgent for the shared rule.
  */
 async function resolveSourceId(event: CallCompletedEvent): Promise<string | undefined> {
 	const explicit = (event.metadata as { source_id?: string } | undefined)?.source_id;
-	if (explicit) return explicit;
-	if (!event.agent_id) return undefined;
-	const sole = await getSoleEnabledAgentSource(event.agent_id);
-	return sole?.sourceId;
+	const sourceId = await resolveSourceIdForAgent({
+		explicitSourceId: explicit,
+		agentId: event.agent_id,
+	});
+	return sourceId ?? undefined;
 }
 
 export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResult> {

@@ -9,6 +9,15 @@
  * and knows nothing about CRM value shapes.
  */
 
+/**
+ * Lowercase alphanumerics only — tolerant matching for field/target names.
+ * Pure and isomorphic (no server-only deps), so client components can import
+ * it directly instead of duplicating it.
+ */
+export function normalizeName(name: string): string {
+	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /** Strip to digits, assume US when 10 digits, ensure a leading +. */
 export function normalizePhone(raw: string): string {
 	const digits = raw.replace(/\D/g, "");

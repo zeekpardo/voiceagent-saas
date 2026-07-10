@@ -1,6 +1,8 @@
 import { getAgentSource, getSoleEnabledAgentSource } from "@repo/database";
 
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
+import { applyFieldMappings, type MappingEntry } from "./field-mapping";
+import { normalizePhone } from "./normalize";
 import { resolveCrmProvider } from "./resolve";
 
 /**
@@ -9,12 +11,6 @@ import { resolveCrmProvider } from "./resolve";
  * mapping. Fully provider-agnostic — the resolved CrmProvider does the
  * vendor talking.
  */
-
-export interface FieldMapping {
-	extractField: string;
-	crmFieldId: string;
-	crmFieldName?: string;
-}
 
 export interface TagRule {
 	extractField: string;
@@ -102,9 +98,7 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 		if (!phone || !/\d{7,}/.test(phone.replace(/[^\d]/g, ""))) {
 			return { skipped: "no crm_contact_id in call metadata and no caller phone number" };
 		}
-		const digits = phone.replace(/[^\d+]/g, "");
-		const e164 = digits.startsWith("+") ? digits : `+${digits}`;
-		const upserted = await provider.upsertContactByPhone(e164);
+		const upserted = await provider.upsertContactByPhone(normalizePhone(phone));
 		contactId = upserted.id;
 		contactCreated = upserted.created;
 
@@ -119,17 +113,11 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 
 	const extracted = event.extracted ?? {};
 
-	// 1. Custom field updates — only fields the call actually produced values
-	//    for; "unknown" never overwrites existing CRM data.
-	const fieldMappings = (mapping.fieldMappings as unknown as FieldMapping[]) ?? [];
-	const fields = fieldMappings
-		.filter((m) => m.crmFieldId && extracted[m.extractField] != null)
-		.filter((m) => extracted[m.extractField] !== "unknown")
-		.map((m) => ({ fieldId: m.crmFieldId, value: extracted[m.extractField]! }));
-
-	if (fields.length > 0) {
-		await provider.updateContactFields(contactId, fields);
-	}
+	// 1. Field updates — the shared writer splits standard vs custom, resolves
+	//    custom per-subaccount by name (create-if-missing), and normalizes
+	//    values. "unknown"/empty never overwrites existing CRM data.
+	const fieldMappings = (mapping.fieldMappings as unknown as MappingEntry[]) ?? [];
+	const fieldsWritten = await applyFieldMappings(provider, contactId, fieldMappings, extracted);
 
 	// 2. Tag rules (case-insensitive value match).
 	const tagRules = (mapping.tagRules as unknown as TagRule[]) ?? [];
@@ -160,7 +148,7 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 	}
 
 	// 4. Timeline note with the call summary + outcomes.
-	if (mapping.writeNote && (event.summary || fields.length > 0)) {
+	if (mapping.writeNote && (event.summary || fieldsWritten > 0)) {
 		const lines = [
 			`🎙 AI voice call completed (${event.duration_seconds ?? 0}s, ${event.end_reason ?? "ended"})`,
 			event.summary ? `\n${event.summary}` : "",
@@ -179,7 +167,7 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 		contactId,
 		contactUrl: provider.contactUrl(contactId),
 		contactCreated,
-		fieldsUpdated: fields.length,
+		fieldsUpdated: fieldsWritten,
 		tagsAdded: tags,
 		stagesMoved,
 		noteWritten: mapping.writeNote,

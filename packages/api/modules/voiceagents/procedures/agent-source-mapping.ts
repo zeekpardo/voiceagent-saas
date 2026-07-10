@@ -3,24 +3,42 @@ import { getAgentSource, saveAgentSourceMapping as saveMappingRow } from "@repo/
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
+import { listContactFields, type MappingEntry } from "../../crm/lib/field-mapping";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
+import { STANDARD_CONTACT_FIELDS } from "../../crm/lib/standard-fields";
 import { requireOwnedSource } from "../../sources/lib/require-owned-source";
 import { gatewayFetch } from "../lib/gateway";
 import { requireOwnedAgent } from "../lib/require-owned-agent";
 
 /**
- * One-click field setup: read the agent's post-call extract fields, match
- * each to an existing CRM custom field (on this specific Source) by
- * (normalized) name, create the ones that don't exist, and save the mapping.
+ * One-click field setup: read the agent's post-call extract fields, map contact
+ * essentials to the STANDARD contact fields and the rest to custom fields on
+ * this Source (create-if-missing), and save. Mappings store a stable
+ * `contactField` key ("contact.email" / "contact.pool"), never a per-source id.
  */
 
-interface FieldMapping {
-	extractField: string;
-	crmFieldId: string;
-	crmFieldName?: string;
-}
-
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Common extract-field prefixes to strip before standard-field matching. */
+const STRIP_PREFIXES = ["confirmed_", "caller_", "contact_", "best_", "current_"];
+const STD_SYNONYMS: Record<string, string> = {
+	name: "contact.name", fullname: "contact.name", full_name: "contact.name",
+	firstname: "contact.first_name", first_name: "contact.first_name",
+	lastname: "contact.last_name", last_name: "contact.last_name",
+	email: "contact.email", phone: "contact.phone", phone_number: "contact.phone",
+	phonenumber: "contact.phone", address: "contact.address", full_address: "contact.address",
+	city: "contact.city", state: "contact.state", zip: "contact.postal_code",
+	zip_code: "contact.postal_code", postal_code: "contact.postal_code",
+};
+
+/** If an extract key clearly means a standard field, return {key,label}; else null. */
+function standardForExtract(extractKey: string): { key: string; label: string } | null {
+	let k = extractKey.toLowerCase();
+	for (const p of STRIP_PREFIXES) if (k.startsWith(p)) k = k.slice(p.length);
+	const key = STD_SYNONYMS[k];
+	const def = key ? STANDARD_CONTACT_FIELDS.find((d) => d.key === key) : undefined;
+	return def ? { key: def.key, label: def.label } : null;
+}
 
 /** "callback_number" → "Callback Number" (the created CRM field's label). */
 const humanize = (key: string) =>
@@ -45,9 +63,9 @@ export async function autoMapAgentSource(agentId: string, sourceId: string) {
 	}
 
 	const existing = await getAgentSource(agentId, sourceId);
-	const fieldMappings: FieldMapping[] = (
-		(existing?.fieldMappings as unknown as FieldMapping[]) ?? []
-	).filter((m) => m.crmFieldId);
+	const fieldMappings: MappingEntry[] = (
+		(existing?.fieldMappings as unknown as MappingEntry[]) ?? []
+	).filter((m) => m.contactField || m.crmFieldId || m.standardField);
 	const alreadyMapped = new Set(fieldMappings.map((m) => m.extractField));
 
 	const crmFields = await provider.listCustomFields();
@@ -61,6 +79,16 @@ export async function autoMapAgentSource(agentId: string, sourceId: string) {
 	const created: string[] = [];
 	for (const key of extractKeys) {
 		if (alreadyMapped.has(key)) continue;
+
+		// Contact essentials → the real STANDARD field, no custom field created.
+		const std = standardForExtract(key);
+		if (std) {
+			fieldMappings.push({ extractField: key, contactField: std.key, contactFieldLabel: std.label });
+			matched.push(std.label);
+			continue;
+		}
+
+		// Otherwise a custom field: match by name on this source, create if missing.
 		let field = byName.get(normalize(key));
 		if (!field) {
 			field = await provider.createCustomField(humanize(key));
@@ -68,7 +96,11 @@ export async function autoMapAgentSource(agentId: string, sourceId: string) {
 		} else {
 			matched.push(field.name);
 		}
-		fieldMappings.push({ extractField: key, crmFieldId: field.id, crmFieldName: field.name });
+		fieldMappings.push({
+			extractField: key,
+			contactField: field.key || `contact.${normalize(key)}`,
+			contactFieldLabel: field.name,
+		});
 	}
 
 	await saveMappingRow({
@@ -105,9 +137,30 @@ export const autoMapAgentSourceProcedure = protectedProcedure
 
 const fieldMapping = z.object({
 	extractField: z.string().min(1),
-	crmFieldId: z.string().min(1),
+	/** Unified target key, e.g. "contact.email" or "contact.pool". */
+	contactField: z.string().optional(),
+	/** Label captured at pick time (creates a missing custom field nicely). */
+	contactFieldLabel: z.string().optional(),
+	// Legacy shapes, still accepted for older saved mappings:
+	crmFieldId: z.string().optional(),
 	crmFieldName: z.string().optional(),
+	standardField: z.string().optional(),
 });
+
+export const listContactFieldsProcedure = protectedProcedure
+	.route({
+		method: "GET",
+		path: "/crm/sources/{sourceId}/contact-fields",
+		tags: ["CRM"],
+		summary: "List all writable contact fields (standard + custom) for a source",
+	})
+	.input(z.object({ sourceId: z.string() }))
+	.handler(async ({ input, context }) => {
+		await requireOwnedSource(context.session, input.sourceId);
+		const provider = await resolveCrmProvider(input.sourceId);
+		if (!provider) return { fields: [] };
+		return { fields: await listContactFields(provider) };
+	});
 
 const tagFilter = z.object({
 	tag: z.string().min(1),

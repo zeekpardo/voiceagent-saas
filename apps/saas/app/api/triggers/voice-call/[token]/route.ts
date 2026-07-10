@@ -1,4 +1,5 @@
 import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
+import { normalizePhone } from "@repo/api/modules/crm/lib/normalize";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import { getAgentSource } from "@repo/database";
@@ -53,11 +54,9 @@ function passesTagFilters(filters: TagFilter[], contactTagsCsv: string | undefin
 
 function toE164(raw: string | undefined): string | null {
 	if (!raw) return null;
-	const digits = raw.replace(/[^\d+]/g, "");
-	if (!/\d{7,}/.test(digits)) return null;
-	// US 10-digit numbers arrive without a country code from some CRMs.
-	if (!digits.startsWith("+")) return digits.length === 10 ? `+1${digits}` : `+${digits}`;
-	return digits;
+	// Validation stays here (reject junk); normalization is the shared one.
+	if (!/\d{7,}/.test(raw.replace(/\D/g, ""))) return null;
+	return normalizePhone(raw);
 }
 
 export async function POST(

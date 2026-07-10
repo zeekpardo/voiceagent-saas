@@ -4,13 +4,6 @@ import { cn } from "@repo/ui";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@repo/ui/components/select";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { Switch } from "@repo/ui/components/switch";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
@@ -38,18 +31,22 @@ import {
 	useCreateSourceFieldMutation,
 	useDetachSourceMutation,
 	useSaveSourceMappingMutation,
-	useSourceCustomFieldsQuery,
 	useSourceTagsQuery,
 	useSourceTriggerUrlQuery,
 	useSourcesQuery,
 } from "@sources/lib/api";
+
+import { ContactFieldPicker } from "./ContactFieldPicker";
 
 interface TagFilter {
 	tag: string;
 	mode: "is" | "is_not";
 }
 
-const NONE = "__none__";
+/** Mirrors the server's `normalizeName` (crm/lib/standard-fields.ts) for deriving a fallback field key. */
+function normalize(name: string): string {
+	return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 /** Deterministic pastel per source name — same trick as the inbox avatars. */
 const AVATAR_COLORS = [
@@ -361,7 +358,6 @@ function SourceDetail({
 	agentConfig: Record<string, unknown>;
 	onBack: () => void;
 }) {
-	const { data: crmFields, isLoading: fieldsLoading } = useSourceCustomFieldsQuery(sourceId);
 	const { data: crmTags } = useSourceTagsQuery(sourceId);
 	const { data: attached, isLoading: mappingLoading } = useAgentSourcesQuery(agentId);
 	const mapping = attached?.find((a) => a.sourceId === sourceId);
@@ -377,12 +373,27 @@ function SourceDetail({
 	// Hydrate once per mount — the component is keyed by sourceId.
 	const [enabled, setEnabled] = useState(() => mapping?.enabled ?? true);
 	const [writeNote, setWriteNote] = useState(() => mapping?.writeNote ?? true);
-	const [fieldMap, setFieldMap] = useState<Record<string, string>>(() =>
-		Object.fromEntries(
-			((mapping?.fieldMappings ?? []) as { extractField: string; crmFieldId: string }[]).map(
-				(m) => [m.extractField, m.crmFieldId],
+	// Per extractField: the picked contact field (key + label). Legacy saved
+	// mappings may only have crmFieldId/crmFieldName or standardField — resolve
+	// those to a best-effort key/label so the picker preselects correctly.
+	const [fieldMap, setFieldMap] = useState<Record<string, { contactField?: string; contactFieldLabel?: string }>>(
+		() =>
+			Object.fromEntries(
+				((mapping?.fieldMappings ?? []) as {
+					extractField: string;
+					contactField?: string;
+					contactFieldLabel?: string;
+					standardField?: string;
+					crmFieldId?: string;
+					crmFieldName?: string;
+				}[]).map((m) => [
+					m.extractField,
+					{
+						contactField: m.contactField ?? m.standardField ?? m.crmFieldName ?? undefined,
+						contactFieldLabel: m.contactFieldLabel ?? m.crmFieldName ?? undefined,
+					},
+				]),
 			),
-		),
 	);
 	const [tagFilters, setTagFilters] = useState<TagFilter[]>(
 		() => ((mapping?.tagFilters ?? []) as unknown as TagFilter[]).filter((f) => f?.tag),
@@ -398,7 +409,7 @@ function SourceDetail({
 			.slice(0, 30);
 	}, [crmTags, tagSearch, tagFilters]);
 
-	if (mappingLoading || fieldsLoading) return <Skeleton className="h-64" />;
+	if (mappingLoading) return <Skeleton className="h-64" />;
 
 	const autoMap = async () => {
 		try {
@@ -426,7 +437,14 @@ function SourceDetail({
 	const createAndBind = async (extractField: string) => {
 		try {
 			const created = await createFieldMutation.mutateAsync(`Voice: ${extractField}`);
-			setFieldMap((prev) => ({ ...prev, [extractField]: created.id }));
+			// Mirror the unified key formula from listContactFields on the server
+			// (provider key, else "contact.<normalized name>") so the picker's
+			// cached list (invalidated by the mutation) resolves to the same entry.
+			const key = created.key || `contact.${normalize(created.name)}`;
+			setFieldMap((prev) => ({
+				...prev,
+				[extractField]: { contactField: key, contactFieldLabel: created.name },
+			}));
 			toastSuccess(`Created "${created.name}" in ${sourceName}`);
 		} catch (err) {
 			toastError(err instanceof Error ? err.message : "Field creation failed");
@@ -446,11 +464,11 @@ function SourceDetail({
 				enabled,
 				writeNote,
 				fieldMappings: Object.entries(fieldMap)
-					.filter(([, crmFieldId]) => crmFieldId && crmFieldId !== NONE)
-					.map(([extractField, crmFieldId]) => ({
+					.filter(([, m]) => m.contactField)
+					.map(([extractField, m]) => ({
 						extractField,
-						crmFieldId,
-						crmFieldName: crmFields?.find((f) => f.id === crmFieldId)?.name,
+						contactField: m.contactField,
+						contactFieldLabel: m.contactFieldLabel,
 					})),
 				tagFilters,
 				// Tagging / stage moves are workflow concerns now — pass any stored
@@ -608,23 +626,19 @@ function SourceDetail({
 								<div key={ef} className="flex items-center gap-2">
 									<span className="w-40 shrink-0 truncate font-mono text-xs">{ef}</span>
 									<span className="opacity-40">→</span>
-									<Select
-										value={fieldMap[ef] ?? NONE}
-										onValueChange={(v) => setFieldMap((prev) => ({ ...prev, [ef]: v }))}
-									>
-										<SelectTrigger className="h-8 flex-1 text-sm">
-											<SelectValue placeholder="Not synced" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value={NONE}>— not synced —</SelectItem>
-											{crmFields?.map((f) => (
-												<SelectItem key={f.id} value={f.id}>
-													{f.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-									{(!fieldMap[ef] || fieldMap[ef] === NONE) && (
+									<ContactFieldPicker
+										sourceId={sourceId}
+										value={fieldMap[ef]?.contactField ?? null}
+										placeholder="Not synced"
+										className="flex-1"
+										onChange={(key, label) =>
+											setFieldMap((prev) => ({
+												...prev,
+												[ef]: { contactField: key ?? undefined, contactFieldLabel: label ?? undefined },
+											}))
+										}
+									/>
+									{!fieldMap[ef]?.contactField && (
 										<Button
 											variant="ghost"
 											size="icon"

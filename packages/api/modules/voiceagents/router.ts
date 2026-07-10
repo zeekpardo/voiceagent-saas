@@ -6,6 +6,7 @@ import {
 import {
 	autoMapAgentSourceProcedure,
 	getAgentSourceMapping,
+	listContactFieldsProcedure,
 	saveAgentSourceMappingProcedure,
 } from "./procedures/agent-source-mapping";
 import { createAgent, deleteAgent, getAgent, listAgents, updateAgent } from "./procedures/agents";
@@ -54,6 +55,7 @@ export const voiceagentsRouter = {
 		autoMap: autoMapAgentSourceProcedure,
 		getMapping: getAgentSourceMapping,
 		saveMapping: saveAgentSourceMappingProcedure,
+		contactFields: listContactFieldsProcedure,
 	},
 	liveTools: listAgentLiveTools,
 	calendars: listAgentCalendars,

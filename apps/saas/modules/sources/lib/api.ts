@@ -87,7 +87,17 @@ export function useSaveSourceMappingMutation(agentId: string) {
 		mutationFn: (input: {
 			sourceId: string;
 			enabled: boolean;
-			fieldMappings: { extractField: string; crmFieldId: string; crmFieldName?: string }[];
+			fieldMappings: {
+				extractField: string;
+				/** Unified target key, e.g. "contact.email" or "contact.pool". */
+				contactField?: string;
+				/** Display label captured at pick time. */
+				contactFieldLabel?: string;
+				// Legacy shapes, still accepted for older saved mappings:
+				crmFieldId?: string;
+				crmFieldName?: string;
+				standardField?: string;
+			}[];
 			tagFilters?: { tag: string; mode: "is" | "is_not" }[];
 			tagRules: { extractField: string; equals: string; tag: string }[];
 			stageRules: {
@@ -129,8 +139,11 @@ export function useCreateSourceFieldMutation(sourceId: string) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (name: string) => orpcClient.sources.customFields.create({ sourceId, name }),
-		onSuccess: () =>
-			void queryClient.invalidateQueries({ queryKey: ["sources", sourceId, "customFields"] }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: ["sources", sourceId, "customFields"] });
+			// New custom fields must also show up in the ContactFieldPicker's list.
+			void queryClient.invalidateQueries({ queryKey: ["sources", sourceId, "contactFields"] });
+		},
 	});
 }
 
@@ -138,6 +151,21 @@ export function useSourceTagsQuery(sourceId: string | null) {
 	return useQuery({
 		queryKey: ["sources", sourceId, "tags"] as const,
 		queryFn: () => orpcClient.sources.tags.list({ sourceId: sourceId! }),
+		enabled: !!sourceId,
+	});
+}
+
+export interface ContactFieldOption {
+	key: string;
+	label: string;
+	kind: "standard" | "custom";
+}
+
+/** Unified list of writable contact fields (standard + custom) for a source — powers the ContactFieldPicker. */
+export function useSourceContactFieldsQuery(sourceId: string | null) {
+	return useQuery({
+		queryKey: ["sources", sourceId, "contactFields"] as const,
+		queryFn: () => orpcClient.voiceagents.sources.contactFields({ sourceId: sourceId! }),
 		enabled: !!sourceId,
 	});
 }

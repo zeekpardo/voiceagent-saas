@@ -1,6 +1,7 @@
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
+import { normalizePhone } from "../../crm/lib/normalize";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { requireOwnedSource } from "../../sources/lib/require-owned-source";
 import { gatewayFetch } from "../lib/gateway";
@@ -50,10 +51,8 @@ export const createTestSession = protectedProcedure
 			: null;
 
 		if (provider && !crmContactId && input.contactPhone?.trim()) {
-			const digits = input.contactPhone.replace(/[^\d+]/g, "");
-			const e164 = digits.startsWith("+") ? digits : `+${digits}`;
 			crmContactId = await provider
-				.upsertContactByPhone(e164)
+				.upsertContactByPhone(normalizePhone(input.contactPhone))
 				.then((c) => c.id)
 				.catch(() => undefined);
 		}

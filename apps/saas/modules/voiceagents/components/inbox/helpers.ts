@@ -1,5 +1,4 @@
 import type { GatewayCall } from "@repo/api/modules/voiceagents/procedures/calls";
-
 import { avatarClasses, initials } from "@shared/lib/avatar";
 
 export type Call = GatewayCall;

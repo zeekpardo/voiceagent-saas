@@ -85,7 +85,8 @@ export function decompileRouterNode(
 				edges.push({
 					id: makeId("edge"),
 					source: flowNode.id,
-					sourceHandle: exit.name.trim().toLowerCase() === "true" ? TRUE_HANDLE_ID : FALSE_HANDLE_ID,
+					sourceHandle:
+						exit.name.trim().toLowerCase() === "true" ? TRUE_HANDLE_ID : FALSE_HANDLE_ID,
 					target: exit.target,
 				});
 			}

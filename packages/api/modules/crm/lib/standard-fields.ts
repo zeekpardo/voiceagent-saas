@@ -14,24 +14,112 @@ export { normalizeName };
  */
 
 const US_STATES = new Set([
-	"AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA",
-	"ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK",
-	"OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC",
+	"AL",
+	"AK",
+	"AZ",
+	"AR",
+	"CA",
+	"CO",
+	"CT",
+	"DE",
+	"FL",
+	"GA",
+	"HI",
+	"ID",
+	"IL",
+	"IN",
+	"IA",
+	"KS",
+	"KY",
+	"LA",
+	"ME",
+	"MD",
+	"MA",
+	"MI",
+	"MN",
+	"MS",
+	"MO",
+	"MT",
+	"NE",
+	"NV",
+	"NH",
+	"NJ",
+	"NM",
+	"NY",
+	"NC",
+	"ND",
+	"OH",
+	"OK",
+	"OR",
+	"PA",
+	"RI",
+	"SC",
+	"SD",
+	"TN",
+	"TX",
+	"UT",
+	"VT",
+	"VA",
+	"WA",
+	"WV",
+	"WI",
+	"WY",
+	"DC",
 ]);
 
 /** Full state name -> 2-letter code, so "California" resolves as well as "CA". */
 const US_STATE_NAMES: Record<string, string> = {
-	alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA",
-	colorado: "CO", connecticut: "CT", delaware: "DE", florida: "FL", georgia: "GA",
-	hawaii: "HI", idaho: "ID", illinois: "IL", indiana: "IN", iowa: "IA", kansas: "KS",
-	kentucky: "KY", louisiana: "LA", maine: "ME", maryland: "MD", massachusetts: "MA",
-	michigan: "MI", minnesota: "MN", mississippi: "MS", missouri: "MO", montana: "MT",
-	nebraska: "NE", nevada: "NV", "new hampshire": "NH", "new jersey": "NJ",
-	"new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND",
-	ohio: "OH", oklahoma: "OK", oregon: "OR", pennsylvania: "PA", "rhode island": "RI",
-	"south carolina": "SC", "south dakota": "SD", tennessee: "TN", texas: "TX", utah: "UT",
-	vermont: "VT", virginia: "VA", washington: "WA", "west virginia": "WV",
-	wisconsin: "WI", wyoming: "WY", "district of columbia": "DC",
+	alabama: "AL",
+	alaska: "AK",
+	arizona: "AZ",
+	arkansas: "AR",
+	california: "CA",
+	colorado: "CO",
+	connecticut: "CT",
+	delaware: "DE",
+	florida: "FL",
+	georgia: "GA",
+	hawaii: "HI",
+	idaho: "ID",
+	illinois: "IL",
+	indiana: "IN",
+	iowa: "IA",
+	kansas: "KS",
+	kentucky: "KY",
+	louisiana: "LA",
+	maine: "ME",
+	maryland: "MD",
+	massachusetts: "MA",
+	michigan: "MI",
+	minnesota: "MN",
+	mississippi: "MS",
+	missouri: "MO",
+	montana: "MT",
+	nebraska: "NE",
+	nevada: "NV",
+	"new hampshire": "NH",
+	"new jersey": "NJ",
+	"new mexico": "NM",
+	"new york": "NY",
+	"north carolina": "NC",
+	"north dakota": "ND",
+	ohio: "OH",
+	oklahoma: "OK",
+	oregon: "OR",
+	pennsylvania: "PA",
+	"rhode island": "RI",
+	"south carolina": "SC",
+	"south dakota": "SD",
+	tennessee: "TN",
+	texas: "TX",
+	utah: "UT",
+	vermont: "VT",
+	virginia: "VA",
+	washington: "WA",
+	"west virginia": "WV",
+	wisconsin: "WI",
+	wyoming: "WY",
+	"district of columbia": "DC",
 };
 
 /**
@@ -58,13 +146,19 @@ export function parseAddress(raw: string): Record<string, string> {
 		for (const [name, code] of Object.entries(US_STATE_NAMES)) {
 			if (lower.endsWith(name) && /[,\s]/.test(rest[rest.length - name.length - 1] ?? " ")) {
 				out.state = code;
-				rest = rest.slice(0, rest.length - name.length).trim().replace(/,\s*$/, "");
+				rest = rest
+					.slice(0, rest.length - name.length)
+					.trim()
+					.replace(/,\s*$/, "");
 				break;
 			}
 		}
 	}
 
-	const parts = rest.split(",").map((p) => p.trim()).filter(Boolean);
+	const parts = rest
+		.split(",")
+		.map((p) => p.trim())
+		.filter(Boolean);
 	if (parts.length >= 2) {
 		out.city = parts[parts.length - 1];
 		out.address1 = parts.slice(0, -1).join(", ");
@@ -98,18 +192,68 @@ interface StandardFieldDef {
  * Name / Full Address) fan one value into several slots.
  */
 export const STANDARD_CONTACT_FIELDS: StandardFieldDef[] = [
-	{ key: "contact.first_name", label: "First Name", aliases: ["firstname"], write: (v) => ({ firstName: v.trim() }) },
-	{ key: "contact.last_name", label: "Last Name", aliases: ["lastname"], write: (v) => ({ lastName: v.trim() }) },
-	{ key: "contact.name", label: "Full Name", aliases: ["fullname", "name"], write: (v) => parseName(v) },
-	{ key: "contact.email", label: "Email", aliases: ["email"], write: (v) => ({ email: normalizeEmail(v) }) },
-	{ key: "contact.phone", label: "Phone", aliases: ["phone", "phonenumber"], write: (v) => ({ phone: normalizePhone(v) }) },
-	{ key: "contact.address", label: "Full Address", aliases: ["fulladdress", "address"], write: (v) => parseAddress(v) },
-	{ key: "contact.address1", label: "Street Address", aliases: ["address1", "streetaddress"], write: (v) => ({ address1: v.trim() }) },
+	{
+		key: "contact.first_name",
+		label: "First Name",
+		aliases: ["firstname"],
+		write: (v) => ({ firstName: v.trim() }),
+	},
+	{
+		key: "contact.last_name",
+		label: "Last Name",
+		aliases: ["lastname"],
+		write: (v) => ({ lastName: v.trim() }),
+	},
+	{
+		key: "contact.name",
+		label: "Full Name",
+		aliases: ["fullname", "name"],
+		write: (v) => parseName(v),
+	},
+	{
+		key: "contact.email",
+		label: "Email",
+		aliases: ["email"],
+		write: (v) => ({ email: normalizeEmail(v) }),
+	},
+	{
+		key: "contact.phone",
+		label: "Phone",
+		aliases: ["phone", "phonenumber"],
+		write: (v) => ({ phone: normalizePhone(v) }),
+	},
+	{
+		key: "contact.address",
+		label: "Full Address",
+		aliases: ["fulladdress", "address"],
+		write: (v) => parseAddress(v),
+	},
+	{
+		key: "contact.address1",
+		label: "Street Address",
+		aliases: ["address1", "streetaddress"],
+		write: (v) => ({ address1: v.trim() }),
+	},
 	{ key: "contact.city", label: "City", aliases: ["city"], write: (v) => ({ city: v.trim() }) },
 	{ key: "contact.state", label: "State", aliases: ["state"], write: (v) => ({ state: v.trim() }) },
-	{ key: "contact.postal_code", label: "Postal Code", aliases: ["postalcode", "zip", "zipcode"], write: (v) => ({ postalCode: normalizeZip(v) }) },
-	{ key: "contact.country", label: "Country", aliases: ["country"], write: (v) => ({ country: v.trim() }) },
-	{ key: "contact.website", label: "Website", aliases: ["website"], write: (v) => ({ website: v.trim() }) },
+	{
+		key: "contact.postal_code",
+		label: "Postal Code",
+		aliases: ["postalcode", "zip", "zipcode"],
+		write: (v) => ({ postalCode: normalizeZip(v) }),
+	},
+	{
+		key: "contact.country",
+		label: "Country",
+		aliases: ["country"],
+		write: (v) => ({ country: v.trim() }),
+	},
+	{
+		key: "contact.website",
+		label: "Website",
+		aliases: ["website"],
+		write: (v) => ({ website: v.trim() }),
+	},
 ];
 
 const STANDARD_BY_MATCH = new Map<string, StandardFieldDef>();

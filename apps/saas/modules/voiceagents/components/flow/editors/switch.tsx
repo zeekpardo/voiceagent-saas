@@ -24,9 +24,13 @@ export function SwitchNodeEditor({
 
 	return (
 		<>
-			<TitleInput value={data.title} onChange={(value) => patch({ title: value })} placeholder="Which service?" />
+			<TitleInput
+				value={data.title}
+				onChange={(value) => patch({ title: value })}
+				placeholder="Which service?"
+			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Question to evaluate</Label>
 				<Textarea
 					rows={3}
@@ -39,14 +43,14 @@ export function SwitchNodeEditor({
 				</p>
 			</div>
 
-			<div className="flex flex-col gap-2">
+			<div className="gap-2 flex flex-col">
 				<Label>Cases</Label>
 				<p className="-mt-1 text-xs opacity-50">
-					One path per case. Wire each case on the canvas to send the call to another node; leave
-					it unwired to end the call. Removing a case removes its edge.
+					One path per case. Wire each case on the canvas to send the call to another node; leave it
+					unwired to end the call. Removing a case removes its edge.
 				</p>
 				{data.cases.map((switchCase) => (
-					<div key={switchCase.id} className="flex items-start gap-2">
+					<div key={switchCase.id} className="gap-2 flex items-start">
 						<Input
 							value={switchCase.name}
 							onChange={(e) =>
@@ -94,15 +98,15 @@ export function SwitchNodeEditor({
 				</Button>
 			</div>
 
-			<div className="flex items-center gap-3 rounded-lg border p-2.5">
+			<div className="gap-3 p-2.5 flex items-center rounded-lg border">
 				<Switch
 					id="switch-include-otherwise"
 					checked={data.includeOtherwise}
 					onCheckedChange={(on) => patch({ includeOtherwise: on })}
 				/>
 				<label htmlFor="switch-include-otherwise" className="min-w-0 cursor-pointer">
-					<span className="block text-sm">Include an Otherwise path</span>
-					<span className="block text-xs opacity-60">
+					<span className="text-sm block">Include an Otherwise path</span>
+					<span className="text-xs block opacity-60">
 						Fallback taken when no case matches the conversation.
 					</span>
 				</label>

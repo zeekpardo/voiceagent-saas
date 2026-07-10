@@ -1,3 +1,4 @@
+import { normalizeName } from "../normalize";
 import type {
 	CrmCalendar,
 	CrmCustomFieldDef,
@@ -5,7 +6,6 @@ import type {
 	CrmPipeline,
 	CrmProvider,
 } from "../provider";
-import { normalizeName } from "../normalize";
 import { type CrmProviderContext, registerCrmProvider } from "../registry";
 import { GhlClient } from "./ghl-client";
 import { exchangeGhlCode, getGhlAuthUrl, ghlOauthConfigured, refreshGhlToken } from "./ghl-oauth";
@@ -200,7 +200,13 @@ export class GoHighLevelProvider implements CrmProvider {
 		const str = (v: unknown): string | undefined => {
 			if (typeof v === "string") return v.trim() || undefined;
 			if (typeof v === "number") return String(v);
-			if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean).join(", ") || undefined;
+			if (Array.isArray(v))
+				return (
+					v
+						.map((x) => String(x).trim())
+						.filter(Boolean)
+						.join(", ") || undefined
+				);
 			return undefined;
 		};
 		const out: Record<string, string> = {};
@@ -252,9 +258,7 @@ export class GoHighLevelProvider implements CrmProvider {
 	async listCalendars(): Promise<CrmCalendar[]> {
 		await this.ensureFreshToken();
 		const calendars = await this.client.getCalendars();
-		return calendars
-			.filter((c) => c.isActive !== false)
-			.map((c) => ({ id: c.id, name: c.name }));
+		return calendars.filter((c) => c.isActive !== false).map((c) => ({ id: c.id, name: c.name }));
 	}
 
 	async getAvailability(input: {

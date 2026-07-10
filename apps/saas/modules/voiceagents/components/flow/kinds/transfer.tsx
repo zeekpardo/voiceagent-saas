@@ -1,4 +1,8 @@
-import { compileTransferNode, decompileTransferNode, newTransferNodeData } from "../compile/nodes/transfer";
+import {
+	compileTransferNode,
+	decompileTransferNode,
+	newTransferNodeData,
+} from "../compile/nodes/transfer";
 import { TransferNodeEditor } from "../editors/transfer";
 import type { TransferCanvasNodeDoc, TransferNodeData } from "../flow-types";
 import { transferNodeDataSchema, TRANSFER_NEXT_HANDLE_ID } from "../flow-types";
@@ -35,7 +39,9 @@ export const transferKind = defineKind<TransferNodeData>({
 			errors.push("A Transfer node needs a name.");
 		}
 		if (!doc.edges.some((edge) => edge.source === node.id)) {
-			errors.push(`Transfer node "${label}" must connect to the node the caller is transferred to.`);
+			errors.push(
+				`Transfer node "${label}" must connect to the node the caller is transferred to.`,
+			);
 		}
 		return errors;
 	},

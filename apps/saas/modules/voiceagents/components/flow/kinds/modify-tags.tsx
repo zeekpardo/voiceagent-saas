@@ -1,4 +1,8 @@
-import { compileModifyTagsNode, decompileModifyTagsNode, newModifyTagsNodeData } from "../compile/nodes/modify-tags";
+import {
+	compileModifyTagsNode,
+	decompileModifyTagsNode,
+	newModifyTagsNodeData,
+} from "../compile/nodes/modify-tags";
 import { ModifyTagsNodeEditor } from "../editors/modify-tags";
 import type { ModifyTagsCanvasNodeDoc, ModifyTagsNodeData } from "../flow-types";
 import { modifyTagsNodeDataSchema } from "../flow-types";

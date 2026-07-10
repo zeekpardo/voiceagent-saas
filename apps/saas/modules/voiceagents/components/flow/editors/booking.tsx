@@ -35,7 +35,7 @@ export function BookingNodeEditor({
 
 	return (
 		<>
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Calendar</Label>
 				{crmCalendars && crmCalendars.length === 0 ? (
 					<p className="text-sm opacity-50">
@@ -53,10 +53,9 @@ export function BookingNodeEditor({
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value={AGENT_DEFAULT_CALENDAR}>Use agent default</SelectItem>
-							{data.calendarName &&
-								!crmCalendars?.some((c) => c.name === data.calendarName) && (
-									<SelectItem value={data.calendarName}>{data.calendarName}</SelectItem>
-								)}
+							{data.calendarName && !crmCalendars?.some((c) => c.name === data.calendarName) && (
+								<SelectItem value={data.calendarName}>{data.calendarName}</SelectItem>
+							)}
 							{crmCalendars?.map((c) => (
 								<SelectItem key={c.id} value={c.name}>
 									{c.name}
@@ -67,9 +66,13 @@ export function BookingNodeEditor({
 				)}
 			</div>
 
-			<TitleInput value={data.title} onChange={(value) => patch({ title: value })} placeholder="Booking" />
+			<TitleInput
+				value={data.title}
+				onChange={(value) => patch({ title: value })}
+				placeholder="Booking"
+			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Short description</Label>
 				<Textarea
 					rows={2}
@@ -82,17 +85,17 @@ export function BookingNodeEditor({
 				</p>
 			</div>
 
-			<div className="flex flex-col gap-2">
+			<div className="gap-2 flex flex-col">
 				<button
 					type="button"
 					onClick={() => setShowAdvanced((v) => !v)}
-					className="flex w-fit items-center gap-1 text-primary text-sm"
+					className="gap-1 text-sm flex w-fit items-center text-primary"
 				>
 					Advanced settings
 				</button>
 				{showAdvanced && (
-					<div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
-						<div className="flex flex-col gap-1.5">
+					<div className="gap-3 p-3 flex flex-col rounded-lg border bg-muted/30">
+						<div className="gap-1.5 flex flex-col">
 							<Label className="text-xs">Extra prompt</Label>
 							<Textarea
 								rows={2}
@@ -101,7 +104,7 @@ export function BookingNodeEditor({
 								placeholder="Extra context used only while booking."
 							/>
 						</div>
-						<div className="flex flex-col gap-1.5">
+						<div className="gap-1.5 flex flex-col">
 							<Label className="text-xs">Appointment title</Label>
 							<Input
 								className="h-9"
@@ -110,7 +113,7 @@ export function BookingNodeEditor({
 								placeholder="Intro call with {{contact_first_name}}"
 							/>
 						</div>
-						<div className="flex flex-col gap-1.5">
+						<div className="gap-1.5 flex flex-col">
 							<Label className="text-xs">Tag if booking fails</Label>
 							<Input
 								className="h-9"

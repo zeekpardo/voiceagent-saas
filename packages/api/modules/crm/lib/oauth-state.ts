@@ -28,7 +28,11 @@ function unb64(s: string): string {
 	return Buffer.from(s, "base64url").toString();
 }
 
-export function createOauthState(userId: string, organizationId: string, providerType: string): string {
+export function createOauthState(
+	userId: string,
+	organizationId: string,
+	providerType: string,
+): string {
 	const payload = `${b64(userId)}.${b64(organizationId)}.${b64(providerType)}.${Date.now() + TTL_MS}`;
 	return `${payload}.${sign(payload)}`;
 }

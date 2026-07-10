@@ -19,9 +19,13 @@ export function TrueFalseNodeEditor({
 
 	return (
 		<>
-			<TitleInput value={data.title} onChange={(value) => patch({ title: value })} placeholder="Speaks English?" />
+			<TitleInput
+				value={data.title}
+				onChange={(value) => patch({ title: value })}
+				placeholder="Speaks English?"
+			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Statement to evaluate</Label>
 				<Textarea
 					rows={3}

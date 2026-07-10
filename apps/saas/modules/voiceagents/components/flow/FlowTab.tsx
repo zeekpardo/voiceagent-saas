@@ -3,10 +3,18 @@
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
-import { useMemo } from "react";
+import { useConfirmationAlert } from "@shared/components/ConfirmationAlertProvider";
+import { useMemo, useState } from "react";
 
 import type { FlowTrace } from "../../hooks/use-flow-trace";
-import { useAgentLiveToolsQuery, useSaveFlowMutation, useToolsQuery } from "../../lib/api";
+import {
+	useAgentDraftQuery,
+	useAgentLiveToolsQuery,
+	useDiscardDraftMutation,
+	usePublishAgentMutation,
+	useSaveDraftMutation,
+	useToolsQuery,
+} from "../../lib/api";
 import {
 	canvasFromFlow,
 	compileCanvas,
@@ -21,8 +29,10 @@ import { buildVariableItems } from "./mentions";
 import type { FlowToolOption } from "./NodeEditorPanel";
 
 /**
- * The Flow tab: a CloseBot-style canvas that compiles into the engine's
- * flow config on save. The full builder state lives at config.canvas.
+ * The Flow tab: a CloseBot-style canvas that stages edits as a DRAFT and only
+ * writes a new agent version on publish. On open it loads the staged draft
+ * canvas if the gateway holds one (badge visible), else the published canvas.
+ * The full builder state lives at config.canvas / draft.config.canvas.
  */
 export function FlowTab({
 	agent,
@@ -42,12 +52,28 @@ export function FlowTab({
 	traceLive?: boolean;
 }) {
 	const config = agent.config as Record<string, unknown>;
+	const { confirm } = useConfirmationAlert();
 	const { data: gatewayTools, isLoading: isLoadingTools } = useToolsQuery();
 	const { data: liveTools } = useAgentLiveToolsQuery(agent.id);
-	const saveMutation = useSaveFlowMutation(agent.id);
+	const { data: draft, isLoading: isLoadingDraft } = useAgentDraftQuery(agent.id);
+	const saveDraftMutation = useSaveDraftMutation(agent.id);
+	const publishMutation = usePublishAgentMutation(agent.id);
+	const discardMutation = useDiscardDraftMutation(agent.id);
 
-	// Restore the saved canvas; else reconstruct from an existing flow; else start fresh.
+	const hasDraft = !!draft;
+	// Bumped on discard to force the canvas to rebuild from the published config
+	// (discard leaves the agent version untouched, so the key wouldn't change).
+	const [canvasNonce, setCanvasNonce] = useState(0);
+
+	// Restore the staged draft canvas; else the published canvas; else
+	// reconstruct from an existing flow; else start fresh. Read at mount time —
+	// the render is gated on the draft query below so `draft` is settled here.
 	const initialDoc = useMemo<CanvasDoc>(() => {
+		const draftCanvas = (draft?.config as Record<string, unknown> | undefined)?.canvas;
+		const savedDraftCanvas = canvasDocSchema.safeParse(draftCanvas);
+		if (savedDraftCanvas.success) {
+			return savedDraftCanvas.data;
+		}
 		const savedCanvas = canvasDocSchema.safeParse(config.canvas);
 		if (savedCanvas.success) {
 			return savedCanvas.data;
@@ -65,10 +91,11 @@ export function FlowTab({
 			});
 		}
 		return newCanvas();
-		// Rebuild only when switching agents — not on every version bump,
-		// so saving doesn't reset the canvas under the user.
+		// Rebuild only when switching agents, when a publish/restore bumps the
+		// version, or when discard bumps the nonce — NOT on every draft refetch,
+		// so saving a draft doesn't reset the canvas under the user.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [agent.id]);
+	}, [agent.id, agent.version, canvasNonce]);
 
 	const tools = useMemo<FlowToolOption[]>(() => {
 		const merged = new Map<string, FlowToolOption>();
@@ -102,7 +129,7 @@ export function FlowTab({
 		[config.instructions, config.greeting],
 	);
 
-	const handleSave = async (doc: CanvasDoc) => {
+	const handleSaveDraft = async (doc: CanvasDoc) => {
 		const errors = validateFlowDoc(doc);
 		if (errors.length > 0) {
 			toastError(errors.join("\n"));
@@ -111,27 +138,59 @@ export function FlowTab({
 		const baseToolIds = Array.isArray(config.toolIds) ? (config.toolIds as string[]) : [];
 		const { flow, toolIds } = compileCanvas(doc, baseToolIds);
 		try {
-			const saved = await saveMutation.mutateAsync({ flow, canvas: doc, toolIds });
-			toastSuccess(`Flow saved — agent is now v${saved.version}`);
+			await saveDraftMutation.mutateAsync({ flow, canvas: doc, toolIds });
+			toastSuccess("Draft saved");
 		} catch (err) {
-			toastError(err instanceof Error ? err.message : "Could not save the flow");
+			toastError(err instanceof Error ? err.message : "Could not save the draft");
 		}
 	};
 
-	if (isLoadingTools) {
+	const handlePublish = async () => {
+		try {
+			const published = await publishMutation.mutateAsync();
+			toastSuccess(`Published — agent is now v${published.version}`);
+		} catch (err) {
+			toastError(err instanceof Error ? err.message : "Could not publish the agent");
+		}
+	};
+
+	const handleDiscard = () => {
+		confirm({
+			title: "Discard draft?",
+			message:
+				"This reverts the canvas to the published version and deletes your unpublished changes.",
+			destructive: true,
+			confirmLabel: "Discard",
+			onConfirm: async () => {
+				try {
+					await discardMutation.mutateAsync();
+					setCanvasNonce((nonce) => nonce + 1);
+					toastSuccess("Draft discarded");
+				} catch (err) {
+					toastError(err instanceof Error ? err.message : "Could not discard the draft");
+				}
+			},
+		});
+	};
+
+	if (isLoadingTools || isLoadingDraft) {
 		return <Skeleton className="min-h-96 h-full" />;
 	}
 
 	return (
 		<FlowCanvas
-			key={agent.id}
+			key={`${agent.id}:${agent.version}:${canvasNonce}`}
 			agentId={agent.id}
 			initialDoc={initialDoc}
 			tools={tools}
 			bookingToolIds={bookingToolIds}
 			variableItems={variableItems}
-			isSaving={saveMutation.isPending}
-			onSave={(doc) => void handleSave(doc)}
+			hasDraft={hasDraft}
+			isSavingDraft={saveDraftMutation.isPending}
+			isPublishing={publishMutation.isPending}
+			onSaveDraft={(doc) => void handleSaveDraft(doc)}
+			onPublish={() => void handlePublish()}
+			onDiscard={handleDiscard}
 			onAddNodeReady={onAddNodeReady}
 			onOpenActions={onOpenActions}
 			trace={trace}

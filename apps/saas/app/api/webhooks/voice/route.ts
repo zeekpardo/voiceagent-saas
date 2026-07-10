@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { db } from "@repo/database";
+
 import { type CallCompletedEvent, syncCallToCrm } from "@repo/api/modules/crm/lib/sync";
+import { db } from "@repo/database";
 
 /**
  * Voice engine events in (call.completed). HMAC-verified with the secret the

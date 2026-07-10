@@ -15,6 +15,7 @@ import {
 	BookOpenIcon,
 	CirclePlusIcon,
 	DatabaseIcon,
+	HistoryIcon,
 	type LucideIcon,
 	SettingsIcon,
 	WrenchIcon,
@@ -24,7 +25,7 @@ import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 
 import { useFlowTrace } from "../hooks/use-flow-trace";
-import { useAgentQuery } from "../lib/api";
+import { useAgentDraftQuery, useAgentQuery } from "../lib/api";
 import { AgentForm } from "./AgentForm";
 import { AgentSourcesTab } from "./AgentSourcesTab";
 import { ActionsPanel } from "./flow/ActionsPanel";
@@ -32,8 +33,9 @@ import type { FlowPaletteKind } from "./flow/flow-types";
 import { FlowTab } from "./flow/FlowTab";
 import { TestPortal } from "./TestPortal";
 import { ToolsTab } from "./ToolsTab";
+import { VersionHistoryPanel } from "./VersionHistoryPanel";
 
-type WorkspacePanel = "actions" | "job" | "agent" | "tools" | "sources";
+type WorkspacePanel = "actions" | "job" | "agent" | "tools" | "sources" | "history";
 
 const PANEL_META: Record<WorkspacePanel, { title: string; description: string }> = {
 	actions: {
@@ -56,6 +58,10 @@ const PANEL_META: Record<WorkspacePanel, { title: string; description: string }>
 		title: "Sources",
 		description: "Attach CRM sub-accounts and map extracted call data onto their contacts.",
 	},
+	history: {
+		title: "Version history",
+		description: "Published versions of this agent — restore any snapshot onto the canvas.",
+	},
 };
 
 /**
@@ -65,6 +71,7 @@ const PANEL_META: Record<WorkspacePanel, { title: string; description: string }>
  */
 export function AgentDetail({ agentId }: { agentId: string }) {
 	const { data: agent, isLoading } = useAgentQuery(agentId);
+	const { data: draft } = useAgentDraftQuery(agentId);
 	const [activePanel, setActivePanel] = useState<WorkspacePanel | null>(null);
 
 	// The canvas registers its addNode(kind) here so the Actions aside can call it.
@@ -153,6 +160,9 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							{activePanel === "sources" && (
 								<AgentSourcesTab agentId={agent.id} agentConfig={agent.config} />
 							)}
+							{activePanel === "history" && (
+								<VersionHistoryPanel agentId={agent.id} currentVersion={agent.version} />
+							)}
 						</div>
 					</aside>
 				)}
@@ -193,12 +203,21 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							isActive={activePanel === "sources"}
 							onClick={() => togglePanel("sources")}
 						/>
+						<div className="my-1 w-6 h-px bg-border" />
+						<RailButton
+							icon={HistoryIcon}
+							label="Version history"
+							isActive={activePanel === "history"}
+							onClick={() => togglePanel("history")}
+						/>
 					</div>
 				</TooltipProvider>
 
 				<TestPortal
 					agentId={agent.id}
 					agentConfig={agent.config}
+					publishedVersion={agent.version}
+					hasUnpublishedDraft={!!draft}
 					onCallStateChange={setCallState}
 				/>
 			</div>

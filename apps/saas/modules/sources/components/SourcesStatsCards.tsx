@@ -21,7 +21,7 @@ export function SourcesStatsCards() {
 	}, [sources]);
 
 	return (
-		<div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+		<div className="gap-4 md:grid-cols-4 grid grid-cols-2">
 			<Card className="p-4">
 				<div className="mb-2 flex items-center justify-between">
 					<p className="text-sm font-medium text-muted-foreground">Total Sources</p>
@@ -51,11 +51,11 @@ export function SourcesStatsCards() {
 				{stats.byType.length === 0 ? (
 					<p className="text-sm opacity-50">—</p>
 				) : (
-					<div className="flex flex-col gap-1">
+					<div className="gap-1 flex flex-col">
 						{stats.byType.map(([type, count]) => (
-							<div key={type} className="flex items-center gap-1.5">
-								<span className="truncate text-xs text-muted-foreground">{type}</span>
-								<span className="ml-auto text-xs font-semibold">{count}</span>
+							<div key={type} className="gap-1.5 flex items-center">
+								<span className="text-xs truncate text-muted-foreground">{type}</span>
+								<span className="text-xs font-semibold ml-auto">{count}</span>
 							</div>
 						))}
 					</div>

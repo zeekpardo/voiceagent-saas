@@ -19,11 +19,10 @@ import {
 	DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
-import { DatabaseIcon, EllipsisVerticalIcon, PlusIcon, Unlink2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
-
 import { DataTable, type DataTableColumn } from "@shared/components/DataTable";
 import { useTableState } from "@shared/hooks/use-table-state";
+import { DatabaseIcon, EllipsisVerticalIcon, PlusIcon, Unlink2Icon } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { useDisconnectSourceMutation, useSourcesQuery } from "../lib/api";
 import { ConnectSourceDialog } from "./ConnectSourceDialog";
@@ -95,7 +94,7 @@ export function SourcesTable() {
 			key: "providerType",
 			label: "Source Type",
 			render: (source) => (
-				<span className="inline-flex items-center rounded-full border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+				<span className="px-2 py-0.5 text-xs font-medium inline-flex items-center rounded-full border bg-muted text-muted-foreground">
 					{source.providerType}
 				</span>
 			),
@@ -128,7 +127,7 @@ export function SourcesTable() {
 				isLoading={isLoading}
 				isEmpty={!rows.length}
 				emptyState={
-					<div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 rounded-xl border bg-card py-12 text-center">
+					<div className="min-h-0 gap-4 py-12 flex h-full flex-col items-center justify-center rounded-xl border bg-card text-center">
 						<DatabaseIcon className="size-10 opacity-40" />
 						<p className="opacity-60">No sources yet. Connect a CRM sub-account to get started.</p>
 						<Button variant="primary" onClick={() => setConnectOpen(true)}>
@@ -156,7 +155,7 @@ export function SourcesTable() {
 								variant="ghost"
 								size="icon"
 								aria-label={`Actions for ${source.name}`}
-								className="size-7 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+								className="size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
 							>
 								<EllipsisVerticalIcon className="size-4" />
 							</Button>
@@ -177,7 +176,11 @@ export function SourcesTable() {
 					</Button>
 				}
 				bulkActions={
-					<Button variant="destructive" size="sm" onClick={() => setConfirmIds([...table.selected])}>
+					<Button
+						variant="destructive"
+						size="sm"
+						onClick={() => setConfirmIds([...table.selected])}
+					>
 						<Unlink2Icon className="size-3" /> Disconnect
 					</Button>
 				}
@@ -230,7 +233,7 @@ function StatusPill({ status }: { status: "CONNECTED" | "DISCONNECTED" }) {
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+				"gap-1 px-2 py-0.5 text-xs font-medium inline-flex items-center rounded-full",
 				isConnected
 					? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
 					: "bg-muted text-muted-foreground",

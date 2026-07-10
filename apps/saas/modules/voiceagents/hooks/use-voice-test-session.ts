@@ -159,5 +159,16 @@ export function useVoiceTestSession(agentId: string, channel: TestChannel = "voi
 
 	const isLive = status === "listening" || status === "thinking" || status === "speaking";
 
-	return { status, turns, error, room, isLive, callId, start, stop, sendMessage, audioContainerRef };
+	return {
+		status,
+		turns,
+		error,
+		room,
+		isLive,
+		callId,
+		start,
+		stop,
+		sendMessage,
+		audioContainerRef,
+	};
 }

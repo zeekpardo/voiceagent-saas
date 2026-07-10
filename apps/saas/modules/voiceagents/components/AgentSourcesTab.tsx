@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeName } from "@repo/api/modules/crm/lib/normalize";
 import { cn } from "@repo/ui";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
@@ -7,6 +8,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/pop
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { Switch } from "@repo/ui/components/switch";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
+import { avatarClasses, initials } from "@shared/lib/avatar";
+import {
+	useAgentSourcesQuery,
+	useAttachSourceMutation,
+	useAutoMapSourceMutation,
+	useCreateSourceFieldMutation,
+	useDetachSourceMutation,
+	useSaveSourceMappingMutation,
+	useSourceTagsQuery,
+	useSourceTriggerUrlQuery,
+	useSourcesQuery,
+} from "@sources/lib/api";
 import {
 	ArrowLeftIcon,
 	CheckIcon,
@@ -24,21 +37,6 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { normalizeName } from "@repo/api/modules/crm/lib/normalize";
-
-import { avatarClasses, initials } from "@shared/lib/avatar";
-import {
-	useAgentSourcesQuery,
-	useAttachSourceMutation,
-	useAutoMapSourceMutation,
-	useCreateSourceFieldMutation,
-	useDetachSourceMutation,
-	useSaveSourceMappingMutation,
-	useSourceTagsQuery,
-	useSourceTriggerUrlQuery,
-	useSourcesQuery,
-} from "@sources/lib/api";
-
 import { ContactFieldPicker } from "./ContactFieldPicker";
 
 interface TagFilter {
@@ -50,7 +48,7 @@ function SourceAvatar({ name }: { name: string }) {
 	return (
 		<span
 			className={cn(
-				"flex size-6 shrink-0 items-center justify-center rounded-full font-medium text-[10px]",
+				"size-6 font-medium flex shrink-0 items-center justify-center rounded-full text-[10px]",
 				avatarClasses(name),
 			)}
 		>
@@ -111,7 +109,7 @@ export function AgentSourcesTab({
 
 	if (!allSources?.length) {
 		return (
-			<div className="flex flex-col gap-3">
+			<div className="gap-3 flex flex-col">
 				<p className="text-sm opacity-70">
 					No sources connected yet. Connect a CRM sub-account first, then attach it here.
 				</p>
@@ -146,8 +144,8 @@ export function AgentSourcesTab({
 			s.name.toLowerCase().includes(search.trim().toLowerCase()),
 		);
 		return (
-			<div className="flex flex-col gap-4">
-				<div className="flex items-center gap-2">
+			<div className="gap-4 flex flex-col">
+				<div className="gap-2 flex items-center">
 					<button
 						type="button"
 						aria-label="Back to attached sources"
@@ -155,22 +153,22 @@ export function AgentSourcesTab({
 							setIsAdding(false);
 							setSearch("");
 						}}
-						className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+						className="p-1 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 					>
 						<ArrowLeftIcon className="size-4" />
 					</button>
 					<div className="relative flex-1">
-						<SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+						<SearchIcon className="left-2.5 size-4 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
 						<Input
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}
 							placeholder="Search sources..."
-							className="h-9 rounded-lg pl-8 text-sm"
+							className="h-9 pl-8 text-sm rounded-lg"
 						/>
 					</div>
 				</div>
 				{!addFiltered.length ? (
-					<p className="py-6 text-center text-sm opacity-60">No sources match "{search}"</p>
+					<p className="py-6 text-sm text-center opacity-60">No sources match "{search}"</p>
 				) : (
 					<div className="divide-y">
 						{addFiltered.map((s) => {
@@ -179,10 +177,10 @@ export function AgentSourcesTab({
 								return (
 									<div
 										key={s.id}
-										className="flex h-[52px] cursor-default items-center gap-2.5 px-3 opacity-40"
+										className="gap-2.5 px-3 flex h-[52px] cursor-default items-center opacity-40"
 									>
 										<SourceAvatar name={s.name} />
-										<span className="min-w-0 flex-1 truncate font-medium text-sm">{s.name}</span>
+										<span className="min-w-0 font-medium text-sm flex-1 truncate">{s.name}</span>
 										<CheckIcon className="size-3.5 shrink-0 text-muted-foreground" />
 									</div>
 								);
@@ -193,17 +191,17 @@ export function AgentSourcesTab({
 									type="button"
 									disabled={attachMutation.isPending}
 									onClick={() => void attach(s.id)}
-									className="flex h-[52px] w-full items-center gap-2.5 rounded-lg px-3 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
+									className="gap-2.5 px-3 flex h-[52px] w-full items-center rounded-lg text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
 								>
 									<SourceAvatar name={s.name} />
-									<span className="min-w-0 flex-1 truncate font-medium text-sm">{s.name}</span>
+									<span className="min-w-0 font-medium text-sm flex-1 truncate">{s.name}</span>
 									<PlusIcon className="size-3.5 shrink-0 text-muted-foreground" />
 								</button>
 							);
 						})}
 					</div>
 				)}
-				<p className="text-muted-foreground text-xs">
+				<p className="text-xs text-muted-foreground">
 					Missing a sub-account?{" "}
 					<Link href="/sources" className="underline hover:text-foreground">
 						Connect it on the Sources page
@@ -215,15 +213,15 @@ export function AgentSourcesTab({
 	}
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex items-center gap-2">
+		<div className="gap-4 flex flex-col">
+			<div className="gap-2 flex items-center">
 				<div className="relative flex-1">
-					<SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+					<SearchIcon className="left-2.5 size-4 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						placeholder="Filter sources..."
-						className="h-9 rounded-lg pl-8 text-sm"
+						className="h-9 pl-8 text-sm rounded-lg"
 					/>
 				</div>
 				<Button
@@ -240,7 +238,7 @@ export function AgentSourcesTab({
 			</div>
 
 			{!filtered.length ? (
-				<p className="py-6 text-center text-sm opacity-60">
+				<p className="py-6 text-sm text-center opacity-60">
 					{attached?.length
 						? `No sources match "${search}"`
 						: "This agent isn't monitoring any sources yet — attach one with New."}
@@ -252,21 +250,23 @@ export function AgentSourcesTab({
 						const filterCount = ((a.tagFilters ?? []) as unknown[]).length;
 						const meta = [
 							`${mappedCount} ${mappedCount === 1 ? "field" : "fields"} synced`,
-							...(filterCount > 0 ? [`${filterCount} ${filterCount === 1 ? "filter" : "filters"}`] : []),
+							...(filterCount > 0
+								? [`${filterCount} ${filterCount === 1 ? "filter" : "filters"}`]
+								: []),
 						].join(" · ");
 						return (
 							<div
 								key={a.sourceId}
-								className="flex h-[52px] items-center gap-2.5 rounded-lg px-3 transition-colors hover:bg-muted/50"
+								className="gap-2.5 px-3 flex h-[52px] items-center rounded-lg transition-colors hover:bg-muted/50"
 							>
 								<button
 									type="button"
 									onClick={() => setOpenSourceId(a.sourceId)}
-									className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+									className="min-w-0 gap-2.5 flex flex-1 items-center text-left"
 								>
 									<SourceAvatar name={a.source.name} />
 									<span className="min-w-0 flex-1">
-										<span className="block truncate font-medium text-sm">{a.source.name}</span>
+										<span className="font-medium text-sm block truncate">{a.source.name}</span>
 										<span className="text-[11px] text-muted-foreground">{meta}</span>
 									</span>
 								</button>
@@ -274,7 +274,7 @@ export function AgentSourcesTab({
 									type="button"
 									aria-label={`Detach ${a.source.name}`}
 									onClick={() => void detach(a.sourceId)}
-									className="shrink-0 p-0.5 text-muted-foreground transition-colors hover:text-destructive"
+									className="p-0.5 shrink-0 text-muted-foreground transition-colors hover:text-destructive"
 								>
 									<XIcon className="size-3.5" />
 								</button>
@@ -302,12 +302,12 @@ function Section({
 			<button
 				type="button"
 				onClick={() => setOpen((o) => !o)}
-				className="group flex w-full items-center gap-1.5 border-b pb-2"
+				className="group gap-1.5 pb-2 flex w-full items-center border-b"
 			>
 				<ChevronDownIcon
 					className={cn("size-3 text-muted-foreground transition-transform", !open && "-rotate-90")}
 				/>
-				<h4 className="font-semibold text-[11px] text-muted-foreground uppercase tracking-wide transition-colors group-hover:text-foreground">
+				<h4 className="font-semibold tracking-wide text-[11px] text-muted-foreground uppercase transition-colors group-hover:text-foreground">
 					{title}
 				</h4>
 			</button>
@@ -338,7 +338,7 @@ function SourceDetail({
 	const { data: triggerUrl } = useSourceTriggerUrlQuery(agentId, sourceId);
 
 	const extractFields = Object.keys(
-		((agentConfig.postCall as { extract?: Record<string, string> } | undefined)?.extract ?? {}),
+		(agentConfig.postCall as { extract?: Record<string, string> } | undefined)?.extract ?? {},
 	);
 
 	// Hydrate once per mount — the component is keyed by sourceId.
@@ -347,27 +347,30 @@ function SourceDetail({
 	// Per extractField: the picked contact field (key + label). Legacy saved
 	// mappings may only have crmFieldId/crmFieldName or standardField — resolve
 	// those to a best-effort key/label so the picker preselects correctly.
-	const [fieldMap, setFieldMap] = useState<Record<string, { contactField?: string; contactFieldLabel?: string }>>(
-		() =>
-			Object.fromEntries(
-				((mapping?.fieldMappings ?? []) as {
+	const [fieldMap, setFieldMap] = useState<
+		Record<string, { contactField?: string; contactFieldLabel?: string }>
+	>(() =>
+		Object.fromEntries(
+			(
+				(mapping?.fieldMappings ?? []) as {
 					extractField: string;
 					contactField?: string;
 					contactFieldLabel?: string;
 					standardField?: string;
 					crmFieldId?: string;
 					crmFieldName?: string;
-				}[]).map((m) => [
-					m.extractField,
-					{
-						contactField: m.contactField ?? m.standardField ?? m.crmFieldName ?? undefined,
-						contactFieldLabel: m.contactFieldLabel ?? m.crmFieldName ?? undefined,
-					},
-				]),
-			),
+				}[]
+			).map((m) => [
+				m.extractField,
+				{
+					contactField: m.contactField ?? m.standardField ?? m.crmFieldName ?? undefined,
+					contactFieldLabel: m.contactFieldLabel ?? m.crmFieldName ?? undefined,
+				},
+			]),
+		),
 	);
-	const [tagFilters, setTagFilters] = useState<TagFilter[]>(
-		() => ((mapping?.tagFilters ?? []) as unknown as TagFilter[]).filter((f) => f?.tag),
+	const [tagFilters, setTagFilters] = useState<TagFilter[]>(() =>
+		((mapping?.tagFilters ?? []) as unknown as TagFilter[]).filter((f) => f?.tag),
 	);
 	const [tagSearch, setTagSearch] = useState("");
 	const [filterOpen, setFilterOpen] = useState(false);
@@ -444,7 +447,11 @@ function SourceDetail({
 				tagFilters,
 				// Tagging / stage moves are workflow concerns now — pass any stored
 				// rules through untouched.
-				tagRules: (mapping?.tagRules ?? []) as { extractField: string; equals: string; tag: string }[],
+				tagRules: (mapping?.tagRules ?? []) as {
+					extractField: string;
+					equals: string;
+					tag: string;
+				}[],
 				stageRules: (mapping?.stageRules ?? []) as {
 					extractField: string;
 					equals: string;
@@ -461,36 +468,39 @@ function SourceDetail({
 	};
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex items-center gap-2.5 border-b pb-3">
+		<div className="gap-4 flex flex-col">
+			<div className="gap-2.5 pb-3 flex items-center border-b">
 				<button
 					type="button"
 					aria-label="Back to sources"
 					onClick={onBack}
-					className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+					className="p-1 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
 				>
 					<ArrowLeftIcon className="size-4" />
 				</button>
 				<SourceAvatar name={sourceName} />
-				<span className="truncate font-semibold text-sm">{sourceName}</span>
-				<div className="ml-auto flex items-center gap-2 text-sm">
-					<span className="text-muted-foreground text-xs">Active</span>
+				<span className="font-semibold text-sm truncate">{sourceName}</span>
+				<div className="gap-2 text-sm ml-auto flex items-center">
+					<span className="text-xs text-muted-foreground">Active</span>
 					<Switch checked={enabled} onCheckedChange={setEnabled} />
 				</div>
 			</div>
 
-			<div className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-amber-600 text-xs dark:text-amber-400">
+			<div className="gap-1.5 border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-amber-600 text-xs dark:text-amber-400 flex items-center rounded-lg border">
 				<TriangleAlertIcon className="size-3.5 shrink-0" />
-				<span>Settings here apply to {sourceName} only — other locations using this agent are unaffected.</span>
+				<span>
+					Settings here apply to {sourceName} only — other locations using this agent are
+					unaffected.
+				</span>
 			</div>
 
-			<div className="flex flex-col gap-4 pt-1">
+			<div className="gap-4 pt-1 flex flex-col">
 				<Section title="Filters">
-					<div className="flex flex-wrap items-center gap-2">
+					<div className="gap-2 flex flex-wrap items-center">
 						{tagFilters.map((filter, i) => (
 							<span
 								key={`${filter.mode}-${filter.tag}`}
-								className="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs"
+								className="gap-1 px-3 py-1.5 text-xs inline-flex items-center rounded-full border"
 							>
 								<TagIcon className="size-3 shrink-0 text-muted-foreground" />
 								<span className="text-muted-foreground">tag</span>
@@ -517,14 +527,14 @@ function SourceDetail({
 							<PopoverTrigger asChild>
 								<button
 									type="button"
-									className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-violet-600 text-xs transition-colors hover:bg-violet-500/10 dark:text-violet-400"
+									className="gap-1 px-2 py-1 font-semibold text-violet-600 text-xs hover:bg-violet-500/10 dark:text-violet-400 inline-flex items-center rounded-md transition-colors"
 								>
 									<PlusIcon className="size-3" /> Add filter
 								</button>
 							</PopoverTrigger>
 							<PopoverContent align="start" className="w-64 p-2">
-								<div className="relative mb-1.5">
-									<SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+								<div className="mb-1.5 relative">
+									<SearchIcon className="left-2.5 size-3.5 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
 									<Input
 										value={tagSearch}
 										onChange={(e) => setTagSearch(e.target.value)}
@@ -539,9 +549,12 @@ function SourceDetail({
 										</p>
 									) : (
 										tagOptions.map((tag) => (
-											<div key={tag} className="flex items-center gap-1 rounded-md px-2 py-1 hover:bg-muted/60">
+											<div
+												key={tag}
+												className="gap-1 px-2 py-1 flex items-center rounded-md hover:bg-muted/60"
+											>
 												<TagIcon className="size-3.5 shrink-0 text-muted-foreground" />
-												<span className="min-w-0 flex-1 truncate text-sm">{tag}</span>
+												<span className="min-w-0 text-sm flex-1 truncate">{tag}</span>
 												<button
 													type="button"
 													onClick={() => addFilter("is", tag)}
@@ -563,16 +576,16 @@ function SourceDetail({
 							</PopoverContent>
 						</Popover>
 					</div>
-					<p className="mt-2 text-muted-foreground text-xs">
-						Every condition must match for the agent to call a contact from this source — e.g.
-						add <span className="font-medium">tag is not "ai off"</span> to respect opt-outs.
+					<p className="mt-2 text-xs text-muted-foreground">
+						Every condition must match for the agent to call a contact from this source — e.g. add{" "}
+						<span className="font-medium">tag is not "ai off"</span> to respect opt-outs.
 					</p>
 				</Section>
 
 				<Section title="Field sync">
-					<div className="flex flex-col gap-3">
-						<div className="flex items-start justify-between gap-3">
-							<p className="text-muted-foreground text-xs">
+					<div className="gap-3 flex flex-col">
+						<div className="gap-3 flex items-start justify-between">
+							<p className="text-xs text-muted-foreground">
 								After every call, each captured value is written to the mapped CRM custom field
 								("unknown" values never overwrite existing data).
 							</p>
@@ -588,14 +601,14 @@ function SourceDetail({
 							</Button>
 						</div>
 						{extractFields.length === 0 ? (
-							<p className="text-muted-foreground text-xs">
+							<p className="text-xs text-muted-foreground">
 								This agent has no extracted fields yet — add them in Agent settings → "After the
 								call".
 							</p>
 						) : (
 							extractFields.map((ef) => (
-								<div key={ef} className="flex items-center gap-2">
-									<span className="w-40 shrink-0 truncate font-mono text-xs">{ef}</span>
+								<div key={ef} className="gap-2 flex items-center">
+									<span className="w-40 font-mono text-xs shrink-0 truncate">{ef}</span>
 									<span className="opacity-40">→</span>
 									<ContactFieldPicker
 										sourceId={sourceId}
@@ -605,7 +618,10 @@ function SourceDetail({
 										onChange={(key, label) =>
 											setFieldMap((prev) => ({
 												...prev,
-												[ef]: { contactField: key ?? undefined, contactFieldLabel: label ?? undefined },
+												[ef]: {
+													contactField: key ?? undefined,
+													contactFieldLabel: label ?? undefined,
+												},
 											}))
 										}
 									/>
@@ -629,12 +645,12 @@ function SourceDetail({
 				</Section>
 
 				<Section title="Trigger URL" defaultOpen={false}>
-					<div className="flex flex-col gap-2">
-						<p className="text-muted-foreground text-xs">
-							Point a {sourceName} workflow webhook at this URL to place an outbound call from
-							this agent — the contact's CRM details become {"{{variables}}"}.
+					<div className="gap-2 flex flex-col">
+						<p className="text-xs text-muted-foreground">
+							Point a {sourceName} workflow webhook at this URL to place an outbound call from this
+							agent — the contact's CRM details become {"{{variables}}"}.
 						</p>
-						<div className="flex items-center gap-2">
+						<div className="gap-2 flex items-center">
 							<Input readOnly value={triggerUrl?.url ?? ""} className="h-8 font-mono text-xs" />
 							<Button
 								variant="outline"
@@ -646,15 +662,15 @@ function SourceDetail({
 								<CopyIcon className="size-4" />
 							</Button>
 						</div>
-						<p className="text-muted-foreground text-xs opacity-70">
+						<p className="text-xs text-muted-foreground opacity-70">
 							Keep this URL secret — anyone who has it can place calls with this agent.
 						</p>
 					</div>
 				</Section>
 
 				<Section title="Call notes" defaultOpen={false}>
-					<div className="flex items-center justify-between gap-3">
-						<p className="text-muted-foreground text-xs">
+					<div className="gap-3 flex items-center justify-between">
+						<p className="text-xs text-muted-foreground">
 							Write a summary + captured values to the contact's timeline after each call.
 						</p>
 						<Switch checked={writeNote} onCheckedChange={setWriteNote} />
@@ -662,7 +678,7 @@ function SourceDetail({
 				</Section>
 			</div>
 
-			<div className="flex justify-end border-t pt-3">
+			<div className="pt-3 flex justify-end border-t">
 				<Button size="sm" loading={saveMutation.isPending} onClick={save}>
 					Save
 				</Button>

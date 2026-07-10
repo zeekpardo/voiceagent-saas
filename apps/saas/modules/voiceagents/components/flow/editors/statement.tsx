@@ -19,9 +19,13 @@ export function StatementNodeEditor({
 
 	return (
 		<>
-			<TitleInput value={data.title} onChange={(value) => patch({ title: value })} placeholder="Transfer notice" />
+			<TitleInput
+				value={data.title}
+				onChange={(value) => patch({ title: value })}
+				placeholder="Transfer notice"
+			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>What to say</Label>
 				<Textarea
 					rows={4}

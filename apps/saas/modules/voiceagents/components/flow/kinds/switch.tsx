@@ -30,7 +30,9 @@ export const switchKind = defineKind<SwitchNodeData>({
 		if (sourceHandle === OTHERWISE_HANDLE_ID) {
 			return "Otherwise";
 		}
-		return data.cases.find((switchCase) => switchCase.id === sourceHandle)?.name.trim() || undefined;
+		return (
+			data.cases.find((switchCase) => switchCase.id === sourceHandle)?.name.trim() || undefined
+		);
 	},
 	compile: (node, { targetOf }) => ({
 		node: compileSwitchNode(node as SwitchCanvasNodeDoc & { data: SwitchNodeData }, targetOf),

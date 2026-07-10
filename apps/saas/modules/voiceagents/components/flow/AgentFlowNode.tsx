@@ -31,7 +31,7 @@ export function AgentFlowNode({ id, data, selected }: NodeProps<AgentRFNode>) {
 				data.toolIds.length > 0 ? (
 					<span
 						title={`${data.toolIds.length} tool${data.toolIds.length === 1 ? "" : "s"}`}
-						className="-right-1 -bottom-1 absolute flex size-4 items-center justify-center rounded-full border bg-background text-muted-foreground"
+						className="-right-1 -bottom-1 size-4 absolute flex items-center justify-center rounded-full border bg-background text-muted-foreground"
 					>
 						<WrenchIcon className="size-3" />
 					</span>

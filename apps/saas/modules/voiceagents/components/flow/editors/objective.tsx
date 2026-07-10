@@ -40,9 +40,13 @@ export function ObjectiveNodeEditor({
 
 	return (
 		<>
-			<TitleInput value={data.title} onChange={(value) => patch({ title: value })} placeholder="Confirm Contact Info" />
+			<TitleInput
+				value={data.title}
+				onChange={(value) => patch({ title: value })}
+				placeholder="Confirm Contact Info"
+			/>
 
-			<div className="flex flex-col gap-3">
+			<div className="gap-3 flex flex-col">
 				<Label>Objectives</Label>
 				{data.objectives.map((objective, index) => {
 					const isComposite = OBJECTIVE_OUTPUT_VARIABLES.find(
@@ -56,7 +60,7 @@ export function ObjectiveNodeEditor({
 					return (
 						<div
 							key={objective.id}
-							className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3"
+							className="gap-3 p-3 flex flex-col rounded-lg border bg-muted/30"
 						>
 							<div className="flex items-center justify-between">
 								<span className="font-medium text-xs opacity-60">Objective {index + 1}</span>
@@ -74,7 +78,7 @@ export function ObjectiveNodeEditor({
 								)}
 							</div>
 
-							<div className="flex flex-col gap-1.5">
+							<div className="gap-1.5 flex flex-col">
 								<Label className="text-xs">Output variable</Label>
 								<Select
 									value={selectValue}
@@ -114,20 +118,20 @@ export function ObjectiveNodeEditor({
 								)}
 								{isComposite && (
 									<p className="text-xs opacity-50">
-										One objective fills every part (street, city, state, zip / first &amp; last name)
-										from what the caller says.
+										One objective fills every part (street, city, state, zip / first &amp; last
+										name) from what the caller says.
 									</p>
 								)}
 							</div>
 
-							<div className="flex flex-col gap-1.5">
+							<div className="gap-1.5 flex flex-col">
 								<Label className="text-xs">Answer options</Label>
 								<p className="-mt-1 text-xs opacity-50">
 									Restrict the answer to these choices (the agent will match the caller's words to
 									one). Leave empty for a free-form answer.
 								</p>
 								{(objective.options ?? []).map((option, optionIndex) => (
-									<div key={optionIndex} className="flex items-center gap-2">
+									<div key={optionIndex} className="gap-2 flex items-center">
 										<Input
 											className="h-9"
 											value={option}
@@ -146,9 +150,7 @@ export function ObjectiveNodeEditor({
 											size="icon"
 											className="shrink-0"
 											onClick={() => {
-												const next = (objective.options ?? []).filter(
-													(_, i) => i !== optionIndex,
-												);
+												const next = (objective.options ?? []).filter((_, i) => i !== optionIndex);
 												patchObjective(objective.id, {
 													options: next.length ? next : undefined,
 												});
@@ -173,7 +175,7 @@ export function ObjectiveNodeEditor({
 								</Button>
 							</div>
 
-							<div className="flex flex-col gap-1.5">
+							<div className="gap-1.5 flex flex-col">
 								<Label className="text-xs">Short description</Label>
 								<Textarea
 									rows={2}
@@ -190,15 +192,12 @@ export function ObjectiveNodeEditor({
 
 							{/* Combine other objectives (aggregate — CloseBot's get_full_address). */}
 							{data.objectives.length > 1 && (
-								<details
-									className="text-xs"
-									open={!!objective.aggregateOf?.length}
-								>
+								<details className="text-xs" open={!!objective.aggregateOf?.length}>
 									<summary className="cursor-pointer text-primary">
 										Combine other objectives
 										{objective.aggregateOf?.length ? ` (${objective.aggregateOf.length})` : ""}
 									</summary>
-									<div className="mt-2 flex flex-col gap-1.5">
+									<div className="mt-2 gap-1.5 flex flex-col">
 										<p className="opacity-50">
 											Select other objectives in this node; this one completes automatically once
 											they're all met, and its answer is their answers joined in order.
@@ -212,7 +211,7 @@ export function ObjectiveNodeEditor({
 												return (
 													<label
 														key={other.id}
-														className={`flex items-center gap-2 ${otherIsAggregate ? "opacity-40" : "cursor-pointer"}`}
+														className={`gap-2 flex items-center ${otherIsAggregate ? "opacity-40" : "cursor-pointer"}`}
 													>
 														<input
 															type="checkbox"
@@ -244,8 +243,8 @@ export function ObjectiveNodeEditor({
 
 							<details className="text-xs">
 								<summary className="cursor-pointer text-primary">Advanced</summary>
-								<div className="mt-2 flex flex-col gap-3">
-									<div className="flex flex-col gap-1.5">
+								<div className="mt-2 gap-3 flex flex-col">
+									<div className="gap-1.5 flex flex-col">
 										<Label className="text-xs">
 											Sensitivity {objective.sensitivity ?? 90} / 100
 										</Label>
@@ -264,7 +263,7 @@ export function ObjectiveNodeEditor({
 											Higher = stricter before the objective counts as met.
 										</p>
 									</div>
-									<div className="flex flex-col gap-1.5">
+									<div className="gap-1.5 flex flex-col">
 										<Label className="text-xs">Max attempts</Label>
 										<Input
 											type="number"
@@ -298,13 +297,13 @@ export function ObjectiveNodeEditor({
 							],
 						})
 					}
-					className="flex items-center gap-2 text-primary text-sm"
+					className="gap-2 text-sm flex items-center text-primary"
 				>
 					<PlusIcon className="size-4" /> Add objective
 				</button>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label className={isEntry ? "opacity-50" : ""}>Entry message</Label>
 				<Textarea
 					rows={2}

@@ -48,7 +48,7 @@ Add compile/validate cases to `compile.test.ts`. Baseline before your change: 2 
 The engine (`~/Projects/voice-agent-engine`) is a **generic LiveKit runtime** executing the compiled flow spec — it carries no business/CRM logic.
 
 - If your kind compiles into **existing** engine primitives (say text, branch, transfer, tool call): SaaS-only change, done.
-- If it needs a **new runtime behavior**: the engine must gain a new *generic* node primitive (never a business-specific one). Coordinate: land the engine's flow-spec support first, then compile to it here. Flag this explicitly to the user before proceeding.
+- If it needs a **new runtime behavior**: the engine must gain a new _generic_ node primitive (never a business-specific one). Coordinate: land the engine's flow-spec support first, then compile to it here. Flag this explicitly to the user before proceeding.
 
 ## 8. Verify
 

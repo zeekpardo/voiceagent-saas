@@ -1,5 +1,5 @@
-import { normalizePhone } from "./normalize";
 import { resolveCustomFieldIds } from "./custom-fields";
+import { normalizePhone } from "./normalize";
 import type { CrmProvider } from "./provider";
 import { normalizeName, toStandardWrite } from "./standard-fields";
 import { stringArg } from "./tool-args";

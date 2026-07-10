@@ -20,6 +20,8 @@ import {
 	DropdownMenuTrigger,
 } from "@repo/ui/components/dropdown-menu";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
+import { DataTable, type DataTableColumn } from "@shared/components/DataTable";
+import { useTableState } from "@shared/hooks/use-table-state";
 import {
 	ActivityIcon,
 	AudioLinesIcon,
@@ -33,9 +35,6 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-import { DataTable, type DataTableColumn } from "@shared/components/DataTable";
-import { useTableState } from "@shared/hooks/use-table-state";
 
 import { useAgentsQuery, useDeleteAgentMutation } from "../lib/api";
 
@@ -105,7 +104,7 @@ export function AgentsTable() {
 					<Link
 						href={`/voice-agents/${agent.id}`}
 						title={config.description || undefined}
-						className="block truncate font-medium text-foreground"
+						className="font-medium block truncate text-foreground"
 					>
 						{agent.name}
 					</Link>
@@ -132,7 +131,7 @@ export function AgentsTable() {
 			key: "version",
 			label: "Version",
 			render: (agent) => (
-				<span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+				<span className="px-2 py-0.5 font-medium text-xs inline-flex items-center rounded-full bg-primary/10 text-primary">
 					v{agent.version}
 				</span>
 			),
@@ -155,7 +154,7 @@ export function AgentsTable() {
 				isLoading={isLoading}
 				isEmpty={!agents?.length}
 				emptyState={
-					<div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 rounded-xl border bg-card py-12 text-center">
+					<div className="min-h-0 gap-4 py-12 flex h-full flex-col items-center justify-center rounded-xl border bg-card text-center">
 						<AudioLinesIcon className="size-10 opacity-40" />
 						<p className="opacity-60">No voice agents yet. Create your first one.</p>
 						<Button asChild variant="primary">
@@ -187,7 +186,7 @@ export function AgentsTable() {
 								size="icon"
 								aria-label={`Actions for ${agent.name}`}
 								onClick={(e) => e.stopPropagation()}
-								className="size-7 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+								className="size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
 							>
 								<EllipsisVerticalIcon className="size-4" />
 							</Button>
@@ -213,7 +212,11 @@ export function AgentsTable() {
 					</Button>
 				}
 				bulkActions={
-					<Button variant="destructive" size="sm" onClick={() => setConfirmIds([...table.selected])}>
+					<Button
+						variant="destructive"
+						size="sm"
+						onClick={() => setConfirmIds([...table.selected])}
+					>
 						<Trash2Icon className="size-3" /> Delete
 					</Button>
 				}
@@ -266,14 +269,14 @@ function TypePill({ config }: { config: AgentConfig }) {
 	if (config.flow) {
 		const count = config.flow.nodes?.length ?? 0;
 		return (
-			<span className="inline-flex items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 font-medium text-violet-600 text-xs dark:text-violet-400">
+			<span className="gap-1 border-violet-500/20 bg-violet-500/10 px-2 py-0.5 font-medium text-violet-600 text-xs dark:text-violet-400 inline-flex items-center rounded-full border">
 				<GitBranchIcon className="size-3" />
 				Flow · {count} {count === 1 ? "node" : "nodes"}
 			</span>
 		);
 	}
 	return (
-		<span className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 font-medium text-muted-foreground text-xs">
+		<span className="gap-1 px-2 py-0.5 font-medium text-xs inline-flex items-center rounded-full border bg-muted text-muted-foreground">
 			<BotIcon className="size-3" />
 			Single agent
 		</span>
@@ -286,7 +289,7 @@ function StatusPill({ status }: { status: string }) {
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-xs",
+				"gap-1 px-2 py-0.5 font-medium text-xs inline-flex items-center rounded-full border",
 				isActive
 					? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
 					: "bg-muted text-muted-foreground",

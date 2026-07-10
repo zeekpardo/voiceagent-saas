@@ -1,23 +1,32 @@
-import {
-	attachAgentSource,
-	detachAgentSource,
-	listAgentSourcesProcedure,
-} from "./procedures/agent-sources";
+import { listAgentCalendars } from "./procedures/agent-calendars";
+import { listAgentLiveTools } from "./procedures/agent-live-tools";
 import {
 	autoMapAgentSourceProcedure,
 	getAgentSourceMapping,
 	listContactFieldsProcedure,
 	saveAgentSourceMappingProcedure,
 } from "./procedures/agent-source-mapping";
+import {
+	attachAgentSource,
+	detachAgentSource,
+	listAgentSourcesProcedure,
+} from "./procedures/agent-sources";
 import { createAgent, deleteAgent, getAgent, listAgents, updateAgent } from "./procedures/agents";
-import { listAgentCalendars } from "./procedures/agent-calendars";
-import { listAgentLiveTools } from "./procedures/agent-live-tools";
 import { getCallEvents, getTranscript, listCalls } from "./procedures/calls";
+import {
+	discardDraft,
+	getDraft,
+	getVersion,
+	listVersions,
+	publishAgent,
+	restoreVersion,
+	saveDraft,
+} from "./procedures/drafts";
 import { saveFlow } from "./procedures/flow";
 import { listNumbers, setNumberAgent } from "./procedures/numbers";
 import { createTestSession } from "./procedures/sessions";
-import { getTriggerUrl } from "./procedures/trigger";
 import { createTool, deleteTool, listTools, setAgentTools } from "./procedures/tools";
+import { getTriggerUrl } from "./procedures/trigger";
 
 export const voiceagentsRouter = {
 	agents: {
@@ -30,6 +39,17 @@ export const voiceagentsRouter = {
 	},
 	flow: {
 		save: saveFlow,
+	},
+	draft: {
+		save: saveDraft,
+		get: getDraft,
+		discard: discardDraft,
+		publish: publishAgent,
+	},
+	versions: {
+		list: listVersions,
+		get: getVersion,
+		restore: restoreVersion,
 	},
 	tools: {
 		list: listTools,

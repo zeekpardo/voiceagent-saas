@@ -1,7 +1,7 @@
 import { buildContactState, parseContactTags } from "@repo/api/modules/crm/lib/contact-state";
-import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
 import { normalizePhone } from "@repo/api/modules/crm/lib/normalize";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
+import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import { getAgentSource } from "@repo/database";
 
@@ -115,7 +115,10 @@ export async function POST(
 		(f) => f?.tag && (f.mode === "is" || f.mode === "is_not"),
 	);
 	if (!passesTagFilters(tagFilters, variables.contact_tags)) {
-		return Response.json({ queued: false, skipped: "contact does not match this source's tag filters" });
+		return Response.json({
+			queued: false,
+			skipped: "contact does not match this source's tag filters",
+		});
 	}
 
 	// Known-contact snapshot for the engine's KNOWN CONTACT INFO block. Only

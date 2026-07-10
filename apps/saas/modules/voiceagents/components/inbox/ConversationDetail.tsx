@@ -3,11 +3,11 @@
 import { cn } from "@repo/ui";
 import { Badge } from "@repo/ui/components/badge";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import { useContactMatchQuery } from "@sources/lib/api";
 import { ChevronDownIcon, ExternalLinkIcon, MessageSquareIcon } from "lucide-react";
 import { Fragment, useState } from "react";
 
 import { useTranscriptQuery } from "../../lib/api";
-import { useContactMatchQuery } from "@sources/lib/api";
 import {
 	avatarClasses,
 	type Call,
@@ -52,7 +52,7 @@ function ConversationDetailInner({ call, agentName }: { call: Call; agentName: s
 	const extracted = usableExtractedEntries(transcript?.extracted ?? call.extracted);
 
 	return (
-		<div className="flex h-full min-h-0 flex-col">
+		<div className="min-h-0 flex h-full flex-col">
 			<div className="h-14 gap-3 px-4 flex shrink-0 items-center border-b">
 				<span
 					className={cn(
@@ -68,7 +68,7 @@ function ConversationDetailInner({ call, agentName }: { call: Call; agentName: s
 						{agentName}
 					</span>
 				)}
-				<div className="gap-2 flex shrink-0 items-center ml-auto">
+				<div className="gap-2 ml-auto flex shrink-0 items-center">
 					{duration && <span className="text-xs text-muted-foreground">{duration}</span>}
 					<Badge status={STATUS_BADGE[call.status] ?? "info"}>{call.status}</Badge>
 					{contact ? (
@@ -86,13 +86,13 @@ function ConversationDetailInner({ call, agentName }: { call: Call; agentName: s
 			<div className="min-h-0 flex-1 overflow-y-auto">
 				<SummaryCard call={call} summary={summary ?? null} extracted={extracted} />
 
-				<div className="px-4 py-4 mx-auto w-full max-w-3xl">
+				<div className="px-4 py-4 max-w-3xl mx-auto w-full">
 					{isLoading ? (
 						<TranscriptSkeleton />
 					) : transcript?.turns.length ? (
 						<TranscriptBubbles call={call} name={name} turns={transcript.turns} />
 					) : (
-						<p className="py-8 text-center text-sm text-muted-foreground">
+						<p className="py-8 text-sm text-center text-muted-foreground">
 							No transcript recorded.
 						</p>
 					)}
@@ -118,7 +118,7 @@ function ContactChip({ name, url }: { name: string | null; url: string | null })
 			target="_blank"
 			rel="noopener noreferrer"
 			title="Open in GoHighLevel"
-			className="gap-1 px-2 py-0.5 text-xs flex max-w-48 shrink-0 items-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"
+			className="gap-1 px-2 py-0.5 text-xs max-w-48 flex shrink-0 items-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"
 		>
 			<span className="truncate">{label}</span>
 			<ExternalLinkIcon className="size-3 shrink-0" />
@@ -162,14 +162,14 @@ function SummaryCard({
 				</button>
 
 				{isOpen && (
-					<div className="px-4 pb-3 gap-3 flex flex-col border-t pt-3">
+					<div className="px-4 pb-3 gap-3 pt-3 flex flex-col border-t">
 						{summary ? (
 							<p className="text-sm leading-relaxed">{summary}</p>
 						) : (
 							<p className="text-sm text-muted-foreground">No summary for this call.</p>
 						)}
 						{extracted.length > 0 && (
-							<dl className="gap-x-6 gap-y-1.5 grid grid-cols-1 sm:grid-cols-2">
+							<dl className="gap-x-6 gap-y-1.5 sm:grid-cols-2 grid grid-cols-1">
 								{extracted.map(([key, value]) => (
 									<div key={key} className="gap-2 text-sm flex items-baseline justify-between">
 										<dt className="shrink-0 text-muted-foreground">{prettifyKey(key)}</dt>
@@ -238,7 +238,7 @@ function TranscriptBubbles({
 							{isCaller && (
 								<span
 									className={cn(
-										"size-7 font-medium text-[10px] flex shrink-0 items-center justify-center rounded-full",
+										"size-7 font-medium flex shrink-0 items-center justify-center rounded-full text-[10px]",
 										avatarClasses(name),
 										!isLastInGroup && "invisible",
 									)}
@@ -248,7 +248,7 @@ function TranscriptBubbles({
 							)}
 							<div
 								className={cn(
-									"rounded-2xl px-4 py-3 text-sm max-w-lg whitespace-pre-wrap",
+									"px-4 py-3 text-sm max-w-lg rounded-2xl whitespace-pre-wrap",
 									isCaller ? "bg-muted" : "bg-primary/10",
 									isLastInGroup && (isCaller ? "rounded-bl-md" : "rounded-br-md"),
 								)}

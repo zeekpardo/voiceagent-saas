@@ -100,29 +100,29 @@ export function ToolsTab({
 	};
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="gap-4 flex flex-col">
 			<Card>
 				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
+					<CardTitle className="gap-2 flex items-center">
 						<WrenchIcon className="size-5" /> Tools this agent can call
 						<Button size="sm" className="ml-auto" onClick={() => setCreateOpen(true)}>
 							<PlusIcon className="size-4" /> Register tool
 						</Button>
 					</CardTitle>
 				</CardHeader>
-				<CardContent className="flex flex-col gap-3">
-					<p className="text-sm opacity-60 -mt-2">
-						A tool is an HTTP endpoint in your own app (booking, lookups, CRM writes…). The
-						agent calls it mid-conversation; your endpoint returns JSON the agent speaks from.
-						Invocations are HMAC-signed with the tool's secret.
+				<CardContent className="gap-3 flex flex-col">
+					<p className="text-sm -mt-2 opacity-60">
+						A tool is an HTTP endpoint in your own app (booking, lookups, CRM writes…). The agent
+						calls it mid-conversation; your endpoint returns JSON the agent speaks from. Invocations
+						are HMAC-signed with the tool's secret.
 					</p>
 					{!tools?.length ? (
-						<p className="text-sm opacity-50 py-6 text-center">
+						<p className="text-sm py-6 text-center opacity-50">
 							No tools registered yet — create one to give your agents live abilities.
 						</p>
 					) : (
 						tools.map((tool) => (
-							<div key={tool.id} className="flex items-center gap-3 rounded-lg border p-3">
+							<div key={tool.id} className="gap-3 p-3 flex items-center rounded-lg border">
 								<Switch
 									checked={attached.has(tool.id)}
 									disabled={setToolsMutation.isPending}
@@ -130,8 +130,8 @@ export function ToolsTab({
 								/>
 								<div className="min-w-0 flex-1">
 									<p className="font-mono text-sm">{tool.name}</p>
-									<p className="text-xs opacity-60 truncate">{tool.description}</p>
-									<p className="text-xs opacity-40 truncate">
+									<p className="text-xs truncate opacity-60">{tool.description}</p>
+									<p className="text-xs truncate opacity-40">
 										→ {tool.endpoint_url} · {tool.timeout_ms}ms timeout
 									</p>
 								</div>
@@ -156,21 +156,24 @@ export function ToolsTab({
 				</CardContent>
 			</Card>
 
-			<Dialog open={createOpen} onOpenChange={(open) => {
-				setCreateOpen(open);
-				if (!open) setNewSecret(null);
-			}}>
+			<Dialog
+				open={createOpen}
+				onOpenChange={(open) => {
+					setCreateOpen(open);
+					if (!open) setNewSecret(null);
+				}}
+			>
 				<DialogContent className="max-w-xl">
 					{newSecret ? (
 						<>
 							<DialogHeader>
 								<DialogTitle>Tool created — save the signing secret</DialogTitle>
 								<DialogDescription>
-									This is shown once. Your endpoint verifies each invocation's
-									X-Voice-Signature header with it.
+									This is shown once. Your endpoint verifies each invocation's X-Voice-Signature
+									header with it.
 								</DialogDescription>
 							</DialogHeader>
-							<div className="flex items-center gap-2">
+							<div className="gap-2 flex items-center">
 								<Input readOnly value={newSecret} className="font-mono text-xs" />
 								<Button
 									variant="outline"
@@ -183,19 +186,26 @@ export function ToolsTab({
 									<CopyIcon className="size-4" />
 								</Button>
 							</div>
-							<Button onClick={() => { setNewSecret(null); setCreateOpen(false); }}>Done</Button>
+							<Button
+								onClick={() => {
+									setNewSecret(null);
+									setCreateOpen(false);
+								}}
+							>
+								Done
+							</Button>
 						</>
 					) : (
 						<>
 							<DialogHeader>
 								<DialogTitle>Register a tool</DialogTitle>
 								<DialogDescription>
-									The name and description tell the AI when to use it; parameters define what
-									it must collect from the caller first.
+									The name and description tell the AI when to use it; parameters define what it
+									must collect from the caller first.
 								</DialogDescription>
 							</DialogHeader>
-							<div className="flex flex-col gap-3">
-								<div className="grid grid-cols-2 gap-3">
+							<div className="gap-3 flex flex-col">
+								<div className="gap-3 grid grid-cols-2">
 									<div>
 										<Label>Name (function name)</Label>
 										<Input
@@ -232,9 +242,9 @@ export function ToolsTab({
 								</div>
 								<div>
 									<Label>Parameters</Label>
-									<div className="flex flex-col gap-2 mt-1">
+									<div className="gap-2 mt-1 flex flex-col">
 										{params.map((p, i) => (
-											<div key={`param-${i}-${p.name}`} className="flex items-center gap-2">
+											<div key={`param-${i}-${p.name}`} className="gap-2 flex items-center">
 												<Input
 													className="w-36 font-mono text-xs"
 													placeholder="date"

@@ -10,14 +10,14 @@ export type StartRFNode = Node<Record<string, unknown>, "start">;
 /** The fixed entry point — its single edge decides which agent takes the call. */
 export function StartNode(_props: NodeProps<StartRFNode>) {
 	return (
-		<div className="flex items-center gap-2 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 shadow-sm">
+		<div className="gap-2 border-emerald-500/50 bg-emerald-500/10 px-4 py-2 shadow-sm flex items-center rounded-full border">
 			<PhoneIncomingIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
 			<span className="font-medium text-sm">Start</span>
 			<Handle
 				type="source"
 				id={START_HANDLE_ID}
 				position={Position.Right}
-				className="!size-3 !border-2 !border-background !bg-emerald-500"
+				className="!size-3 !bg-emerald-500 !border-2 !border-background"
 			/>
 		</div>
 	);

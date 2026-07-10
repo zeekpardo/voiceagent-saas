@@ -32,9 +32,13 @@ export function TransferNodeEditor({
 
 	return (
 		<>
-			<TitleInput value={data.title} onChange={(value) => patch({ title: value })} placeholder="Transfer to booking" />
+			<TitleInput
+				value={data.title}
+				onChange={(value) => patch({ title: value })}
+				placeholder="Transfer to booking"
+			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Announcement</Label>
 				<Textarea
 					rows={2}
@@ -43,12 +47,12 @@ export function TransferNodeEditor({
 					placeholder="One moment please — let me transfer you to the right person."
 				/>
 				<p className="text-xs opacity-50">
-					Spoken in the current voice right before the hold music. Supports {"{{variables}}"};
-					leave empty to jump straight to the music.
+					Spoken in the current voice right before the hold music. Supports {"{{variables}}"}; leave
+					empty to jump straight to the music.
 				</p>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Hold music (seconds)</Label>
 				<Input
 					type="number"
@@ -61,12 +65,11 @@ export function TransferNodeEditor({
 					}
 				/>
 				<p className="text-xs opacity-50">
-					How long the caller hears hold music before the next "person" picks up. 0 skips the
-					music.
+					How long the caller hears hold music before the next "person" picks up. 0 skips the music.
 				</p>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Voice after the transfer</Label>
 				<Select
 					value={data.voiceId ?? KEEP_VOICE}
@@ -75,9 +78,7 @@ export function TransferNodeEditor({
 							patch({ voiceId: undefined, voiceProvider: undefined });
 							return;
 						}
-						const voice = VOICE_GROUPS.flatMap((group) => group.voices).find(
-							(v) => v.id === value,
-						);
+						const voice = VOICE_GROUPS.flatMap((group) => group.voices).find((v) => v.id === value);
 						patch({ voiceId: value, voiceProvider: voice?.provider });
 					}}
 				>
@@ -99,8 +100,8 @@ export function TransferNodeEditor({
 					</SelectContent>
 				</Select>
 				<p className="text-xs opacity-50">
-					The caller hears this voice from here on — pick a different one so the transfer feels
-					like a real hand-off.
+					The caller hears this voice from here on — pick a different one so the transfer feels like
+					a real hand-off.
 				</p>
 			</div>
 		</>

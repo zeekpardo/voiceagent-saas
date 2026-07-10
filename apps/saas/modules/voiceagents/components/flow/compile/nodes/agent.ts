@@ -5,7 +5,14 @@ import type {
 	CanvasNodeDoc,
 	EngineFlowNode,
 } from "../../flow-types";
-import { applyBookingPromptExtras, compileExitTagRules, instructionsToSections, makeId, sectionsToInstructions, textToTiptapDoc } from "../text";
+import {
+	applyBookingPromptExtras,
+	compileExitTagRules,
+	instructionsToSections,
+	makeId,
+	sectionsToInstructions,
+	textToTiptapDoc,
+} from "../text";
 
 export function compileAgentNode(
 	node: AgentCanvasNodeDoc & { data: AgentNodeData },

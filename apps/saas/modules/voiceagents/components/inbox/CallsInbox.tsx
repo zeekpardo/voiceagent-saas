@@ -58,7 +58,7 @@ export function CallsInbox() {
 			className="-mx-6 -my-6 md:h-[calc(100dvh-1rem-2px)] flex h-[calc(100dvh-8rem)] min-h-[520px] flex-col"
 		>
 			<div className="min-h-0 flex flex-1 overflow-hidden">
-				<aside className="w-[190px] hidden shrink-0 flex-col overflow-y-auto border-r py-3 lg:flex">
+				<aside className="py-3 lg:flex hidden w-[190px] shrink-0 flex-col overflow-y-auto border-r">
 					<div className="px-3 pb-2 gap-2 flex items-center">
 						<InboxIcon className="size-4 text-muted-foreground" />
 						<h1 className="font-medium text-sm">Calls</h1>
@@ -73,7 +73,7 @@ export function CallsInbox() {
 								isActive={agentFilter === null}
 								onClick={() => setAgentFilter(null)}
 							/>
-							<p className="px-2 pt-3 pb-1 font-medium text-[11px] uppercase tracking-wide text-muted-foreground">
+							<p className="px-2 pt-3 pb-1 font-medium tracking-wide text-[11px] text-muted-foreground uppercase">
 								Agents
 							</p>
 							{agents?.map((agent) => (
@@ -126,14 +126,14 @@ function ViewRow({
 			onClick={onClick}
 			aria-pressed={isActive}
 			className={cn(
-				"gap-2 rounded-md px-2 py-1.5 text-sm flex w-full items-center text-left transition-colors",
+				"gap-2 px-2 py-1.5 text-sm flex w-full items-center rounded-md text-left transition-colors",
 				isActive
-					? "bg-primary/5 font-medium text-foreground"
+					? "font-medium bg-primary/5 text-foreground"
 					: "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
 			)}
 		>
 			<span className="min-w-0 flex-1 truncate">{label}</span>
-			<span className="text-xs shrink-0 tabular-nums text-muted-foreground">{count}</span>
+			<span className="text-xs shrink-0 text-muted-foreground tabular-nums">{count}</span>
 		</button>
 	);
 }

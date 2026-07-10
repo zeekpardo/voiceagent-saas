@@ -2,9 +2,9 @@ import { ORPCError } from "@orpc/server";
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
-import { resolveCrmProvider } from "../../crm/lib/resolve";
-import { GhlApiError } from "../../crm/lib/providers/ghl-client";
 import type { CrmCalendar, CrmProvider } from "../../crm/lib/provider";
+import { GhlApiError } from "../../crm/lib/providers/ghl-client";
+import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { requireOwnedSource } from "../lib/require-owned-source";
 
 /** A scope the connection lacks shouldn't 500 the whole tab — degrade to empty. */

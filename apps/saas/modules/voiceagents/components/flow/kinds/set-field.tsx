@@ -1,4 +1,8 @@
-import { compileSetFieldNode, decompileSetFieldNode, newSetFieldNodeData } from "../compile/nodes/set-field";
+import {
+	compileSetFieldNode,
+	decompileSetFieldNode,
+	newSetFieldNodeData,
+} from "../compile/nodes/set-field";
 import { SetFieldNodeEditor } from "../editors/set-field";
 import type { SetFieldCanvasNodeDoc, SetFieldNodeData } from "../flow-types";
 import { setFieldNodeDataSchema } from "../flow-types";

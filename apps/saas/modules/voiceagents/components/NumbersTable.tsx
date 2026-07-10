@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@repo/ui";
-import { Skeleton } from "@repo/ui/components/skeleton";
 import {
 	Select,
 	SelectContent,
@@ -10,6 +9,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@repo/ui/components/select";
+import { Skeleton } from "@repo/ui/components/skeleton";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { AudioLinesIcon, PhoneIncomingIcon } from "lucide-react";
 
@@ -40,7 +40,7 @@ export function NumbersTable() {
 
 	if (numbersLoading || agentsLoading) {
 		return (
-			<div className="flex flex-col gap-2 rounded-xl border bg-card p-3">
+			<div className="gap-2 p-3 flex flex-col rounded-xl border bg-card">
 				{Array.from({ length: 3 }, (_, i) => (
 					<Skeleton key={i} className="h-11 w-full" />
 				))}
@@ -50,7 +50,7 @@ export function NumbersTable() {
 
 	if (!numbers?.length) {
 		return (
-			<div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-card py-12 text-center">
+			<div className="gap-3 py-12 flex flex-col items-center justify-center rounded-xl border bg-card text-center">
 				<PhoneIncomingIcon className="size-10 opacity-40" />
 				<p className="opacity-60">
 					No phone numbers registered yet. Numbers are provisioned at the carrier and registered
@@ -62,7 +62,7 @@ export function NumbersTable() {
 
 	return (
 		<div className="overflow-hidden rounded-xl border bg-card">
-			<table className="w-full border-separate border-spacing-0 text-sm">
+			<table className="border-spacing-0 text-sm w-full border-separate">
 				<thead>
 					<tr className="h-10">
 						<th className={cn(headerCellClass, "px-3")}>Number</th>
@@ -102,7 +102,7 @@ export function NumbersTable() {
 											<SelectContent>
 												{agents?.map((agent) => (
 													<SelectItem key={agent.id} value={agent.id}>
-														<span className="flex items-center gap-2">
+														<span className="gap-2 flex items-center">
 															<AudioLinesIcon className="size-3.5 opacity-60" />
 															{agent.name}
 														</span>

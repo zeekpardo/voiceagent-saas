@@ -1,6 +1,5 @@
 "use client";
 
-import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import {
 	FormControl,
@@ -21,6 +20,7 @@ import {
 } from "@repo/ui/components/select";
 import type { UseFormReturn } from "react-hook-form";
 
+import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import {
 	ALL_VOICES,
 	CUSTOM_VOICE,
@@ -39,7 +39,7 @@ export function VoiceModelSection({ form }: { form: UseFormReturn<AgentFormValue
 			<CardHeader>
 				<CardTitle>Voice & model</CardTitle>
 			</CardHeader>
-			<CardContent className="grid gap-4 @xl:grid-cols-2">
+			<CardContent className="gap-4 @xl:grid-cols-2 grid">
 				<FormField
 					control={form.control}
 					name="tts.voice"
@@ -85,7 +85,7 @@ export function VoiceModelSection({ form }: { form: UseFormReturn<AgentFormValue
 									</SelectContent>
 								</Select>
 								{!isKnown && (
-									<div className="mt-2 grid grid-cols-2 gap-2">
+									<div className="mt-2 gap-2 grid grid-cols-2">
 										<FormField
 											control={form.control}
 											name="tts.provider"
@@ -123,7 +123,8 @@ export function VoiceModelSection({ form }: { form: UseFormReturn<AgentFormValue
 						// Language only pins the ears: xAI STT auto-detects (and
 						// code-switches) languages, so the picker is meaningless there.
 						const sttModel = form.watch("stt.model");
-						const sttAutoDetects = !sttModel || sttModel === "default" || sttModel.startsWith("xai");
+						const sttAutoDetects =
+							!sttModel || sttModel === "default" || sttModel.startsWith("xai");
 						return (
 							<FormItem>
 								<FormLabel className={sttAutoDetects ? "opacity-50" : ""}>Language</FormLabel>

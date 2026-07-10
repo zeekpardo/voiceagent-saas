@@ -123,7 +123,10 @@ export class GhlClient {
 			}
 			if (!res.ok) {
 				const detail = await res.text().catch(() => "");
-				throw new GhlApiError(res.status, `GHL ${method} ${path} failed (${res.status}): ${detail.slice(0, 300)}`);
+				throw new GhlApiError(
+					res.status,
+					`GHL ${method} ${path} failed (${res.status}): ${detail.slice(0, 300)}`,
+				);
 			}
 			if (res.status === 204) return undefined as T;
 			return (await res.json()) as T;
@@ -163,10 +166,14 @@ export class GhlClient {
 		firstName?: string;
 		lastName?: string;
 	}): Promise<{ contact: GhlContact; created: boolean }> {
-		const res = await this.request<{ contact: GhlContact; new?: boolean }>("POST", "/contacts/upsert", {
-			locationId: this.locationId,
-			...data,
-		});
+		const res = await this.request<{ contact: GhlContact; new?: boolean }>(
+			"POST",
+			"/contacts/upsert",
+			{
+				locationId: this.locationId,
+				...data,
+			},
+		);
 		return { contact: res.contact, created: res.new === true };
 	}
 
@@ -213,7 +220,10 @@ export class GhlClient {
 	}
 
 	async getLocationDetails(): Promise<GhlLocation> {
-		const res = await this.request<{ location?: GhlLocation }>("GET", `/locations/${this.locationId}`);
+		const res = await this.request<{ location?: GhlLocation }>(
+			"GET",
+			`/locations/${this.locationId}`,
+		);
 		return res.location ?? { id: this.locationId };
 	}
 
@@ -256,7 +266,10 @@ export class GhlClient {
 		return res.opportunity;
 	}
 
-	async updateOpportunity(id: string, input: { pipelineStageId?: string; status?: string }): Promise<void> {
+	async updateOpportunity(
+		id: string,
+		input: { pipelineStageId?: string; status?: string },
+	): Promise<void> {
 		await this.request("PUT", `/opportunities/${id}`, input);
 	}
 

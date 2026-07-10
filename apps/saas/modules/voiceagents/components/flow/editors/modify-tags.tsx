@@ -24,9 +24,13 @@ export function ModifyTagsNodeEditor({
 
 	return (
 		<>
-			<TitleInput value={data.title} onChange={(value) => patch({ title: value })} placeholder="Tag as hot lead" />
+			<TitleInput
+				value={data.title}
+				onChange={(value) => patch({ title: value })}
+				placeholder="Tag as hot lead"
+			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Add tags</Label>
 				<Input
 					value={data.addTags.join(", ")}
@@ -36,7 +40,7 @@ export function ModifyTagsNodeEditor({
 				<p className="text-xs opacity-50">Comma-separated. Added to the contact silently.</p>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Remove tags</Label>
 				<Input
 					value={data.removeTags.join(", ")}

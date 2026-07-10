@@ -36,9 +36,7 @@ export const setNumberAgent = protectedProcedure
 		if (input.agentId) {
 			await requireOwnedAgent(context.session, input.agentId);
 		}
-		return gatewayFetch<GatewayNumber>(
-			"PATCH",
-			`/v1/numbers/${encodeURIComponent(input.id)}`,
-			{ inbound_agent_id: input.agentId },
-		);
+		return gatewayFetch<GatewayNumber>("PATCH", `/v1/numbers/${encodeURIComponent(input.id)}`, {
+			inbound_agent_id: input.agentId,
+		});
 	});

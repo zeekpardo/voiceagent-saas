@@ -62,8 +62,8 @@ export function ExitTagConditions({
 			<summary className="cursor-pointer text-primary">
 				Tag conditions{active ? " (on)" : ""}
 			</summary>
-			<div className="mt-2 flex flex-col gap-2">
-				<div className="flex flex-col gap-1">
+			<div className="mt-2 gap-2 flex flex-col">
+				<div className="gap-1 flex flex-col">
 					<Label className="text-xs">Only if tagged</Label>
 					<Input
 						className="h-8 text-sm"
@@ -72,7 +72,7 @@ export function ExitTagConditions({
 						placeholder="qualified, hot"
 					/>
 				</div>
-				<div className="flex flex-col gap-1">
+				<div className="gap-1 flex flex-col">
 					<Label className="text-xs">Never if tagged</Label>
 					<Input
 						className="h-8 text-sm"
@@ -101,7 +101,7 @@ export function TitleInput({
 	placeholder: string;
 }) {
 	return (
-		<div className="flex flex-col gap-1.5">
+		<div className="gap-1.5 flex flex-col">
 			<Label>Title</Label>
 			<Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
 		</div>

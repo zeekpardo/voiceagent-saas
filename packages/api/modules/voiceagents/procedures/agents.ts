@@ -8,8 +8,8 @@ import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
 import { requireActiveOrganizationId } from "../../sources/lib/org";
-import { requireOwnedAgent } from "../lib/require-owned-agent";
 import { gatewayFetch } from "../lib/gateway";
+import { requireOwnedAgent } from "../lib/require-owned-agent";
 import { agentConfigInput, type GatewayAgent, toGatewayConfig } from "../lib/schema";
 
 export const listAgents = protectedProcedure

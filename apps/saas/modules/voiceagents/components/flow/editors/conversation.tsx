@@ -30,7 +30,7 @@ export function ConversationNodeEditor({
 				placeholder="Keep the conversation going"
 			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>
 					Conversation reason <span className="text-destructive">*</span>
 				</Label>
@@ -46,14 +46,14 @@ export function ConversationNodeEditor({
 				</p>
 			</div>
 
-			<div className="flex flex-col gap-2">
+			<div className="gap-2 flex flex-col">
 				<Label>Talking-point hints</Label>
 				<p className="-mt-1 text-xs opacity-50">
-					Optional nudges the AI can weave in (timeline, motivation, wishlist…). Leave empty to
-					let it drive entirely from the reason.
+					Optional nudges the AI can weave in (timeline, motivation, wishlist…). Leave empty to let
+					it drive entirely from the reason.
 				</p>
 				{data.hints.map((hint, index) => (
-					<div key={index} className="flex items-center gap-2">
+					<div key={index} className="gap-2 flex items-center">
 						<Input
 							value={hint}
 							onChange={(e) =>
@@ -83,15 +83,15 @@ export function ConversationNodeEditor({
 				</Button>
 			</div>
 
-			<div className="flex flex-col gap-2">
+			<div className="gap-2 flex flex-col">
 				<Label>Exits</Label>
 				<p className="-mt-1 text-xs opacity-50">
-					Optional paths out of the loop. Wire each on the canvas to another node; leave one
-					unwired to end the call. Removing an exit removes its edge.
+					Optional paths out of the loop. Wire each on the canvas to another node; leave one unwired
+					to end the call. Removing an exit removes its edge.
 				</p>
 				{data.exits.map((exit) => (
-					<div key={exit.id} className="flex flex-col gap-2 rounded-lg border p-2.5">
-						<div className="flex items-start gap-2">
+					<div key={exit.id} className="gap-2 p-2.5 flex flex-col rounded-lg border">
+						<div className="gap-2 flex items-start">
 							<Input
 								value={exit.name}
 								onChange={(e) =>
@@ -123,8 +123,7 @@ export function ConversationNodeEditor({
 								onClick={() =>
 									patch({
 										exits: data.exits.filter((x) => x.id !== exit.id),
-										wrapUpExitId:
-											data.wrapUpExitId === exit.id ? undefined : data.wrapUpExitId,
+										wrapUpExitId: data.wrapUpExitId === exit.id ? undefined : data.wrapUpExitId,
 									})
 								}
 							>
@@ -154,9 +153,9 @@ export function ConversationNodeEditor({
 				</Button>
 			</div>
 
-			<div className="flex flex-col gap-2">
+			<div className="gap-2 flex flex-col">
 				<Label>When the conversation is exhausted</Label>
-				<div className="flex items-start gap-2.5 rounded-lg border p-2.5">
+				<div className="gap-2.5 p-2.5 flex items-start rounded-lg border">
 					<input
 						id={`wrapup-end-${nodeId}`}
 						type="radio"
@@ -166,13 +165,13 @@ export function ConversationNodeEditor({
 						onChange={() => patch({ wrapUpMode: "end_call" })}
 					/>
 					<label htmlFor={`wrapup-end-${nodeId}`} className="min-w-0 cursor-pointer">
-						<span className="block text-sm">End the call</span>
-						<span className="block text-xs opacity-60">
+						<span className="text-sm block">End the call</span>
+						<span className="text-xs block opacity-60">
 							Wrap up warmly and hang up when the caller disengages.
 						</span>
 					</label>
 				</div>
-				<div className="flex items-start gap-2.5 rounded-lg border p-2.5">
+				<div className="gap-2.5 p-2.5 flex items-start rounded-lg border">
 					<input
 						id={`wrapup-exit-${nodeId}`}
 						type="radio"
@@ -188,8 +187,8 @@ export function ConversationNodeEditor({
 					/>
 					<div className="min-w-0 flex-1">
 						<label htmlFor={`wrapup-exit-${nodeId}`} className="cursor-pointer">
-							<span className="block text-sm">Take an exit</span>
-							<span className="block text-xs opacity-60">
+							<span className="text-sm block">Take an exit</span>
+							<span className="text-xs block opacity-60">
 								Move on along one of this node's exits.
 							</span>
 						</label>
@@ -198,7 +197,7 @@ export function ConversationNodeEditor({
 								aria-label="Wrap-up exit"
 								value={data.wrapUpExitId ?? ""}
 								onChange={(e) => patch({ wrapUpExitId: e.target.value || undefined })}
-								className="mt-2 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+								className="mt-2 px-2 py-1.5 text-sm w-full rounded-md border bg-background"
 							>
 								<option value="">Select an exit…</option>
 								{data.exits.map((exit) => (
@@ -212,24 +211,24 @@ export function ConversationNodeEditor({
 				</div>
 			</div>
 
-			<div className="flex items-center gap-3 rounded-lg border p-2.5">
+			<div className="gap-3 p-2.5 flex items-center rounded-lg border">
 				<Switch
 					id={`conversation-default-${nodeId}`}
 					checked={!!data.isDefault}
 					onCheckedChange={(on) => patch({ isDefault: on })}
 				/>
 				<label htmlFor={`conversation-default-${nodeId}`} className="min-w-0 cursor-pointer">
-					<span className="block text-sm">Use as default for unconnected exits</span>
-					<span className="block text-xs opacity-60">
+					<span className="text-sm block">Use as default for unconnected exits</span>
+					<span className="text-xs block opacity-60">
 						Any dangling exit in the flow falls back to this node (CloseBot parity). Only one
 						conversation node can be the default.
 					</span>
 				</label>
 			</div>
 
-			<details className="rounded-lg border p-2.5">
-				<summary className="cursor-pointer text-sm">Advanced</summary>
-				<div className="mt-3 flex flex-col gap-1.5">
+			<details className="p-2.5 rounded-lg border">
+				<summary className="text-sm cursor-pointer">Advanced</summary>
+				<div className="mt-3 gap-1.5 flex flex-col">
 					<Label>Max duration in this node (seconds)</Label>
 					<Input
 						type="number"

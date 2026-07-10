@@ -62,14 +62,11 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 	if (variant === "job") {
 		return (
 			<Form {...form}>
-				<form onSubmit={onSubmit} className="flex flex-col gap-6">
+				<form onSubmit={onSubmit} className="gap-6 flex flex-col">
 					<JobInformationSection form={form} />
 
-					<div className="flex justify-end gap-3">
-						<Button
-							type="submit"
-							loading={createMutation.isPending || updateMutation.isPending}
-						>
+					<div className="gap-3 flex justify-end">
+						<Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
 							{agent ? "Save changes" : "Create agent"}
 						</Button>
 					</div>
@@ -83,17 +80,14 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 			{/* @container: grids below split into two columns only when the FORM
 			    itself is wide enough — one column in the 440px builder aside, two
 			    on the full-width create page. */}
-			<form onSubmit={onSubmit} className="@container flex flex-col gap-6">
+			<form onSubmit={onSubmit} className="gap-6 @container flex flex-col">
 				<IdentityPersonaSection form={form} variant={variant} />
 				<VoiceModelSection form={form} />
 				<ConversationDynamicsSection form={form} />
 				<AfterCallSection form={form} extractFields={extractFields} />
 
-				<div className="flex justify-end gap-3">
-					<Button
-						type="submit"
-						loading={createMutation.isPending || updateMutation.isPending}
-					>
+				<div className="gap-3 flex justify-end">
+					<Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
 						{agent ? "Save changes" : "Create agent"}
 					</Button>
 				</div>

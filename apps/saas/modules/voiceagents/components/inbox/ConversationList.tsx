@@ -41,11 +41,7 @@ export function ConversationList({
 			return calls;
 		}
 		return calls.filter((call) => {
-			const haystack = [
-				callDisplayName(call),
-				callPhoneNumber(call) ?? "",
-				call.summary ?? "",
-			]
+			const haystack = [callDisplayName(call), callPhoneNumber(call) ?? "", call.summary ?? ""]
 				.join(" ")
 				.toLowerCase();
 			return haystack.includes(query);
@@ -53,7 +49,7 @@ export function ConversationList({
 	}, [calls, search]);
 
 	return (
-		<div className="flex h-full min-h-0 flex-col">
+		<div className="min-h-0 flex h-full flex-col">
 			<div className="p-3 shrink-0 border-b">
 				<div className="relative">
 					<SearchIcon className="left-3 size-4 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -72,7 +68,7 @@ export function ConversationList({
 				{isLoading ? (
 					<ConversationListSkeleton />
 				) : filteredCalls.length === 0 ? (
-					<p className="p-6 text-center text-sm text-muted-foreground">
+					<p className="p-6 text-sm text-center text-muted-foreground">
 						{search ? "No calls match your search." : "No calls yet."}
 					</p>
 				) : (
@@ -134,7 +130,7 @@ function ConversationRow({
 
 				<span className="min-w-0 flex-1">
 					<span className="gap-2 flex items-baseline justify-between">
-						<span className="gap-1.5 font-medium text-sm flex min-w-0 items-center">
+						<span className="gap-1.5 font-medium text-sm min-w-0 flex items-center">
 							<span className="truncate">{name}</span>
 							<DirectionIcon className="size-3 shrink-0 text-muted-foreground" />
 						</span>

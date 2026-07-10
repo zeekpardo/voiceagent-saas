@@ -9,11 +9,7 @@ import { ORPCError } from "@orpc/server";
 const gatewayUrl = () => process.env.VOICE_GATEWAY_URL ?? "http://localhost:8787";
 const gatewayKey = () => process.env.VOICE_GATEWAY_API_KEY as string;
 
-export async function gatewayFetch<T>(
-	method: string,
-	path: string,
-	body?: unknown,
-): Promise<T> {
+export async function gatewayFetch<T>(method: string, path: string, body?: unknown): Promise<T> {
 	if (!gatewayKey()) {
 		throw new ORPCError("INTERNAL_SERVER_ERROR", {
 			message: "VOICE_GATEWAY_API_KEY is not configured",
@@ -31,7 +27,8 @@ export async function gatewayFetch<T>(
 		error?: { code?: string; message?: string };
 	};
 	if (!res.ok) {
-		throw new ORPCError(res.status === 404 ? "NOT_FOUND" : "BAD_REQUEST", {
+		const code = res.status === 404 ? "NOT_FOUND" : res.status === 409 ? "CONFLICT" : "BAD_REQUEST";
+		throw new ORPCError(code, {
 			message: data.error?.message ?? `Voice gateway request failed (${res.status})`,
 		});
 	}

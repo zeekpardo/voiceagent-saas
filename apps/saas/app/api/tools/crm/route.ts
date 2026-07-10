@@ -1,7 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getCrmLiveToolByName } from "@repo/database";
-import { GhlApiError } from "@repo/api/modules/crm/lib/providers/ghl-client";
-import { executeBookAppointment, executeCheckAvailability } from "@repo/api/modules/crm/lib/calendar";
+
+import {
+	executeBookAppointment,
+	executeCheckAvailability,
+} from "@repo/api/modules/crm/lib/calendar";
 import {
 	executeAddTag,
 	executeMoveStage,
@@ -9,8 +11,10 @@ import {
 	executeUpdateContact,
 	resolveContactId,
 } from "@repo/api/modules/crm/lib/contact-tools";
-import { resolveSourceIdForAgent } from "@repo/api/modules/crm/lib/resolve-source";
+import { GhlApiError } from "@repo/api/modules/crm/lib/providers/ghl-client";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
+import { resolveSourceIdForAgent } from "@repo/api/modules/crm/lib/resolve-source";
+import { getCrmLiveToolByName } from "@repo/database";
 
 /**
  * Live CRM tool invocations from the voice worker (tools-as-webhooks). The
@@ -143,7 +147,11 @@ export async function POST(req: Request): Promise<Response> {
 		}
 	} catch (err) {
 		// The marketplace app may lack calendar scopes — recover verbally, don't fail.
-		if (isCalendarTool && err instanceof GhlApiError && (err.status === 401 || err.status === 403)) {
+		if (
+			isCalendarTool &&
+			err instanceof GhlApiError &&
+			(err.status === 401 || err.status === 403)
+		) {
 			return toolResult({
 				error: "calendar_access",
 				message:

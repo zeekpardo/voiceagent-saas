@@ -229,7 +229,10 @@ function makeBranchDoc(): CanvasDoc {
 				id: "tf1",
 				type: "truefalse",
 				position: { x: 400, y: 0 },
-				data: { title: "Speaks English?", condition: "The caller has confirmed they speak English" },
+				data: {
+					title: "Speaks English?",
+					condition: "The caller has confirmed they speak English",
+				},
 			},
 			{
 				id: "sw1",
@@ -368,9 +371,7 @@ describe("branch nodes", () => {
 		// True/False edges land on the fixed handles.
 		const tfEdges = rebuilt.edges.filter((e) => e.source === "tf1");
 		expect(
-			tfEdges
-				.map((e) => `${e.sourceHandle}->${e.target}`)
-				.sort((a, b) => a.localeCompare(b)),
+			tfEdges.map((e) => `${e.sourceHandle}->${e.target}`).sort((a, b) => a.localeCompare(b)),
 		).toEqual([`${FALSE_HANDLE_ID}->sw1`, `${TRUE_HANDLE_ID}->a2`]);
 		// Unwired Otherwise stays unwired.
 		expect(rebuilt.edges.some((e) => e.sourceHandle === OTHERWISE_HANDLE_ID)).toBe(false);
@@ -897,9 +898,7 @@ describe("default-conversation unconnected-exit semantics", () => {
 	it("wires a dangling exit to the designated default conversation node", () => {
 		const { flow } = compileCanvas(makeDefaultExitDoc(true), []);
 		const a1 = flow.nodes.find((n) => n.id === "a1");
-		expect(a1?.exits).toEqual([
-			{ name: "wrap", description: "Core data captured", target: "cv1" },
-		]);
+		expect(a1?.exits).toEqual([{ name: "wrap", description: "Core data captured", target: "cv1" }]);
 		// The default node's own (absent) exits are untouched — no self-loop.
 		const cv = flow.nodes.find((n) => n.id === "cv1");
 		expect(cv?.exits).toEqual([]);

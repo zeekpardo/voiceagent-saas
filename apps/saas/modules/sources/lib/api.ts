@@ -6,7 +6,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const sourcesQueryKey = ["sources"] as const;
 export const sourceProvidersQueryKey = ["sources", "providers"] as const;
-export const agentSourcesQueryKey = (agentId: string) => ["voiceagents", "agents", agentId, "sources"] as const;
+export const agentSourcesQueryKey = (agentId: string) =>
+	["voiceagents", "agents", agentId, "sources"] as const;
 
 export function useSourcesQuery() {
 	return useQuery({ queryKey: sourcesQueryKey, queryFn: () => orpcClient.sources.list() });
@@ -77,7 +78,8 @@ export function useAutoMapSourceMutation(agentId: string) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (sourceId: string) => orpcClient.voiceagents.sources.autoMap({ agentId, sourceId }),
-		onSuccess: () => void queryClient.invalidateQueries({ queryKey: agentSourcesQueryKey(agentId) }),
+		onSuccess: () =>
+			void queryClient.invalidateQueries({ queryKey: agentSourcesQueryKey(agentId) }),
 	});
 }
 
@@ -112,7 +114,8 @@ export function useSaveSourceMappingMutation(agentId: string) {
 			bookingCalendarId?: string | null;
 			bookingCalendarName?: string | null;
 		}) => orpcClient.voiceagents.sources.saveMapping({ agentId, ...input }),
-		onSuccess: () => void queryClient.invalidateQueries({ queryKey: agentSourcesQueryKey(agentId) }),
+		onSuccess: () =>
+			void queryClient.invalidateQueries({ queryKey: agentSourcesQueryKey(agentId) }),
 	});
 }
 
@@ -194,9 +197,7 @@ export function useSourceCalendarsQuery(sourceId: string | null) {
 export function useContactMatchQuery(call: GatewayCall | null) {
 	const contactId = call?.metadata?.crm_contact_id;
 	const sourceId = call?.metadata?.source_id;
-	const phone = call
-		? (call.direction === "outbound" ? call.to_number : call.from_number)
-		: null;
+	const phone = call ? (call.direction === "outbound" ? call.to_number : call.from_number) : null;
 
 	return useQuery({
 		queryKey: ["sources", "contactMatch", call?.id ?? "none"] as const,

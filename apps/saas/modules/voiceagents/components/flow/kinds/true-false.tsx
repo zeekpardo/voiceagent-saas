@@ -1,4 +1,8 @@
-import { compileTrueFalseNode, decompileRouterNode, newTrueFalseNodeData } from "../compile/nodes/router";
+import {
+	compileTrueFalseNode,
+	decompileRouterNode,
+	newTrueFalseNodeData,
+} from "../compile/nodes/router";
 import { TrueFalseNodeEditor } from "../editors/true-false";
 import type { TrueFalseCanvasNodeDoc, TrueFalseNodeData } from "../flow-types";
 import { FALSE_HANDLE_ID, trueFalseNodeDataSchema, TRUE_HANDLE_ID } from "../flow-types";

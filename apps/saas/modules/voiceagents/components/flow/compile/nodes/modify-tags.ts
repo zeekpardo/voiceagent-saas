@@ -30,7 +30,10 @@ export function compileModifyTagsNode(
 		kind: "modify_tags",
 		modifyTags: { add, remove, toolId: TAG_WRITE_TOOL_NAME },
 		instructions:
-			[add.length ? `Add: ${add.join(", ")}` : "", remove.length ? `Remove: ${remove.join(", ")}` : ""]
+			[
+				add.length ? `Add: ${add.join(", ")}` : "",
+				remove.length ? `Remove: ${remove.join(", ")}` : "",
+			]
 				.filter(Boolean)
 				.join("; ") || "Modify tags",
 		toolIds: [],

@@ -47,7 +47,7 @@ export function SectionEditor({
 	});
 
 	return (
-		<div className="flex flex-col gap-1">
+		<div className="gap-1 flex flex-col">
 			<EditorContent editor={editor} />
 			<p className="text-xs opacity-40">{hint}</p>
 		</div>

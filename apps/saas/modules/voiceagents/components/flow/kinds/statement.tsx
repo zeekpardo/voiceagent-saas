@@ -1,4 +1,8 @@
-import { compileStatementNode, decompileStatementNode, newStatementNodeData } from "../compile/nodes/statement";
+import {
+	compileStatementNode,
+	decompileStatementNode,
+	newStatementNodeData,
+} from "../compile/nodes/statement";
 import { StatementNodeEditor } from "../editors/statement";
 import type { StatementCanvasNodeDoc, StatementNodeData } from "../flow-types";
 import { STATEMENT_NEXT_HANDLE_ID, statementNodeDataSchema } from "../flow-types";

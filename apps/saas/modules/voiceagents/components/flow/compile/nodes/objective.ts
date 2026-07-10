@@ -20,9 +20,7 @@ export function compileObjectiveNode(
 	// An aggregate objective composes other objectives' answers, so it may carry no
 	// own description — keep it even when the description is blank (a non-aggregate
 	// still needs a description to be judged).
-	const kept = node.data.objectives.filter(
-		(o) => o.description.trim() || o.aggregateOf?.length,
-	);
+	const kept = node.data.objectives.filter((o) => o.description.trim() || o.aggregateOf?.length);
 	// Stable slug per surviving objective, keyed by its doc id, so aggregateOf
 	// (stored as doc ids) resolves to the engine keys.
 	const slugById = new Map<string, string>();

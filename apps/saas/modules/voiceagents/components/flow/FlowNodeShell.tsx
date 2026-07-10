@@ -110,7 +110,7 @@ export function FlowNodeShell({
 				<span
 					aria-hidden
 					className={cn(
-						"pointer-events-none absolute inset-0",
+						"inset-0 pointer-events-none absolute",
 						isRound ? "rounded-full" : "rounded-lg",
 						TRACE_GLOW_CLASS[traceState][traceDimmed ? "dimmed" : "live"],
 					)}
@@ -124,30 +124,30 @@ export function FlowNodeShell({
 					event.stopPropagation();
 					void deleteElements({ nodes: [{ id }] });
 				}}
-				className="-top-7 nodrag absolute right-0 flex size-6 items-center justify-center rounded-md border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-destructive group-hover:opacity-100"
+				className="-top-7 nodrag right-0 size-6 shadow-sm absolute flex items-center justify-center rounded-md border bg-background text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive"
 			>
 				<Trash2Icon className="size-3.5" />
 			</button>
 
 			<div
 				className={cn(
-					"p-px shadow-sm transition-shadow",
+					"shadow-sm p-px transition-shadow",
 					isRound ? "rounded-full" : "rounded-lg",
 					borderClassName,
 					// Violet ring for the live-active node; an explicit selection wins.
-					traceState === "current" && "ring-2 ring-violet-500",
+					traceState === "current" && "ring-violet-500 ring-2",
 					selected && "ring-2 ring-primary",
 				)}
 			>
 				<div
 					className={cn(
 						"bg-card",
-						isRound ? "rounded-full p-2" : "rounded-[calc(var(--radius)-1px)] p-3",
+						isRound ? "p-2 rounded-full" : "p-3 rounded-[calc(var(--radius)-1px)]",
 					)}
 				>
 					<span
 						className={cn(
-							"flex size-10 items-center justify-center rounded-full p-2 text-white",
+							"size-10 p-2 text-white flex items-center justify-center rounded-full",
 							tileClassName,
 						)}
 					>
@@ -156,8 +156,8 @@ export function FlowNodeShell({
 				</div>
 			</div>
 
-			<div className="-translate-x-1/2 absolute top-full left-1/2 mt-2 w-max max-w-48">
-				<p className="truncate whitespace-nowrap text-center font-semibold text-muted-foreground text-sm">
+			<div className="mt-2 max-w-48 absolute top-full left-1/2 w-max -translate-x-1/2">
+				<p className="font-semibold text-sm truncate text-center whitespace-nowrap text-muted-foreground">
 					{title || fallbackTitle}
 				</p>
 			</div>
@@ -172,38 +172,36 @@ export function FlowNodeShell({
 				/>
 			)}
 
-			{sourceHandles.length === 0 ? (
-				unwiredEndsCall && (
-					<span
-						title="Ends the call"
-						className="-right-5 -translate-y-1/2 absolute top-1/2 text-muted-foreground"
-					>
-						<PhoneOffIcon className="size-3" aria-label="Ends the call" />
-					</span>
-				)
-			) : (
-				sourceHandles.map((sourceHandle, index) => (
-					<Fragment key={sourceHandle.id}>
-						<Handle
-							type="source"
-							id={sourceHandle.id}
-							position={Position.Right}
-							title={sourceHandle.name || "exit"}
-							style={{ top: `${handleTop(index)}%` }}
-							className={cn("!size-2.5 !border-2 !border-background", handleClassName)}
-						/>
-						{unwiredEndsCall && !connectedHandles.has(sourceHandle.id) && (
-							<span
-								title="Ends the call"
-								className="-right-5 absolute text-muted-foreground"
-								style={{ top: `${handleTop(index)}%`, transform: "translateY(-50%)" }}
-							>
-								<PhoneOffIcon className="size-3" aria-label="Ends the call" />
-							</span>
-						)}
-					</Fragment>
-				))
-			)}
+			{sourceHandles.length === 0
+				? unwiredEndsCall && (
+						<span
+							title="Ends the call"
+							className="-right-5 absolute top-1/2 -translate-y-1/2 text-muted-foreground"
+						>
+							<PhoneOffIcon className="size-3" aria-label="Ends the call" />
+						</span>
+					)
+				: sourceHandles.map((sourceHandle, index) => (
+						<Fragment key={sourceHandle.id}>
+							<Handle
+								type="source"
+								id={sourceHandle.id}
+								position={Position.Right}
+								title={sourceHandle.name || "exit"}
+								style={{ top: `${handleTop(index)}%` }}
+								className={cn("!size-2.5 !border-2 !border-background", handleClassName)}
+							/>
+							{unwiredEndsCall && !connectedHandles.has(sourceHandle.id) && (
+								<span
+									title="Ends the call"
+									className="-right-5 absolute text-muted-foreground"
+									style={{ top: `${handleTop(index)}%`, transform: "translateY(-50%)" }}
+								>
+									<PhoneOffIcon className="size-3" aria-label="Ends the call" />
+								</span>
+							)}
+						</Fragment>
+					))}
 		</div>
 	);
 }

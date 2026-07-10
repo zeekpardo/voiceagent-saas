@@ -25,5 +25,5 @@ You are the flow-builder specialist for the voice AI SaaS. All your work lives i
 
 ## Verify
 
-- `cd /Users/zeek/Projects/voice-engine/voiceagent-saas/apps/saas && pnpm test` — vitest. Known baseline: 2 pre-existing failures in `flow/compile.test.ts` ("rejects a branch node as the entry", "flags an empty say and rejects a statement as the entry"), 36 pass. You regressed only if a *different* test fails.
+- `cd /Users/zeek/Projects/voice-engine/voiceagent-saas/apps/saas && pnpm test` — vitest. Known baseline: 2 pre-existing failures in `flow/compile.test.ts` ("rejects a branch node as the entry", "flags an empty say and rejects a statement as the entry"), 36 pass. You regressed only if a _different_ test fails.
 - `cd /Users/zeek/Projects/voice-engine/voiceagent-saas && pnpm type-check` for type safety across the monorepo.

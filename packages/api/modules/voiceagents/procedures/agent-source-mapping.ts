@@ -22,13 +22,24 @@ const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 /** Common extract-field prefixes to strip before standard-field matching. */
 const STRIP_PREFIXES = ["confirmed_", "caller_", "contact_", "best_", "current_"];
 const STD_SYNONYMS: Record<string, string> = {
-	name: "contact.name", fullname: "contact.name", full_name: "contact.name",
-	firstname: "contact.first_name", first_name: "contact.first_name",
-	lastname: "contact.last_name", last_name: "contact.last_name",
-	email: "contact.email", phone: "contact.phone", phone_number: "contact.phone",
-	phonenumber: "contact.phone", address: "contact.address", full_address: "contact.address",
-	city: "contact.city", state: "contact.state", zip: "contact.postal_code",
-	zip_code: "contact.postal_code", postal_code: "contact.postal_code",
+	name: "contact.name",
+	fullname: "contact.name",
+	full_name: "contact.name",
+	firstname: "contact.first_name",
+	first_name: "contact.first_name",
+	lastname: "contact.last_name",
+	last_name: "contact.last_name",
+	email: "contact.email",
+	phone: "contact.phone",
+	phone_number: "contact.phone",
+	phonenumber: "contact.phone",
+	address: "contact.address",
+	full_address: "contact.address",
+	city: "contact.city",
+	state: "contact.state",
+	zip: "contact.postal_code",
+	zip_code: "contact.postal_code",
+	postal_code: "contact.postal_code",
 };
 
 /** If an extract key clearly means a standard field, return {key,label}; else null. */
@@ -83,7 +94,11 @@ export async function autoMapAgentSource(agentId: string, sourceId: string) {
 		// Contact essentials → the real STANDARD field, no custom field created.
 		const std = standardForExtract(key);
 		if (std) {
-			fieldMappings.push({ extractField: key, contactField: std.key, contactFieldLabel: std.label });
+			fieldMappings.push({
+				extractField: key,
+				contactField: std.key,
+				contactFieldLabel: std.label,
+			});
 			matched.push(std.label);
 			continue;
 		}

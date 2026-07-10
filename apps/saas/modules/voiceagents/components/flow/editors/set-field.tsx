@@ -32,14 +32,20 @@ export function SetFieldNodeEditor({
 
 	return (
 		<>
-			<TitleInput value={data.title} onChange={(value) => patch({ title: value })} placeholder="Mark as qualified" />
+			<TitleInput
+				value={data.title}
+				onChange={(value) => patch({ title: value })}
+				placeholder="Mark as qualified"
+			/>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Field</Label>
 				<Select
 					value={selectValue}
 					onValueChange={(value) =>
-						patch({ field: value === OBJECTIVE_CUSTOM_FIELD ? (knownField ? "" : data.field) : value })
+						patch({
+							field: value === OBJECTIVE_CUSTOM_FIELD ? (knownField ? "" : data.field) : value,
+						})
 					}
 				>
 					<SelectTrigger className="h-9">
@@ -67,7 +73,7 @@ export function SetFieldNodeEditor({
 				)}
 			</div>
 
-			<div className="flex flex-col gap-1.5">
+			<div className="gap-1.5 flex flex-col">
 				<Label>Value</Label>
 				<Textarea
 					rows={2}

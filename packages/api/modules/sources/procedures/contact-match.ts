@@ -1,10 +1,10 @@
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
-import { gatewayFetch } from "../../voiceagents/lib/gateway";
 import type { CrmProvider } from "../../crm/lib/provider";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { resolveSourceIdForAgent } from "../../crm/lib/resolve-source";
+import { gatewayFetch } from "../../voiceagents/lib/gateway";
 
 /**
  * Resolve a call to its CRM contact for the inbox: by explicit contact id

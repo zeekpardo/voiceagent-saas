@@ -27,7 +27,9 @@ export const connectSource = protectedProcedure
 
 		const registration = getCrmRegistration(input.providerType);
 		if (!registration) {
-			throw new ORPCError("BAD_REQUEST", { message: `Unknown source provider "${input.providerType}"` });
+			throw new ORPCError("BAD_REQUEST", {
+				message: `Unknown source provider "${input.providerType}"`,
+			});
 		}
 		for (const field of registration.connectFields) {
 			if (!input.config[field.name]?.trim()) {

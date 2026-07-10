@@ -4,10 +4,9 @@ import { cn } from "@repo/ui";
 import { Input } from "@repo/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import { type ContactFieldOption, useSourceContactFieldsQuery } from "@sources/lib/api";
 import { CheckIcon, ChevronsUpDownIcon, SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-
-import { type ContactFieldOption, useSourceContactFieldsQuery } from "@sources/lib/api";
 
 interface ContactFieldPickerProps {
 	/** The CRM sub-account (Source) whose writable contact fields should be listed. */
@@ -77,7 +76,7 @@ export function ContactFieldPicker({
 					type="button"
 					disabled={disabled}
 					className={cn(
-						"flex h-8 w-full items-center justify-between gap-2 rounded-md border bg-background px-2.5 text-sm transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50",
+						"h-8 gap-2 px-2.5 text-sm flex w-full items-center justify-between rounded-md border bg-background transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50",
 						className,
 					)}
 				>
@@ -88,8 +87,8 @@ export function ContactFieldPicker({
 				</button>
 			</PopoverTrigger>
 			<PopoverContent align="start" className="w-72 p-2">
-				<div className="relative mb-1.5">
-					<SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+				<div className="mb-1.5 relative">
+					<SearchIcon className="left-2.5 size-3.5 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						autoFocus
 						value={search}
@@ -103,7 +102,7 @@ export function ContactFieldPicker({
 						type="button"
 						onClick={() => pick(null, null)}
 						className={cn(
-							"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/60",
+							"gap-2 px-2 py-1.5 text-sm flex w-full items-center rounded-md text-left hover:bg-muted/60",
 							!value && "font-medium",
 						)}
 					>
@@ -112,26 +111,36 @@ export function ContactFieldPicker({
 					</button>
 
 					{isLoading ? (
-						<div className="flex flex-col gap-1.5 px-2 py-2">
+						<div className="gap-1.5 px-2 py-2 flex flex-col">
 							<Skeleton className="h-6 w-full" />
 							<Skeleton className="h-6 w-full" />
 							<Skeleton className="h-6 w-full" />
 						</div>
 					) : isError ? (
-						<p className="px-2 py-3 text-center text-muted-foreground text-xs">
+						<p className="px-2 py-3 text-xs text-center text-muted-foreground">
 							Couldn't load fields for this source.
 						</p>
 					) : filtered.length === 0 ? (
-						<p className="px-2 py-3 text-center text-muted-foreground text-xs">
+						<p className="px-2 py-3 text-xs text-center text-muted-foreground">
 							{fields.length ? `No fields match "${search}"` : "No writable fields found"}
 						</p>
 					) : (
 						<>
 							{standardFields.length > 0 && (
-								<ContactFieldGroup label="Standard" items={standardFields} value={value} onPick={pick} />
+								<ContactFieldGroup
+									label="Standard"
+									items={standardFields}
+									value={value}
+									onPick={pick}
+								/>
 							)}
 							{customFields.length > 0 && (
-								<ContactFieldGroup label="Custom" items={customFields} value={value} onPick={pick} />
+								<ContactFieldGroup
+									label="Custom"
+									items={customFields}
+									value={value}
+									onPick={pick}
+								/>
 							)}
 						</>
 					)}
@@ -154,7 +163,7 @@ function ContactFieldGroup({
 }) {
 	return (
 		<div className="mb-1">
-			<p className="px-2 pt-1.5 pb-0.5 font-semibold text-[10px] text-muted-foreground uppercase tracking-wide">
+			<p className="px-2 pt-1.5 pb-0.5 font-semibold tracking-wide text-[10px] text-muted-foreground uppercase">
 				{label}
 			</p>
 			{items.map((f) => {
@@ -165,12 +174,12 @@ function ContactFieldGroup({
 						type="button"
 						onClick={() => onPick(f.key, f.label)}
 						className={cn(
-							"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/60",
+							"gap-2 px-2 py-1.5 text-sm flex w-full items-center rounded-md text-left hover:bg-muted/60",
 							isSelected && "font-medium",
 						)}
 					>
 						<span className="min-w-0 flex-1 truncate">{f.label}</span>
-						<span className="shrink-0 truncate font-mono text-[11px] text-muted-foreground">
+						<span className="font-mono shrink-0 truncate text-[11px] text-muted-foreground">
 							{f.key}
 						</span>
 						{isSelected && <CheckIcon className="size-3.5 shrink-0 text-muted-foreground" />}

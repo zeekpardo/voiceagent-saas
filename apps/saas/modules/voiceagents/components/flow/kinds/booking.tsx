@@ -1,8 +1,8 @@
+import { BookingNode } from "../BookingNode";
 import { compileBookingNode, newBookingNodeData } from "../compile/nodes/booking";
 import { BookingNodeEditor } from "../editors/booking";
 import type { BookingCanvasNodeDoc, BookingNodeData } from "../flow-types";
 import { BOOKING_BOOKED_HANDLE_ID, bookingNodeDataSchema } from "../flow-types";
-import { BookingNode } from "../BookingNode";
 import { defineKind } from "./types";
 
 export const bookingKind = defineKind<BookingNodeData>({

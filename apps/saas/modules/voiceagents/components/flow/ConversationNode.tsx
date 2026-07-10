@@ -32,7 +32,7 @@ export function ConversationNode({ id, data, selected }: NodeProps<ConversationR
 				data.isDefault ? (
 					<span
 						title="Default for unconnected exits"
-						className="-right-1 -bottom-1 absolute flex size-4 items-center justify-center rounded-full border bg-background text-amber-500"
+						className="-right-1 -bottom-1 size-4 text-amber-500 absolute flex items-center justify-center rounded-full border bg-background"
 					>
 						<StarIcon className="size-3" />
 					</span>

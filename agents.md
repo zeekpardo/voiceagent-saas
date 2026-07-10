@@ -749,7 +749,7 @@ This is the **SaaS half** of a two-repo system:
 - **This repo (`voiceagent-saas`)** — the product: agent configuration UI, flow builder + compiler, CRM integrations, billing, orgs. ALL business logic, CRM shaping, field normalization, and prompt/flow compilation live HERE.
 - **`~/Projects/voice-agent-engine`** — a **generic LiveKit runtime**. It executes a compiled flow spec; it must never contain business or CRM-specific logic (no GHL naming, no field-mapping rules, no vertical-specific behavior).
 
-**Boundary rule:** if a change shapes CRM data, compiles prompts/flows, or encodes product behavior, it belongs in this repo. If it changes how a call session runs on LiveKit, it belongs in the engine. When a flow node kind affects runtime behavior, the SaaS compiles it into the engine's generic flow-spec format — the engine only learns new *generic* primitives, coordinated cross-repo.
+**Boundary rule:** if a change shapes CRM data, compiles prompts/flows, or encodes product behavior, it belongs in this repo. If it changes how a call session runs on LiveKit, it belongs in the engine. When a flow node kind affects runtime behavior, the SaaS compiles it into the engine's generic flow-spec format — the engine only learns new _generic_ primitives, coordinated cross-repo.
 
 ## Commands
 

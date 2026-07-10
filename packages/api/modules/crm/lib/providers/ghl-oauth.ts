@@ -48,8 +48,8 @@ export interface GhlTokenResponse {
 export function ghlOauthConfigured(): boolean {
 	return Boolean(
 		process.env.GOHIGHLEVEL_CLIENT_ID &&
-			process.env.GOHIGHLEVEL_CLIENT_SECRET &&
-			process.env.GOHIGHLEVEL_REDIRECT_URI,
+		process.env.GOHIGHLEVEL_CLIENT_SECRET &&
+		process.env.GOHIGHLEVEL_REDIRECT_URI,
 	);
 }
 

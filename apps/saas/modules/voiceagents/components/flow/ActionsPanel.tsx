@@ -169,9 +169,9 @@ export function ActionsPanel({ onAdd }: { onAdd: (kind: FlowPaletteKind) => void
 	})).filter((section) => section.items.length > 0);
 
 	return (
-		<div className="flex flex-col gap-5">
+		<div className="gap-5 flex flex-col">
 			<div className="relative">
-				<SearchIcon className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
+				<SearchIcon className="left-3 size-4 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
 				<Input
 					value={query}
 					onChange={(e) => setQuery(e.target.value)}
@@ -184,8 +184,8 @@ export function ActionsPanel({ onAdd }: { onAdd: (kind: FlowPaletteKind) => void
 				<p className="py-4 text-sm text-muted-foreground">No actions match “{query}”.</p>
 			) : (
 				sections.map((section) => (
-					<div key={section.label} className="flex flex-col gap-1">
-						<p className="mb-1 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+					<div key={section.label} className="gap-1 flex flex-col">
+						<p className="mb-1 font-medium text-xs tracking-wider text-muted-foreground uppercase">
 							{section.label}
 						</p>
 						{section.items.map((item) => (
@@ -209,19 +209,19 @@ function ActionRow({ item, onAdd }: { item: ActionItem; onAdd: (kind: FlowPalett
 				event.dataTransfer.effectAllowed = "move";
 			}}
 			onClick={() => onAdd(item.kind)}
-			className="-mx-2 flex cursor-grab items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-accent active:cursor-grabbing"
+			className="-mx-2 gap-3 p-2 flex cursor-grab items-center rounded-lg text-left transition-colors hover:bg-accent active:cursor-grabbing"
 		>
 			<span
 				className={cn(
-					"flex size-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm",
+					"size-10 text-white shadow-sm flex shrink-0 items-center justify-center rounded-xl",
 					item.tileClassName,
 				)}
 			>
 				<Icon className="size-5" />
 			</span>
 			<span className="min-w-0">
-				<span className="block font-medium text-sm">{item.title}</span>
-				<span className="block truncate text-muted-foreground text-xs">{item.subtitle}</span>
+				<span className="font-medium text-sm block">{item.title}</span>
+				<span className="text-xs block truncate text-muted-foreground">{item.subtitle}</span>
 			</span>
 		</button>
 	);

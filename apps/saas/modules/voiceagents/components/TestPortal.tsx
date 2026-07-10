@@ -12,6 +12,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@repo/ui/components/select";
+import { useAgentSourcesQuery } from "@sources/lib/api";
 import type { Room } from "livekit-client";
 import {
 	ChevronDownIcon,
@@ -23,8 +24,6 @@ import {
 	SendIcon,
 } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
-
-import { useAgentSourcesQuery } from "@sources/lib/api";
 
 import {
 	extractVariableNames,
@@ -56,10 +55,16 @@ const IDLE_BAR_HEIGHTS = [30, 55, 75, 55, 30];
 export function TestPortal({
 	agentId,
 	agentConfig,
+	publishedVersion,
+	hasUnpublishedDraft,
 	onCallStateChange,
 }: {
 	agentId: string;
 	agentConfig?: Record<string, unknown>;
+	/** The live (published) version the test call runs against. */
+	publishedVersion?: number;
+	/** True when the flow builder has a staged draft ahead of the published config. */
+	hasUnpublishedDraft?: boolean;
 	/** Surfaces the live call id + status upward (drives the canvas flow trace). */
 	onCallStateChange?: (state: { callId: string | null; live: boolean }) => void;
 }) {
@@ -72,8 +77,18 @@ export function TestPortal({
 	const [contactPhone, setContactPhone] = useState("");
 	const [draft, setDraft] = useState("");
 	const transcriptRef = useRef<HTMLDivElement>(null);
-	const { status, turns, error, room, isLive, callId, start, stop, sendMessage, audioContainerRef } =
-		useVoiceTestSession(agentId, channel);
+	const {
+		status,
+		turns,
+		error,
+		room,
+		isLive,
+		callId,
+		start,
+		stop,
+		sendMessage,
+		audioContainerRef,
+	} = useVoiceTestSession(agentId, channel);
 	const { data: attachedSources } = useAgentSourcesQuery(agentId);
 	const variableNames = extractVariableNames(agentConfig);
 	const isBusy = isLive || status === "connecting";
@@ -130,7 +145,7 @@ export function TestPortal({
 												source
 											</span>
 											<Select value={sourceId} onValueChange={setSourceId} disabled={isBusy}>
-												<SelectTrigger className="h-8 flex-1 text-sm">
+												<SelectTrigger className="h-8 text-sm flex-1">
 													<SelectValue placeholder="none — no CRM variables" />
 												</SelectTrigger>
 												<SelectContent>
@@ -191,6 +206,13 @@ export function TestPortal({
 							)}
 						</div>
 
+						{hasUnpublishedDraft && (
+							<p className="px-2.5 py-1.5 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-md">
+								Testing published v{publishedVersion} — you have unpublished changes. Publish to
+								test them.
+							</p>
+						)}
+
 						{channel === "voice" && <TestVisualizer room={room} />}
 
 						<div
@@ -234,7 +256,7 @@ export function TestPortal({
 								}}
 							>
 								<Input
-									className="h-9 flex-1 text-sm"
+									className="h-9 text-sm flex-1"
 									placeholder="Type a message…"
 									value={draft}
 									// eslint-disable-next-line jsx-a11y/no-autofocus
@@ -320,7 +342,7 @@ function ChannelToggle({
 					className={cn(
 						"gap-1 px-2 py-1 text-xs flex items-center rounded-md transition-colors disabled:opacity-50",
 						value === channel
-							? "bg-background text-foreground shadow-sm"
+							? "shadow-sm bg-background text-foreground"
 							: "text-muted-foreground hover:text-foreground",
 					)}
 				>

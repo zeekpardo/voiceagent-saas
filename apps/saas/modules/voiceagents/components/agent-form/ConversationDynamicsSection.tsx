@@ -1,6 +1,5 @@
 "use client";
 
-import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import {
 	FormControl,
@@ -20,6 +19,8 @@ import {
 import { Switch } from "@repo/ui/components/switch";
 import type { UseFormReturn } from "react-hook-form";
 
+import type { AgentFormValues } from "../../lib/agent-form-mapping";
+
 /** "Conversation dynamics" card: turn-taking, timeouts, and AI-disclosure compliance. */
 export function ConversationDynamicsSection({ form }: { form: UseFormReturn<AgentFormValues> }) {
 	return (
@@ -27,12 +28,12 @@ export function ConversationDynamicsSection({ form }: { form: UseFormReturn<Agen
 			<CardHeader>
 				<CardTitle>Conversation dynamics</CardTitle>
 			</CardHeader>
-			<CardContent className="grid gap-4 @xl:grid-cols-2">
+			<CardContent className="gap-4 @xl:grid-cols-2 grid">
 				<FormField
 					control={form.control}
 					name="turnDetection.preemptiveGeneration"
 					render={({ field }) => (
-						<FormItem className="flex items-center justify-between rounded-lg border p-3">
+						<FormItem className="p-3 flex items-center justify-between rounded-lg border">
 							<div>
 								<FormLabel>Preemptive replies</FormLabel>
 								<FormDescription>Start thinking before the caller finishes</FormDescription>
@@ -47,7 +48,7 @@ export function ConversationDynamicsSection({ form }: { form: UseFormReturn<Agen
 					control={form.control}
 					name="turnDetection.allowInterruptions"
 					render={({ field }) => (
-						<FormItem className="flex items-center justify-between rounded-lg border p-3">
+						<FormItem className="p-3 flex items-center justify-between rounded-lg border">
 							<div>
 								<FormLabel>Allow interruptions</FormLabel>
 								<FormDescription>Caller can talk over the agent</FormDescription>
@@ -136,7 +137,7 @@ export function ConversationDynamicsSection({ form }: { form: UseFormReturn<Agen
 					control={form.control}
 					name="compliance.aiDisclosure"
 					render={({ field }) => (
-						<FormItem className="flex items-center justify-between rounded-lg border p-3 @xl:col-span-2">
+						<FormItem className="p-3 @xl:col-span-2 flex items-center justify-between rounded-lg border">
 							<div>
 								<FormLabel>AI disclosure</FormLabel>
 								<FormDescription>

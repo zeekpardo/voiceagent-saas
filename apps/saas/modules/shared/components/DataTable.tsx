@@ -109,12 +109,12 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
 	if (isLoading) {
 		return (
-			<div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card">
-				<div className="flex items-center justify-between gap-3 border-b px-3 py-2.5">
+			<div className="min-h-0 flex h-full flex-col overflow-hidden rounded-xl border bg-card">
+				<div className="gap-3 px-3 py-2.5 flex items-center justify-between border-b">
 					<Skeleton className="h-9 w-52 rounded-lg" />
 					<Skeleton className="h-9 w-32 rounded-full" />
 				</div>
-				<div className="flex flex-col gap-2 p-3">
+				<div className="gap-2 p-3 flex flex-col">
 					{Array.from({ length: 6 }, (_, i) => (
 						<Skeleton key={i} className="h-9 w-full" />
 					))}
@@ -130,22 +130,22 @@ export function DataTable<T>({
 	const columnCount = columns.length + 1 + (renderRowActions ? 1 : 0);
 
 	return (
-		<div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border bg-card">
+		<div className="min-h-0 flex h-full flex-col overflow-hidden rounded-xl border bg-card">
 			{/* Toolbar */}
-			<div className="flex shrink-0 items-center justify-between gap-3 border-b px-3 py-2.5">
-				<div className="flex items-center gap-3">
+			<div className="gap-3 px-3 py-2.5 flex shrink-0 items-center justify-between border-b">
+				<div className="gap-3 flex items-center">
 					<div className="relative">
-						<SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+						<SearchIcon className="left-2.5 size-4 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
 						<Input
 							value={search}
 							onChange={(e) => onSearchChange(e.target.value)}
 							placeholder={searchPlaceholder}
-							className="h-9 w-52 rounded-lg pl-8 text-sm"
+							className="h-9 w-52 pl-8 text-sm rounded-lg"
 						/>
 					</div>
 					{selected.size > 0 && (
-						<div className="flex items-center gap-2">
-							<span className="text-muted-foreground text-sm">{selected.size} selected</span>
+						<div className="gap-2 flex items-center">
+							<span className="text-sm text-muted-foreground">{selected.size} selected</span>
 							{bulkActions}
 						</div>
 					)}
@@ -155,7 +155,7 @@ export function DataTable<T>({
 
 			{/* Table */}
 			<div className="min-h-0 flex-1 overflow-auto">
-				<table className="w-full border-separate border-spacing-0 text-sm">
+				<table className="border-spacing-0 text-sm w-full border-separate">
 					<thead>
 						<tr className="h-10">
 							<th className={cn(headerCellClass, "w-12 px-3")}>
@@ -173,11 +173,14 @@ export function DataTable<T>({
 								/>
 							</th>
 							{columns.map((column) => (
-								<th key={column.key} className={cn(headerCellClass, "px-3", column.headerClassName)}>
+								<th
+									key={column.key}
+									className={cn(headerCellClass, "px-3", column.headerClassName)}
+								>
 									<button
 										type="button"
 										onClick={() => onSort(column.key)}
-										className="flex items-center gap-1 transition-colors hover:text-foreground"
+										className="gap-1 flex items-center transition-colors hover:text-foreground"
 									>
 										{column.label}
 										{sortKey === column.key ? (
@@ -251,11 +254,11 @@ export function DataTable<T>({
 			</div>
 
 			{/* Pagination footer */}
-			<div className="flex shrink-0 items-center justify-between border-t px-3 py-2 text-muted-foreground text-xs">
+			<div className="px-3 py-2 text-xs flex shrink-0 items-center justify-between border-t text-muted-foreground">
 				<span>
 					{rangeStart}-{rangeEnd} of {totalCount}
 				</span>
-				<div className="flex items-center gap-2">
+				<div className="gap-2 flex items-center">
 					<span>
 						Page {page} of {totalPages}
 					</span>

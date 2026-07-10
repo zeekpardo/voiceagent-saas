@@ -1,11 +1,11 @@
 "use client";
 
-import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import type { UseFormReturn } from "react-hook-form";
 
+import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import { GreetingField, InstructionsField, ProhibitedWordsField } from "./shared-fields";
 
 /**
@@ -25,8 +25,8 @@ export function IdentityPersonaSection({
 			<CardHeader>
 				<CardTitle>Identity & persona</CardTitle>
 			</CardHeader>
-			<CardContent className="flex flex-col gap-4">
-				<div className="grid gap-4 @xl:grid-cols-2">
+			<CardContent className="gap-4 flex flex-col">
+				<div className="gap-4 @xl:grid-cols-2 grid">
 					<FormField
 						control={form.control}
 						name="name"

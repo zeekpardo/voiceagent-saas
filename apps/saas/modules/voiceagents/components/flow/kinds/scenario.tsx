@@ -57,7 +57,9 @@ export const scenarioKind = defineKind<ScenarioNodeData>({
 					((other.data as ScenarioNodeData | undefined)?.title?.trim().toLowerCase() || "") === key,
 			);
 			if (isDuplicate) {
-				errors.push(`Duplicate scenario name "${data.title.trim()}" — scenario names must be unique.`);
+				errors.push(
+					`Duplicate scenario name "${data.title.trim()}" — scenario names must be unique.`,
+				);
 			}
 		}
 		return errors;

@@ -85,7 +85,12 @@ export async function executeCheckAvailability(
 	agentId: string,
 	sourceId: string,
 ): Promise<unknown> {
-	const resolved = await resolveCalendar(provider, stringArg(args.calendar_name), agentId, sourceId);
+	const resolved = await resolveCalendar(
+		provider,
+		stringArg(args.calendar_name),
+		agentId,
+		sourceId,
+	);
 	if ("error" in resolved) return resolved;
 
 	const fromArg = stringArg(args.from_date);
@@ -132,7 +137,12 @@ export async function executeBookAppointment(
 		};
 	}
 
-	const resolved = await resolveCalendar(provider, stringArg(args.calendar_name), agentId, sourceId);
+	const resolved = await resolveCalendar(
+		provider,
+		stringArg(args.calendar_name),
+		agentId,
+		sourceId,
+	);
 	if ("error" in resolved) return resolved;
 
 	const title = stringArg(args.title) || "Phone consultation — voice agent booking";

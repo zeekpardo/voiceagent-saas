@@ -5,9 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@repo/ui/compo
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
+import { openOAuthPopup } from "@voiceagents/lib/oauth-popup";
 import { useState } from "react";
 
-import { openOAuthPopup } from "@voiceagents/lib/oauth-popup";
 import {
 	useConnectSourceMutation,
 	useSourceOauthUrlMutation,
@@ -90,7 +90,7 @@ export function ConnectSourceDialog({
 				</DialogHeader>
 
 				{!connecting ? (
-					<div className="flex flex-col gap-2">
+					<div className="gap-2 flex flex-col">
 						{isLoading && <p className="text-sm opacity-60">Loading providers…</p>}
 						{data?.providers.map((provider) => (
 							<button
@@ -104,7 +104,7 @@ export function ConnectSourceDialog({
 										setConnectingType(provider.type);
 									}
 								}}
-								className="flex flex-col gap-0.5 rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
+								className="gap-0.5 p-3 flex flex-col rounded-lg border text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
 							>
 								<span className="font-medium text-sm">{provider.label}</span>
 								<span className="text-xs opacity-60">{provider.description}</span>
@@ -112,7 +112,7 @@ export function ConnectSourceDialog({
 						))}
 					</div>
 				) : (
-					<div className="flex flex-col gap-3">
+					<div className="gap-3 flex flex-col">
 						<div>
 							<Label>Source name</Label>
 							<Input
@@ -124,7 +124,7 @@ export function ConnectSourceDialog({
 						{connecting.connectFields.map((field) => (
 							<div key={field.name}>
 								<Label>{field.label}</Label>
-								{field.help && <p className="text-xs opacity-60 mb-1">{field.help}</p>}
+								{field.help && <p className="text-xs mb-1 opacity-60">{field.help}</p>}
 								<Input
 									type={field.secret ? "password" : "text"}
 									placeholder={field.placeholder}
@@ -133,7 +133,7 @@ export function ConnectSourceDialog({
 								/>
 							</div>
 						))}
-						<div className="flex justify-end gap-2">
+						<div className="gap-2 flex justify-end">
 							<Button variant="outline" onClick={() => setConnectingType(null)}>
 								Back
 							</Button>

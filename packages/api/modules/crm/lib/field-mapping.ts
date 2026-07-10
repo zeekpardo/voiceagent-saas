@@ -1,10 +1,6 @@
 import { resolveCustomFieldIds } from "./custom-fields";
 import type { CrmProvider } from "./provider";
-import {
-	STANDARD_CONTACT_FIELDS,
-	normalizeName,
-	toStandardWrite,
-} from "./standard-fields";
+import { STANDARD_CONTACT_FIELDS, normalizeName, toStandardWrite } from "./standard-fields";
 
 /**
  * The reusable heart of CRM field mapping. Everything routes through here so

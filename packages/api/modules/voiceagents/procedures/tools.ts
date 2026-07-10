@@ -43,7 +43,12 @@ function toJsonSchema(params: z.infer<typeof toolParameter>[]) {
 }
 
 export const listTools = protectedProcedure
-	.route({ method: "GET", path: "/voiceagents/tools", tags: ["Voice Agents"], summary: "List tools" })
+	.route({
+		method: "GET",
+		path: "/voiceagents/tools",
+		tags: ["Voice Agents"],
+		summary: "List tools",
+	})
 	.handler(async () => {
 		const { tools } = await gatewayFetch<{ tools: GatewayTool[] }>("GET", "/v1/tools");
 		return tools;

@@ -1,6 +1,5 @@
 "use client";
 
-import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import {
@@ -15,6 +14,8 @@ import { Switch } from "@repo/ui/components/switch";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import type { UseFieldArrayReturn, UseFormReturn } from "react-hook-form";
 
+import type { AgentFormValues } from "../../lib/agent-form-mapping";
+
 /** "After the call" card: call summarization toggle and structured extract fields. */
 export function AfterCallSection({
 	form,
@@ -28,12 +29,12 @@ export function AfterCallSection({
 			<CardHeader>
 				<CardTitle>After the call</CardTitle>
 			</CardHeader>
-			<CardContent className="flex flex-col gap-4">
+			<CardContent className="gap-4 flex flex-col">
 				<FormField
 					control={form.control}
 					name="postCall.summarize"
 					render={({ field }) => (
-						<FormItem className="flex items-center justify-between rounded-lg border p-3">
+						<FormItem className="p-3 flex items-center justify-between rounded-lg border">
 							<div>
 								<FormLabel>Summarize</FormLabel>
 								<FormDescription>Attach an AI summary to every transcript</FormDescription>
@@ -47,12 +48,12 @@ export function AfterCallSection({
 				<div>
 					<FormLabel>Extracted fields</FormLabel>
 					<FormDescription className="mb-3">
-						Structured outcomes pulled from every call — delivered in the call.completed
-						webhook (e.g. appointment_scheduled: "true/false/unknown").
+						Structured outcomes pulled from every call — delivered in the call.completed webhook
+						(e.g. appointment_scheduled: "true/false/unknown").
 					</FormDescription>
-					<div className="flex flex-col gap-2">
+					<div className="gap-2 flex flex-col">
 						{extractFields.fields.map((f, i) => (
-							<div key={f.id} className="flex gap-2">
+							<div key={f.id} className="gap-2 flex">
 								<Input
 									placeholder="field_name"
 									className="max-w-56 font-mono text-sm"

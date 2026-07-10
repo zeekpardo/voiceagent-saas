@@ -1,6 +1,5 @@
 "use client";
 
-import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import {
 	FormControl,
 	FormDescription,
@@ -14,6 +13,7 @@ import { XIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
+import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import { textToTiptapDoc, tiptapToText } from "../flow/compile";
 import { buildVariableItems, createFlowMentionExtension } from "../flow/mentions";
 import { SectionEditor } from "../flow/SectionEditor";
@@ -37,7 +37,7 @@ export function ChipsInput({ value, onChange, placeholder }: ChipsInputProps) {
 	}
 
 	return (
-		<div className="flex flex-col gap-2">
+		<div className="gap-2 flex flex-col">
 			<Input
 				value={draft}
 				placeholder={placeholder}
@@ -55,11 +55,11 @@ export function ChipsInput({ value, onChange, placeholder }: ChipsInputProps) {
 				}}
 			/>
 			{value.length > 0 && (
-				<div className="flex flex-wrap gap-1.5">
+				<div className="gap-1.5 flex flex-wrap">
 					{value.map((word) => (
 						<span
 							key={word}
-							className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-primary text-xs"
+							className="gap-1 px-2.5 py-0.5 text-xs inline-flex items-center rounded-full bg-primary/10 text-primary"
 						>
 							{word}
 							<button
@@ -140,9 +140,9 @@ export function InstructionsField({ form }: AgentFormFieldProps) {
 				<FormItem>
 					<FormLabel>Instructions</FormLabel>
 					<FormDescription>
-						The agent's identity, business information, style, and hard rules. For flow
-						agents this is the Job Information — every node inherits it, so write it once
-						here and keep node prompts focused on their stage.
+						The agent's identity, business information, style, and hard rules. For flow agents this
+						is the Job Information — every node inherits it, so write it once here and keep node
+						prompts focused on their stage.
 					</FormDescription>
 					<FormControl>
 						<InstructionsEditor value={field.value} onChange={field.onChange} />
@@ -188,8 +188,7 @@ export function GreetingField({ form }: AgentFormFieldProps) {
 				<FormItem>
 					<FormLabel>Greeting</FormLabel>
 					<FormDescription>
-						Spoken first when the conversation starts. Leave empty to let the caller speak
-						first.
+						Spoken first when the conversation starts. Leave empty to let the caller speak first.
 					</FormDescription>
 					<FormControl>
 						<Input placeholder="Hi {{caller_name}}! How can I help today?" {...field} />

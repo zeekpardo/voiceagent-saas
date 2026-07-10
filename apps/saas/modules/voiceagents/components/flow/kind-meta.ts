@@ -1,5 +1,5 @@
-import type { ComponentType } from "react";
 import type { NodeProps } from "@xyflow/react";
+import type { ComponentType } from "react";
 
 import type { FlowNodeData, FlowNodeKind } from "./flow-types";
 import { FLOW_KIND_LIST, FLOW_KINDS } from "./kinds";

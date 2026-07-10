@@ -6,7 +6,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const voiceAgentsQueryKey = ["voiceagents", "agents"] as const;
 export const agentQueryKey = (id: string) => ["voiceagents", "agents", id] as const;
-export const transcriptQueryKey = (callId: string) => ["voiceagents", "transcript", callId] as const;
+export const transcriptQueryKey = (callId: string) =>
+	["voiceagents", "transcript", callId] as const;
 
 export function useAgentsQuery() {
 	return useQuery({
@@ -66,7 +67,12 @@ export function useCreateToolMutation() {
 			description: string;
 			endpointUrl: string;
 			timeoutMs: number;
-			parameters: { name: string; type: "string" | "number" | "boolean"; description: string; required: boolean }[];
+			parameters: {
+				name: string;
+				type: "string" | "number" | "boolean";
+				description: string;
+				required: boolean;
+			}[];
 		}) => orpcClient.voiceagents.tools.create(input),
 		onSuccess: () => queryClient.invalidateQueries({ queryKey: toolsQueryKey }),
 	});
@@ -127,6 +133,79 @@ export function useSaveFlowMutation(agentId: string) {
 	});
 }
 
+export const agentDraftQueryKey = (id: string) => ["voiceagents", "agents", id, "draft"] as const;
+export const agentVersionsQueryKey = (id: string) =>
+	["voiceagents", "agents", id, "versions"] as const;
+
+/** The staged flow-builder draft ({ config, updated_at }) or null when none. */
+export function useAgentDraftQuery(agentId: string) {
+	return useQuery({
+		queryKey: agentDraftQueryKey(agentId),
+		queryFn: () => orpcClient.voiceagents.draft.get({ id: agentId }),
+	});
+}
+
+/** Draft body mirrors the flow save shape — flow + opaque canvas + toolIds union. */
+type DraftBody = Parameters<typeof orpcClient.voiceagents.flow.save>[0] extends {
+	id: string;
+	flow: infer F;
+	canvas: infer C;
+	toolIds: infer T;
+}
+	? { flow: F; canvas: C; toolIds: T }
+	: never;
+
+export function useSaveDraftMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: DraftBody) => orpcClient.voiceagents.draft.save({ id: agentId, ...input }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: agentDraftQueryKey(agentId) }),
+	});
+}
+
+export function useDiscardDraftMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: () => orpcClient.voiceagents.draft.discard({ id: agentId }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: agentDraftQueryKey(agentId) }),
+	});
+}
+
+export function usePublishAgentMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: () => orpcClient.voiceagents.draft.publish({ id: agentId }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: agentQueryKey(agentId) });
+			void queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey });
+			void queryClient.invalidateQueries({ queryKey: agentDraftQueryKey(agentId) });
+			void queryClient.invalidateQueries({ queryKey: agentVersionsQueryKey(agentId) });
+		},
+	});
+}
+
+export function useAgentVersionsQuery(agentId: string, enabled: boolean) {
+	return useQuery({
+		queryKey: agentVersionsQueryKey(agentId),
+		queryFn: () => orpcClient.voiceagents.versions.list({ id: agentId }),
+		enabled,
+	});
+}
+
+export function useRestoreVersionMutation(agentId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (version: number) =>
+			orpcClient.voiceagents.versions.restore({ id: agentId, version }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: agentQueryKey(agentId) });
+			void queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey });
+			void queryClient.invalidateQueries({ queryKey: agentDraftQueryKey(agentId) });
+			void queryClient.invalidateQueries({ queryKey: agentVersionsQueryKey(agentId) });
+		},
+	});
+}
+
 /**
  * CRM "live tools" (update_contact, add_tag, move_stage, check_availability,
  * book_appointment) registered for this agent's sole attached Source.
@@ -137,7 +216,9 @@ export function useAgentLiveToolsQuery(agentId: string) {
 	return useQuery({
 		queryKey: ["voiceagents", "agents", agentId, "liveTools"] as const,
 		queryFn: () =>
-			orpcClient.voiceagents.liveTools({ agentId }).catch(() => ({ tools: [] as { id: string; name: string; description: string }[] })),
+			orpcClient.voiceagents
+				.liveTools({ agentId })
+				.catch(() => ({ tools: [] as { id: string; name: string; description: string }[] })),
 	});
 }
 

@@ -17,9 +17,9 @@ Run these in order (stop early only if a step crashes outright, not on ordinary 
    `modules/voiceagents/components/flow/compile.test.ts`:
    - "rejects a branch node as the entry"
    - "flags an empty say and rejects a statement as the entry"
-   with 36 tests passing. Verdict is PASS if the failure set is exactly those 2.
-   Any other failing test, or fewer passing tests, = FAIL. If those 2 suddenly pass, note it
-   (baseline may have been fixed) but don't count it as a failure.
+     with 36 tests passing. Verdict is PASS if the failure set is exactly those 2.
+     Any other failing test, or fewer passing tests, = FAIL. If those 2 suddenly pass, note it
+     (baseline may have been fixed) but don't count it as a failure.
 3. `cd /Users/zeek/Projects/voice-engine/voiceagent-saas && pnpm lint`
    — oxlint. Errors = FAIL; report warnings but they don't fail the verdict on their own unless new.
 

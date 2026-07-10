@@ -113,7 +113,8 @@ export function NodeEditorPanel({
 					})),
 				getExits: () => {
 					const current = dataRef.current;
-					const exits = current && Array.isArray(current.exits) ? (current as AgentNodeData).exits : [];
+					const exits =
+						current && Array.isArray(current.exits) ? (current as AgentNodeData).exits : [];
 					return exits
 						.filter((exit) => exit.name.trim())
 						.map((exit) => ({ id: exit.name, label: exit.name, sub: exit.description }));
@@ -152,7 +153,7 @@ export function NodeEditorPanel({
 	const NodeEditor = FLOW_KINDS[nodeType].editor;
 
 	const footer = (
-		<div className="mt-2 flex justify-between border-t pt-4">
+		<div className="mt-2 pt-4 flex justify-between border-t">
 			<Button type="button" variant="destructive" size="sm" onClick={() => onDelete(nodeId)}>
 				<Trash2Icon className="size-4" /> Delete node
 			</Button>
@@ -170,8 +171,8 @@ export function NodeEditorPanel({
 				// with important modifiers and pin the width inline.
 				className={cn(
 					isAgent
-						? "flex w-full flex-row !gap-0 overflow-hidden !p-0 transition-[max-width] duration-200"
-						: "flex w-full flex-col gap-5 overflow-y-auto",
+						? "!gap-0 !p-0 flex w-full flex-row overflow-hidden transition-[max-width] duration-200"
+						: "gap-5 flex w-full flex-col overflow-y-auto",
 				)}
 				style={{ maxWidth: isAgent ? (subPanel ? 940 : 576) : 576 }}
 				onPointerDownOutside={(event) => {
@@ -188,13 +189,13 @@ export function NodeEditorPanel({
 				{isAgent ? (
 					<>
 						{/* Mini icon rail — the panel's edge, CloseBot style. */}
-						<div className="flex w-12 shrink-0 flex-col items-center border-r bg-muted/40 pt-14">
+						<div className="w-12 pt-14 flex shrink-0 flex-col items-center border-r bg-muted/40">
 							{(Object.keys(SUB_PANEL_META) as AgentSubPanel[]).map((key, index) => {
 								const meta = SUB_PANEL_META[key];
 								const Icon = meta.icon;
 								return (
 									<div key={key} className="flex w-full flex-col items-center">
-										{index > 0 && <div className="h-px w-6 bg-border" />}
+										{index > 0 && <div className="w-6 h-px bg-border" />}
 										<button
 											type="button"
 											title={meta.title}
@@ -202,7 +203,7 @@ export function NodeEditorPanel({
 											aria-pressed={subPanel === key}
 											onClick={() => setSubPanel((current) => (current === key ? null : key))}
 											className={cn(
-												"flex w-full items-center justify-center p-2.5 transition-colors",
+												"p-2.5 flex w-full items-center justify-center transition-colors",
 												subPanel === key
 													? "bg-background text-primary"
 													: "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -217,14 +218,14 @@ export function NodeEditorPanel({
 
 						{/* Secondary aside — one concern at a time. */}
 						{subPanel && (
-							<div className="flex w-80 shrink-0 flex-col overflow-hidden border-r">
-								<div className="shrink-0 border-b px-4 pt-5 pb-3">
+							<div className="w-80 flex shrink-0 flex-col overflow-hidden border-r">
+								<div className="px-4 pt-5 pb-3 shrink-0 border-b">
 									<h3 className="font-semibold text-base">{SUB_PANEL_META[subPanel].title}</h3>
-									<p className="mt-0.5 line-clamp-2 text-muted-foreground text-xs">
+									<p className="mt-0.5 text-xs line-clamp-2 text-muted-foreground">
 										{SUB_PANEL_META[subPanel].description}
 									</p>
 								</div>
-								<div className="min-h-0 flex-1 overflow-y-auto p-4">
+								<div className="min-h-0 p-4 flex-1 overflow-y-auto">
 									{subPanel === "settings" && (
 										<AgentSettingsPanel
 											agentId={agentId}
@@ -256,7 +257,7 @@ export function NodeEditorPanel({
 						{/* Main column — the prompt is the focus. The agent prompt editor
 						    is the agent registry entry's `editor` (it consumes the mention
 						    extension; every other kind ignores it). */}
-						<div className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
+						<div className="min-w-0 gap-5 p-5 flex flex-1 flex-col overflow-y-auto">
 							<SheetHeader className="p-0">
 								<SheetTitle>{FLOW_KINDS.agent.sheetMeta.title}</SheetTitle>
 								<SheetDescription>{FLOW_KINDS.agent.sheetMeta.description}</SheetDescription>

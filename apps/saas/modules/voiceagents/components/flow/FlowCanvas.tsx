@@ -1,6 +1,7 @@
 "use client";
 
 import "@xyflow/react/dist/style.css";
+import { Badge } from "@repo/ui/components/badge";
 import { Button } from "@repo/ui/components/button";
 import {
 	Background,
@@ -17,21 +18,21 @@ import {
 	useNodesState,
 	useReactFlow,
 } from "@xyflow/react";
-import { PlusIcon, SaveIcon } from "lucide-react";
+import { PlusIcon, RocketIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { FlowTrace } from "../../hooks/use-flow-trace";
 import type { AgentRFNode } from "./AgentFlowNode";
+import type { BookingRFNode } from "./BookingNode";
 import { makeId, newAggressionScenarioData } from "./compile";
+import type { ConversationRFNode } from "./ConversationNode";
 import type { CanvasDoc, CanvasNodeDoc, FlowNodeData, FlowPaletteKind } from "./flow-types";
 import { FLOW_NODE_DRAG_TYPE, FLOW_PALETTE_KINDS, START_NODE_ID } from "./flow-types";
 import { FLOW_KIND_META, isFlowNodeKind } from "./kind-meta";
 import type { MentionItem } from "./mentions";
-import { NodeEditorPanel, type FlowToolOption } from "./NodeEditorPanel";
-import type { BookingRFNode } from "./BookingNode";
-import type { ConversationRFNode } from "./ConversationNode";
 import type { ModifyTagsRFNode } from "./ModifyTagsNode";
+import { NodeEditorPanel, type FlowToolOption } from "./NodeEditorPanel";
 import type { ObjectiveRFNode } from "./ObjectiveNode";
 import type { ScenarioRFNode } from "./ScenarioNode";
 import type { SetFieldRFNode } from "./SetFieldNode";
@@ -112,7 +113,10 @@ function edgeLabelFor(edge: Edge, nodes: CanvasRFNode[]): string | undefined {
 	if (!source || !isFlowNodeKind(source.type)) {
 		return undefined;
 	}
-	return FLOW_KIND_META[source.type].edgeLabel(source.data as never, edge.sourceHandle ?? undefined);
+	return FLOW_KIND_META[source.type].edgeLabel(
+		source.data as never,
+		edge.sourceHandle ?? undefined,
+	);
 }
 
 /** Palette entry → the canvas node kind + fresh data it drops (presets pre-fill data). */
@@ -175,8 +179,12 @@ export function FlowCanvas(props: {
 	/** CRM live check_availability / book_appointment tool ids for the Booking preset ([] when no CRM). */
 	bookingToolIds: string[];
 	variableItems: MentionItem[];
-	isSaving: boolean;
-	onSave: (doc: CanvasDoc) => void;
+	hasDraft: boolean;
+	isSavingDraft: boolean;
+	isPublishing: boolean;
+	onSaveDraft: (doc: CanvasDoc) => void;
+	onPublish: () => void;
+	onDiscard: () => void;
 	/** Hands the canvas' addNode(kind) callback up so the Actions aside can use it. */
 	onAddNodeReady?: (addNode: ((kind: FlowPaletteKind) => void) | null) => void;
 	/** Opens the Actions aside (the repurposed "Add node" button). */
@@ -199,8 +207,12 @@ function FlowCanvasInner({
 	tools,
 	bookingToolIds,
 	variableItems,
-	isSaving,
-	onSave,
+	hasDraft,
+	isSavingDraft,
+	isPublishing,
+	onSaveDraft,
+	onPublish,
+	onDiscard,
 	onAddNodeReady,
 	onOpenActions,
 	trace,
@@ -211,8 +223,12 @@ function FlowCanvasInner({
 	tools: FlowToolOption[];
 	bookingToolIds: string[];
 	variableItems: MentionItem[];
-	isSaving: boolean;
-	onSave: (doc: CanvasDoc) => void;
+	hasDraft: boolean;
+	isSavingDraft: boolean;
+	isPublishing: boolean;
+	onSaveDraft: (doc: CanvasDoc) => void;
+	onPublish: () => void;
+	onDiscard: () => void;
 	onAddNodeReady?: (addNode: ((kind: FlowPaletteKind) => void) | null) => void;
 	onOpenActions?: () => void;
 	trace?: FlowTrace;
@@ -349,7 +365,12 @@ function FlowCanvasInner({
 					return { id: node.id, type: "start", position: node.position };
 				}
 				const kind = isFlowNodeKind(node.type) ? node.type : "agent";
-				return { id: node.id, type: kind, position: node.position, data: node.data } as CanvasNodeDoc;
+				return {
+					id: node.id,
+					type: kind,
+					position: node.position,
+					data: node.data,
+				} as CanvasNodeDoc;
 			}),
 			edges: edges.map((edge) => ({
 				id: edge.id,
@@ -359,7 +380,7 @@ function FlowCanvasInner({
 			})),
 			viewport: getViewport(),
 		};
-		onSave(doc);
+		onSaveDraft(doc);
 	};
 
 	const selectedNode = nodes.find(
@@ -443,7 +464,7 @@ function FlowCanvasInner({
 				<Controls className="!mb-20" />
 				{/* Pulled clear of the right icon rail. */}
 				<MiniMap pannable zoomable className="!mr-16 !bg-background" />
-				<Panel position="top-left" className="gap-2 flex">
+				<Panel position="top-left" className="gap-2 flex items-center">
 					<Button
 						type="button"
 						variant="outline"
@@ -452,9 +473,32 @@ function FlowCanvasInner({
 					>
 						<PlusIcon className="size-4" /> Add node
 					</Button>
-					<Button type="button" size="sm" loading={isSaving} onClick={handleSave}>
-						<SaveIcon className="size-4" /> Save flow
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						loading={isSavingDraft}
+						onClick={handleSave}
+					>
+						<SaveIcon className="size-4" /> Save draft
 					</Button>
+					<Button
+						type="button"
+						size="sm"
+						loading={isPublishing}
+						disabled={!hasDraft}
+						onClick={onPublish}
+					>
+						<RocketIcon className="size-4" /> Publish
+					</Button>
+					{hasDraft && (
+						<>
+							<Button type="button" variant="ghost" size="sm" onClick={onDiscard}>
+								<Trash2Icon className="size-4" /> Discard draft
+							</Button>
+							<Badge status="warning">Unpublished changes</Badge>
+						</>
+					)}
 				</Panel>
 			</ReactFlow>
 

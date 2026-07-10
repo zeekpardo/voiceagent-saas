@@ -1,4 +1,8 @@
-import { compileObjectiveNode, decompileObjectiveNode, newObjectiveNodeData } from "../compile/nodes/objective";
+import {
+	compileObjectiveNode,
+	decompileObjectiveNode,
+	newObjectiveNodeData,
+} from "../compile/nodes/objective";
 import { ObjectiveNodeEditor } from "../editors/objective";
 import type { ObjectiveCanvasNodeDoc, ObjectiveDoc, ObjectiveNodeData } from "../flow-types";
 import { objectiveNodeDataSchema } from "../flow-types";
@@ -11,7 +15,9 @@ import { defineKind } from "./types";
  * and never another aggregate (no aggregate-of-aggregate) — mirroring the engine
  * schema's superRefine so the builder blocks a doc the engine would reject.
  */
-function validateObjectiveNode(node: ObjectiveCanvasNodeDoc & { data?: ObjectiveNodeData }): string[] {
+function validateObjectiveNode(
+	node: ObjectiveCanvasNodeDoc & { data?: ObjectiveNodeData },
+): string[] {
 	const errors: string[] = [];
 	const objectives = (node.data?.objectives ?? []) as ObjectiveDoc[];
 	const byId = new Map(objectives.map((o) => [o.id, o]));
@@ -65,5 +71,6 @@ export const objectiveKind = defineKind<ObjectiveNodeData>({
 		),
 	}),
 	decompile: decompileObjectiveNode,
-	validate: (node) => validateObjectiveNode(node as ObjectiveCanvasNodeDoc & { data?: ObjectiveNodeData }),
+	validate: (node) =>
+		validateObjectiveNode(node as ObjectiveCanvasNodeDoc & { data?: ObjectiveNodeData }),
 });

@@ -356,8 +356,12 @@ export interface EngineFlowNode {
 	kind?: "agent" | "router" | "statement" | "transfer" | "set_field" | "modify_tags";
 	router?: { condition: string };
 	statement?: { say: string };
-	setField?: { field: string; value: string };
-	modifyTags?: { add?: string[]; remove?: string[] };
+	/** `toolId` names the engine tool that writes the field (self-describing —
+	 * the engine no longer assumes an "update_contact" tool). */
+	setField?: { field: string; value: string; toolId?: string };
+	/** `toolId` names the engine tool that adds tags (self-describing — the
+	 * engine no longer assumes an "add_tag" tool). */
+	modifyTags?: { add?: string[]; remove?: string[]; toolId?: string };
 	transfer?: {
 		say?: string;
 		holdSeconds: number;

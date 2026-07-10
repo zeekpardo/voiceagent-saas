@@ -70,11 +70,26 @@ export const agentConfigInput = z.object({
 
 export type AgentConfigInput = z.infer<typeof agentConfigInput>;
 
+/**
+ * The CRM live tools that perform the engine's automatic writes (contact-field
+ * writes for set_field nodes + verified objectives; tag adds for modify_tags
+ * nodes). The engine is CRM-agnostic — it resolves these tools by the ids the
+ * config names rather than assuming fixed tool names — so we stamp them onto
+ * every config we emit. CRM vocabulary belongs here in the SaaS, never in the
+ * engine. Mirrors LIVE_TOOL_DEFS in modules/crm/lib/live-tools.ts.
+ */
+const FIELD_WRITE_TOOL_NAME = "update_contact";
+const TAG_WRITE_TOOL_NAME = "add_tag";
+
 /** UI list of extract fields ⇄ engine's Record<string,string>. */
 export function toGatewayConfig(input: AgentConfigInput) {
 	const { postCall, stt, ...rest } = input;
 	return {
 		...rest,
+		// Self-describing config: name the tools the engine invokes for its
+		// automatic field/tag writes (objectives + set_field/modify_tags fallback).
+		fieldWriteToolId: FIELD_WRITE_TOOL_NAME,
+		tagWriteToolId: TAG_WRITE_TOOL_NAME,
 		// Engine requires stt.model to be a string when present.
 		...(stt.model ? { stt: { model: stt.model } } : {}),
 		postCall: {

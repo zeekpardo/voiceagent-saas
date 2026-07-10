@@ -8,6 +8,15 @@ import type {
 import { MODIFY_TAGS_NEXT_HANDLE_ID } from "../../flow-types";
 import { makeId } from "../text";
 
+/**
+ * The CRM live tool that adds contact tags (see
+ * packages/api/modules/crm/lib/live-tools.ts). The engine is CRM-agnostic and
+ * no longer assumes this name exists, so the compiler emits it explicitly on
+ * every modify_tags node — the config is self-describing. Business (CRM)
+ * vocabulary belongs here in the SaaS, never in the engine.
+ */
+const TAG_WRITE_TOOL_NAME = "add_tag";
+
 export function compileModifyTagsNode(
 	node: ModifyTagsCanvasNodeDoc & { data: ModifyTagsNodeData },
 	targetOf: (nodeId: string, handleId: string) => string | undefined,
@@ -19,7 +28,7 @@ export function compileModifyTagsNode(
 		id: node.id,
 		name: node.data.title.trim() || undefined,
 		kind: "modify_tags",
-		modifyTags: { add, remove },
+		modifyTags: { add, remove, toolId: TAG_WRITE_TOOL_NAME },
 		instructions:
 			[add.length ? `Add: ${add.join(", ")}` : "", remove.length ? `Remove: ${remove.join(", ")}` : ""]
 				.filter(Boolean)

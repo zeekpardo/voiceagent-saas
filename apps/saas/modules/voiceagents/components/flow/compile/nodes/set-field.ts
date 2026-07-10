@@ -8,6 +8,15 @@ import type {
 import { SET_FIELD_NEXT_HANDLE_ID } from "../../flow-types";
 import { makeId } from "../text";
 
+/**
+ * The CRM live tool that performs contact-field writes (see
+ * packages/api/modules/crm/lib/live-tools.ts). The engine is CRM-agnostic and
+ * no longer assumes this name exists, so the compiler emits it explicitly on
+ * every set_field node — the config is self-describing. Business (CRM)
+ * vocabulary belongs here in the SaaS, never in the engine.
+ */
+const FIELD_WRITE_TOOL_NAME = "update_contact";
+
 export function compileSetFieldNode(
 	node: SetFieldCanvasNodeDoc & { data: SetFieldNodeData },
 	targetOf: (nodeId: string, handleId: string) => string | undefined,
@@ -18,7 +27,7 @@ export function compileSetFieldNode(
 		id: node.id,
 		name: node.data.title.trim() || undefined,
 		kind: "set_field",
-		setField: { field, value: node.data.value },
+		setField: { field, value: node.data.value, toolId: FIELD_WRITE_TOOL_NAME },
 		// The engine requires instructions min 1 on every node.
 		instructions: field ? `Set ${field}` : "Set a field",
 		toolIds: [],

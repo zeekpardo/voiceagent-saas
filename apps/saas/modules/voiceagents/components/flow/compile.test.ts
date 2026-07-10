@@ -14,6 +14,7 @@ import {
 import type { CanvasDoc } from "./flow-types";
 import {
 	FALSE_HANDLE_ID,
+	OBJECTIVE_NEXT_HANDLE_ID,
 	OTHERWISE_HANDLE_ID,
 	SCENARIO_JUMP_HANDLE_ID,
 	START_HANDLE_ID,
@@ -759,6 +760,96 @@ describe("conversation nodes", () => {
 		expect(
 			recompiled.nodes.map((n) => [n.id, n.kind, n.conversation, n.instructions, n.exits]),
 		).toEqual(original.nodes.map((n) => [n.id, n.kind, n.conversation, n.instructions, n.exits]));
+	});
+});
+
+/** Start → ob1 objective node (one objective with picklist options) → a2 agent. */
+function makeObjectiveDoc(): CanvasDoc {
+	return {
+		version: 1,
+		nodes: [
+			{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+			{
+				id: "ob1",
+				type: "objective",
+				position: { x: 100, y: 0 },
+				data: {
+					title: "Confirm timeline",
+					entryMessage: "",
+					objectives: [
+						{
+							id: "obj1",
+							title: "Timeline",
+							description: "how soon the caller wants to sell",
+							field: "Timeline",
+							options: ["ASAP", "1-3 months", "3-6 months", "Not sure"],
+						},
+					],
+				},
+			},
+			{
+				id: "a2",
+				type: "agent",
+				position: { x: 400, y: 0 },
+				data: {
+					title: "Book",
+					sections: [{ id: "s2", body: sectionBody([{ type: "text", text: "Book it." }]) }],
+					entryMessage: "",
+					exits: [],
+					toolIds: [],
+				},
+			},
+		],
+		edges: [
+			{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "ob1" },
+			{ id: "e2", source: "ob1", sourceHandle: OBJECTIVE_NEXT_HANDLE_ID, target: "a2" },
+		],
+	};
+}
+
+describe("objective nodes", () => {
+	it("compiles picklist options onto the engine objective", () => {
+		const { flow } = compileCanvas(makeObjectiveDoc(), []);
+		const ob1 = flow.nodes.find((n) => n.id === "ob1");
+		expect(ob1?.objectives).toEqual([
+			{
+				key: "timeline",
+				description: "how soon the caller wants to sell",
+				field: "Timeline",
+				options: ["ASAP", "1-3 months", "3-6 months", "Not sure"],
+				maxAttempts: undefined,
+				sensitivity: undefined,
+			},
+		]);
+	});
+
+	it("omits options when none are set", () => {
+		const doc = makeObjectiveDoc();
+		const ob1 = doc.nodes.find((n) => n.id === "ob1");
+		if (ob1?.type === "objective" && ob1.data) {
+			ob1.data.objectives = ob1.data.objectives.map((o) => ({ ...o, options: undefined }));
+		}
+		const { flow } = compileCanvas(doc, []);
+		expect(flow.nodes.find((n) => n.id === "ob1")?.objectives?.[0]?.options).toBeUndefined();
+	});
+
+	it("round-trips objective options flow → canvas → flow", () => {
+		const original = compileCanvas(makeObjectiveDoc(), []).flow;
+		const rebuilt = canvasFromFlow(original);
+		const ob1 = rebuilt.nodes.find((n) => n.id === "ob1");
+		expect(ob1?.type).toBe("objective");
+		if (ob1?.type === "objective") {
+			expect(ob1.data?.objectives[0]?.options).toEqual([
+				"ASAP",
+				"1-3 months",
+				"3-6 months",
+				"Not sure",
+			]);
+		}
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		expect(recompiled.nodes.find((n) => n.id === "ob1")?.objectives).toEqual(
+			original.nodes.find((n) => n.id === "ob1")?.objectives,
+		);
 	});
 });
 

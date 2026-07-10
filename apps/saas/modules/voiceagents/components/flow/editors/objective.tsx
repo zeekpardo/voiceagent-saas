@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import {
@@ -117,6 +118,59 @@ export function ObjectiveNodeEditor({
 										from what the caller says.
 									</p>
 								)}
+							</div>
+
+							<div className="flex flex-col gap-1.5">
+								<Label className="text-xs">Answer options</Label>
+								<p className="-mt-1 text-xs opacity-50">
+									Restrict the answer to these choices (the agent will match the caller's words to
+									one). Leave empty for a free-form answer.
+								</p>
+								{(objective.options ?? []).map((option, optionIndex) => (
+									<div key={optionIndex} className="flex items-center gap-2">
+										<Input
+											className="h-9"
+											value={option}
+											onChange={(e) =>
+												patchObjective(objective.id, {
+													options: (objective.options ?? []).map((o, i) =>
+														i === optionIndex ? e.target.value : o,
+													),
+												})
+											}
+											placeholder="Yes"
+										/>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											className="shrink-0"
+											onClick={() => {
+												const next = (objective.options ?? []).filter(
+													(_, i) => i !== optionIndex,
+												);
+												patchObjective(objective.id, {
+													options: next.length ? next : undefined,
+												});
+											}}
+										>
+											<Trash2Icon className="size-4" />
+										</Button>
+									</div>
+								))}
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									className="self-start"
+									onClick={() =>
+										patchObjective(objective.id, {
+											options: [...(objective.options ?? []), ""],
+										})
+									}
+								>
+									<PlusIcon className="size-4" /> Add option
+								</Button>
 							</div>
 
 							<div className="flex flex-col gap-1.5">

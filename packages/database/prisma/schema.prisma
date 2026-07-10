@@ -146,6 +146,7 @@ model Organization {
   purchases          Purchase[]
   sources            Source[]
   agentOrganizations AgentOrganization[]
+  personas           Persona[]
 
   @@unique([slug])
   @@map("organization")
@@ -325,6 +326,32 @@ model VoiceAgentSource {
   @@index([agentId])
   @@index([sourceId])
   @@map("voice_agent_source")
+}
+
+/// A reusable identity/tone/behavior layer attached to voice agents (the
+/// CloseBot-style "persona" concept adapted for voice). Org-scoped. The persona
+/// compiles into the agent's global instructions at save/publish time — the
+/// engine stores no persona concept, only the resulting instruction text.
+model Persona {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// the name the agent uses for itself when speaking (spoken self-identification)
+  name           String
+  /// operator-only note; NEVER compiled into the prompt
+  internalDescription String? @db.Text
+  avatarUrl      String?
+  /// hex accent color for the persona card in the UI
+  themeColor     String?
+  /// up to 3 tone/behavior tags rendered as audible behaviors (warm, curious, …)
+  styles         String[]     @default([])
+  /// custom behavior instructions, appended verbatim as `## HOW TO RESPOND`
+  howToRespond   String       @default("") @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@map("persona")
 }
 
 model VoiceEngineWebhook {

@@ -1,5 +1,7 @@
 import z from "zod";
 
+import { composeInstructions, type PersonaPromptInput } from "./persona-prompt";
+
 /**
  * The subset of the engine's AgentConfig the builder edits. The gateway
  * revalidates the full document; this schema drives the form + procedure IO.
@@ -8,6 +10,11 @@ export const agentConfigInput = z.object({
 	name: z.string().min(1).max(80),
 	description: z.string().optional(),
 	instructions: z.string().min(1),
+	/** Optional persona attached to this agent. Metadata only — its effect is
+	 *  compiled into `instructions` at save/publish (see toGatewayConfig); it
+	 *  rides in the config doc so the form can round-trip the selection. The
+	 *  engine ignores it. */
+	personaId: z.string().nullish(),
 	/** Words/phrases the agent must never say — enforced globally across all flow nodes. */
 	prohibitedWords: z.array(z.string()).default([]),
 	greeting: z.string().optional(),
@@ -81,11 +88,21 @@ export type AgentConfigInput = z.infer<typeof agentConfigInput>;
 const FIELD_WRITE_TOOL_NAME = "update_contact";
 const TAG_WRITE_TOOL_NAME = "add_tag";
 
-/** UI list of extract fields ⇄ engine's Record<string,string>. */
-export function toGatewayConfig(input: AgentConfigInput) {
-	const { postCall, stt, ...rest } = input;
+/**
+ * Reshape the builder config into the engine payload.
+ *
+ * `persona` (resolved from input.personaId by the caller — this function has no
+ * DB access) is compiled into `instructions`: personaPrompt + the baseline
+ * voice-style block are PREPENDED to the builder's instructions. The baseline
+ * is applied even when no persona is attached, fixing the "thanks/name every
+ * turn" behavior globally. personaId stays on the config as opaque metadata for
+ * round-tripping; the engine only ever reads the resulting instruction text.
+ */
+export function toGatewayConfig(input: AgentConfigInput, persona?: PersonaPromptInput | null) {
+	const { postCall, stt, instructions, ...rest } = input;
 	return {
 		...rest,
+		instructions: composeInstructions(instructions, persona),
 		// Self-describing config: name the tools the engine invokes for its
 		// automatic field/tag writes (objectives + set_field/modify_tags fallback).
 		fieldWriteToolId: FIELD_WRITE_TOOL_NAME,

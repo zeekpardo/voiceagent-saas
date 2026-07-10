@@ -18,6 +18,7 @@ import {
 	HistoryIcon,
 	type LucideIcon,
 	SettingsIcon,
+	SparklesIcon,
 	WrenchIcon,
 	XIcon,
 } from "lucide-react";
@@ -31,11 +32,13 @@ import { AgentSourcesTab } from "./AgentSourcesTab";
 import { ActionsPanel } from "./flow/ActionsPanel";
 import type { FlowPaletteKind } from "./flow/flow-types";
 import { FlowTab } from "./flow/FlowTab";
+import { PersonaBadge } from "./personas/PersonaBadge";
+import { PersonasPanel } from "./personas/PersonasPanel";
 import { TestPortal } from "./TestPortal";
 import { ToolsTab } from "./ToolsTab";
 import { VersionHistoryPanel } from "./VersionHistoryPanel";
 
-type WorkspacePanel = "actions" | "job" | "agent" | "tools" | "sources" | "history";
+type WorkspacePanel = "actions" | "job" | "agent" | "personas" | "tools" | "sources" | "history";
 
 const PANEL_META: Record<WorkspacePanel, { title: string; description: string }> = {
 	actions: {
@@ -49,6 +52,10 @@ const PANEL_META: Record<WorkspacePanel, { title: string; description: string }>
 	agent: {
 		title: "Agent settings",
 		description: "Model, voice, timing, and extraction.",
+	},
+	personas: {
+		title: "Personas",
+		description: "Attach a reusable identity — name, look, and tone — to this agent.",
 	},
 	tools: {
 		title: "Tools",
@@ -117,6 +124,7 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 				</Link>
 				<h1 className="font-medium text-lg truncate">{agent.name}</h1>
 				<Badge status="info">v{agent.version}</Badge>
+				<PersonaBadge agent={agent} onClick={() => setActivePanel("personas")} />
 			</div>
 
 			<div className="min-h-0 relative flex-1 overflow-hidden">
@@ -154,6 +162,7 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							)}
 							{activePanel === "job" && <AgentForm agent={agent} variant="job" />}
 							{activePanel === "agent" && <AgentForm agent={agent} variant="settings" />}
+							{activePanel === "personas" && <PersonasPanel agent={agent} />}
 							{activePanel === "tools" && (
 								<ToolsTab agentId={agent.id} agentConfig={agent.config} />
 							)}
@@ -188,6 +197,13 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							label="Agent settings"
 							isActive={activePanel === "agent"}
 							onClick={() => togglePanel("agent")}
+						/>
+						<div className="my-1 w-6 h-px bg-border" />
+						<RailButton
+							icon={SparklesIcon}
+							label="Personas"
+							isActive={activePanel === "personas"}
+							onClick={() => togglePanel("personas")}
 						/>
 						<div className="my-1 w-6 h-px bg-border" />
 						<RailButton

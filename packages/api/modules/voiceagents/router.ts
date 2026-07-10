@@ -24,6 +24,13 @@ import {
 } from "./procedures/drafts";
 import { saveFlow } from "./procedures/flow";
 import { listNumbers, setNumberAgent } from "./procedures/numbers";
+import {
+	createPersonaProcedure,
+	deletePersonaProcedure,
+	getPersonaProcedure,
+	listPersonasProcedure,
+	updatePersonaProcedure,
+} from "./procedures/personas";
 import { createTestSession } from "./procedures/sessions";
 import { createTool, deleteTool, listTools, setAgentTools } from "./procedures/tools";
 import { getTriggerUrl } from "./procedures/trigger";
@@ -67,6 +74,13 @@ export const voiceagentsRouter = {
 	numbers: {
 		list: listNumbers,
 		setAgent: setNumberAgent,
+	},
+	personas: {
+		list: listPersonasProcedure,
+		get: getPersonaProcedure,
+		create: createPersonaProcedure,
+		update: updatePersonaProcedure,
+		delete: deletePersonaProcedure,
 	},
 	sources: {
 		list: listAgentSourcesProcedure,

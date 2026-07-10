@@ -10,6 +10,7 @@ import { protectedProcedure } from "../../../orpc/procedures";
 import { requireActiveOrganizationId } from "../../sources/lib/org";
 import { gatewayFetch } from "../lib/gateway";
 import { requireOwnedAgent } from "../lib/require-owned-agent";
+import { resolvePersona } from "../lib/resolve-persona";
 import { agentConfigInput, type GatewayAgent, toGatewayConfig } from "../lib/schema";
 
 export const listAgents = protectedProcedure
@@ -52,7 +53,12 @@ export const createAgent = protectedProcedure
 	.input(agentConfigInput)
 	.handler(async ({ input, context }) => {
 		const organizationId = requireActiveOrganizationId(context.session);
-		const agent = await gatewayFetch<GatewayAgent>("POST", "/v1/agents", toGatewayConfig(input));
+		const persona = await resolvePersona(organizationId, input.personaId);
+		const agent = await gatewayFetch<GatewayAgent>(
+			"POST",
+			"/v1/agents",
+			toGatewayConfig(input, persona),
+		);
 		await assignAgentToOrganization(agent.id, organizationId);
 		return agent;
 	});
@@ -66,11 +72,12 @@ export const updateAgent = protectedProcedure
 	})
 	.input(z.object({ id: z.string(), config: agentConfigInput }))
 	.handler(async ({ input, context }) => {
-		await requireOwnedAgent(context.session, input.id);
+		const organizationId = await requireOwnedAgent(context.session, input.id);
+		const persona = await resolvePersona(organizationId, input.config.personaId);
 		return gatewayFetch<GatewayAgent>(
 			"PATCH",
 			`/v1/agents/${encodeURIComponent(input.id)}`,
-			toGatewayConfig(input.config),
+			toGatewayConfig(input.config, persona),
 		);
 	});
 

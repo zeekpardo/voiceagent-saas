@@ -100,6 +100,12 @@ export const VoiceAgentSourceScalarFieldEnumSchema = z.enum(['id', 'agentId', 's
 
 export type VoiceAgentSourceScalarFieldEnum = z.infer<typeof VoiceAgentSourceScalarFieldEnumSchema>;
 
+// File: PersonaScalarFieldEnum.schema.ts
+
+export const PersonaScalarFieldEnumSchema = z.enum(['id', 'organizationId', 'name', 'internalDescription', 'avatarUrl', 'themeColor', 'styles', 'howToRespond', 'createdAt', 'updatedAt'])
+
+export type PersonaScalarFieldEnum = z.infer<typeof PersonaScalarFieldEnumSchema>;
+
 // File: VoiceEngineWebhookScalarFieldEnum.schema.ts
 
 export const VoiceEngineWebhookScalarFieldEnumSchema = z.enum(['id', 'url', 'secret', 'gatewayId', 'createdAt'])
@@ -413,6 +419,24 @@ export const VoiceAgentSourceSchema = z.object({
 });
 
 export type VoiceAgentSourceType = z.infer<typeof VoiceAgentSourceSchema>;
+
+
+// File: Persona.schema.ts
+
+export const PersonaSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  internalDescription: z.string().nullish(),
+  avatarUrl: z.string().nullish(),
+  themeColor: z.string().nullish(),
+  styles: z.array(z.string()),
+  howToRespond: z.string(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type PersonaType = z.infer<typeof PersonaSchema>;
 
 
 // File: VoiceEngineWebhook.schema.ts

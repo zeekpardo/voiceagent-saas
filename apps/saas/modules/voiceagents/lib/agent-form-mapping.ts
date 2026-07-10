@@ -1,3 +1,4 @@
+import { extractGoalFromComposite } from "@repo/api/modules/voiceagents/lib/persona-prompt";
 import {
 	type AgentConfigInput,
 	agentConfigInput,
@@ -18,13 +19,20 @@ export type AgentFormValues = z.input<typeof agentConfigInput>;
 /** Map a stored gateway config document back onto the form's shape. */
 export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 	const c = (agent?.config ?? {}) as Record<string, any>;
-	// Blank name/instructions fail min(1) on the CREATE page — parse with
-	// placeholders so zod still applies every default, then blank the two
-	// fields (validation runs on submit via the zodResolver).
+	// Prefer the raw `goal` when present; fall back to un-nesting it from the
+	// composed `instructions` for agents saved before goal/instructions were
+	// split (legacy load path — see extractGoalFromComposite).
+	const goal =
+		typeof c.goal === "string" && c.goal.length > 0
+			? c.goal
+			: extractGoalFromComposite(typeof c.instructions === "string" ? c.instructions : "");
+	// A blank name fails min(1) on the CREATE page — parse with a placeholder so
+	// zod still applies every default, then blank name below (validation runs on
+	// submit via the zodResolver). `goal` is nullish, so it needs no placeholder.
 	const values = agentConfigInput.parse({
 		name: c.name || "placeholder",
 		description: c.description ?? "",
-		instructions: c.instructions || "placeholder",
+		goal,
 		guardrails: c.guardrails ?? "",
 		prohibitedWords: Array.isArray(c.prohibitedWords) ? c.prohibitedWords.map(String) : [],
 		greeting: c.greeting ?? "",
@@ -52,7 +60,7 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 	});
 	if (!agent) {
 		values.name = "";
-		values.instructions = "";
+		values.goal = "";
 	}
 	return values;
 }

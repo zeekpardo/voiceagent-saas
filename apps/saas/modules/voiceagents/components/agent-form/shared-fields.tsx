@@ -137,31 +137,34 @@ interface AgentFormFieldProps {
  * the same fields in their own order.
  */
 interface InstructionsFieldProps extends AgentFormFieldProps {
-	/** Label + helper override so the same field can render as "Goal" in the Job
-	 *  panel while staying "Instructions" on the full create form. */
+	/** Label + helper override; defaults teach the LEAN Goal doctrine. */
 	label?: string;
 	description?: string;
 	/** Helper line under the editor (e.g. an example objective). */
 	hint?: string;
+	/** Muted warning line under the editor. */
+	warning?: string;
 }
 
 export function InstructionsField({
 	form,
-	label = "Instructions",
-	description = "The agent's identity, business information, style, and hard rules. For flow agents this is the Job Information — every node inherits it, so write it once here and keep node prompts focused on their stage.",
-	hint,
+	label = "Goal",
+	description = "Sent with every message — keep it to what a day-one employee would memorize: who the agent works for, what the business is, and why this conversation is happening (2–4 sentences).",
+	hint = "For example: You work for Empire Cleaning in Austin TX — a family-run residential cleaning company known for move-out and pet-mess jobs. The contact reached out to learn more about our services.",
+	warning = "Don't put booking steps, service catalogs, or stage-by-stage instructions here — the flow's nodes handle those.",
 }: InstructionsFieldProps) {
 	return (
 		<FormField
 			control={form.control}
-			name="instructions"
+			name="goal"
 			render={({ field }) => (
 				<FormItem>
 					<FormLabel>{label}</FormLabel>
 					<FormDescription>{description}</FormDescription>
 					<FormControl>
-						<InstructionsEditor value={field.value} onChange={field.onChange} hint={hint} />
+						<InstructionsEditor value={field.value ?? ""} onChange={field.onChange} hint={hint} />
 					</FormControl>
+					{warning ? <p className="text-xs text-muted-foreground">{warning}</p> : null}
 					<FormMessage />
 				</FormItem>
 			)}

@@ -21,12 +21,7 @@ export function JobInformationSection({ form }: { form: UseFormReturn<AgentFormV
 				<CardTitle>Job information</CardTitle>
 			</CardHeader>
 			<CardContent className="gap-4 flex flex-col">
-				<InstructionsField
-					form={form}
-					label="Goal"
-					description="The overarching objective for this job. Each node in the flow carries its own step-specific goal — keep this high level."
-					hint="For example: Qualify inbound seller leads. You will: learn why they're selling and their timeline, capture the property details, and book a callback with the team."
-				/>
+				<InstructionsField form={form} />
 				<GuardrailsField form={form} />
 				<ProhibitedWordsField form={form} />
 				<UserInfoNote />

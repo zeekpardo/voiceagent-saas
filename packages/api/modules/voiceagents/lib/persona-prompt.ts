@@ -68,6 +68,65 @@ export function goalPrompt(goal: string): string {
 	return body ? `## GOAL\n${body}` : "";
 }
 
+/** The section headers composeInstructions emits. Their presence marks a text as
+ *  a composed prompt (as opposed to a raw, hand-written goal). */
+const COMPOSITE_HEADERS = [
+	"## IDENTITY",
+	"## PERSONALITY",
+	"## HOW TO RESPOND",
+	"## GOAL",
+	"## GUARDRAILS",
+	"## VOICE STYLE",
+];
+
+/**
+ * Recover the raw goal text from a value that may be a composed prompt.
+ *
+ * Historically the builder loaded the COMPOSED `instructions` back into the
+ * editable Goal field, so every save re-wrapped the previous composite and the
+ * `## GOAL` blocks nested (a single agent accumulated five persona blocks). This
+ * is the inverse of `goalPrompt`/`composeInstructions`, used on the legacy load
+ * path to un-nest that history:
+ *
+ *   - No known headers at all  → the text is a true raw goal; return it as-is.
+ *   - Headers present, `## GOAL` present → return the body under the LAST
+ *     `## GOAL` (the innermost, original goal in a nested composite), up to the
+ *     next `## ` section header.
+ *   - Headers present, no `## GOAL` → the goal was empty when composed; return "".
+ *   - Empty/blank input → "".
+ */
+export function extractGoalFromComposite(text: string | null | undefined): string {
+	const raw = text ?? "";
+	const trimmed = raw.trim();
+	if (!trimmed) {
+		return "";
+	}
+
+	const isComposite = COMPOSITE_HEADERS.some((h) => raw.includes(h));
+	if (!isComposite) {
+		return trimmed;
+	}
+
+	const marker = "## GOAL";
+	const start = raw.lastIndexOf(marker);
+	if (start === -1) {
+		return "";
+	}
+
+	// Body begins on the line after the "## GOAL" header.
+	const afterMarker = raw.slice(start + marker.length);
+	const newlineIdx = afterMarker.indexOf("\n");
+	if (newlineIdx === -1) {
+		return "";
+	}
+	const body = afterMarker.slice(newlineIdx + 1);
+
+	// Stop at the next section header ("\n## …").
+	const nextHeader = body.search(/\n## /);
+	const goalBody = nextHeader === -1 ? body : body.slice(0, nextHeader);
+	return goalBody.trim();
+}
+
 /**
  * The `## GUARDRAILS` block. A short built-in safety baseline (adapted from
  * LiveKit's prompting guide) is ALWAYS included — even when the author writes

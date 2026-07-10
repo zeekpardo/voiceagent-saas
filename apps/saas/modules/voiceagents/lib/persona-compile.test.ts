@@ -2,6 +2,7 @@ import {
 	PERSONA_PROMPT_MAX_CHARS,
 	baselineVoiceRealism,
 	composeInstructions,
+	extractGoalFromComposite,
 	guardrailsPrompt,
 	personaPrompt,
 } from "@repo/api/modules/voiceagents/lib/persona-prompt";
@@ -10,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 const baseConfig = agentConfigInput.parse({
 	name: "Test Agent",
-	instructions: "Book the caller an appointment.",
+	goal: "Book the caller an appointment.",
 });
 
 describe("persona prompt compilation", () => {
@@ -129,5 +130,71 @@ describe("persona prompt compilation", () => {
 		expect(text.endsWith(baselineVoiceRealism())).toBe(true);
 		// Guardrails baseline sits between the goal and the voice style.
 		expect(text).toContain("## GUARDRAILS");
+	});
+
+	it("stores the raw goal on the config alongside the composed instructions", () => {
+		const compiled = toGatewayConfig(baseConfig, null);
+		// Raw goal rides back for round-trip; composed text carries the section.
+		expect(compiled.goal).toBe("Book the caller an appointment.");
+		expect(compiled.instructions).toContain("## GOAL\nBook the caller an appointment.");
+	});
+});
+
+describe("extractGoalFromComposite", () => {
+	const persona = {
+		name: "Ava",
+		styles: ["warm", "curious"],
+		howToRespond: "Confirm the time twice.",
+	};
+	const goal = "Book the caller an appointment.";
+
+	it("returns clean raw text unchanged (no headers)", () => {
+		expect(extractGoalFromComposite(goal)).toBe(goal);
+		expect(extractGoalFromComposite("  Just help the caller.  ")).toBe("Just help the caller.");
+	});
+
+	it("returns empty string for empty/blank input", () => {
+		expect(extractGoalFromComposite("")).toBe("");
+		expect(extractGoalFromComposite("   \n  ")).toBe("");
+		expect(extractGoalFromComposite(null)).toBe("");
+		expect(extractGoalFromComposite(undefined)).toBe("");
+	});
+
+	it("extracts the goal body from a single composite (with and without persona)", () => {
+		expect(extractGoalFromComposite(composeInstructions(goal, null))).toBe(goal);
+		expect(extractGoalFromComposite(composeInstructions(goal, persona, "No pricing."))).toBe(goal);
+	});
+
+	it("returns '' when the composite has no GOAL block (goal was empty)", () => {
+		const composite = composeInstructions("", persona);
+		expect(composite).not.toContain("## GOAL");
+		expect(extractGoalFromComposite(composite)).toBe("");
+	});
+
+	it("recovers the original goal from a 5x-compounded composite (takes the innermost GOAL)", () => {
+		// Simulate the historical bug: each save re-composed from the PREVIOUS
+		// composite (loaded back into the goal field), nesting the ## GOAL blocks.
+		let text = goal;
+		for (let i = 0; i < 5; i++) {
+			text = composeInstructions(text, persona, "No pricing.");
+		}
+		expect((text.match(/## GOAL/g) ?? []).length).toBe(5);
+		expect(extractGoalFromComposite(text)).toBe(goal);
+	});
+
+	it("is idempotent: compose(extract(compose(goal))) does not grow", () => {
+		const c1 = composeInstructions(goal, persona, "No pricing.");
+		const derived = extractGoalFromComposite(c1);
+		expect(derived).toBe(goal);
+		const c2 = composeInstructions(derived, persona, "No pricing.");
+		expect(c2).toBe(c1);
+		// And a full round-trip through the gateway funnel is byte-stable.
+		const cfg1 = toGatewayConfig({ ...baseConfig, guardrails: "No pricing." }, persona);
+		const reload = extractGoalFromComposite(cfg1.instructions);
+		const cfg2 = toGatewayConfig(
+			{ ...baseConfig, goal: reload, guardrails: "No pricing." },
+			persona,
+		);
+		expect(cfg2.instructions).toBe(cfg1.instructions);
 	});
 });

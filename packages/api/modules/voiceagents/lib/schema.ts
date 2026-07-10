@@ -9,7 +9,12 @@ import { composeInstructions, type PersonaPromptInput } from "./persona-prompt";
 export const agentConfigInput = z.object({
 	name: z.string().min(1).max(80),
 	description: z.string().optional(),
-	instructions: z.string().min(1),
+	/** The job's overarching objective — the LEAN goal text the builder edits in
+	 *  the Job panel / create form. Composed into the engine's `instructions`
+	 *  (the `## GOAL` block) at save/publish by toGatewayConfig; also rides RAW on
+	 *  the config doc (like personaId/guardrails) so the form round-trips it
+	 *  without re-wrapping the previous composite. */
+	goal: z.string().max(2000).nullish(),
 	/** Optional persona attached to this agent. Metadata only — its effect is
 	 *  compiled into `instructions` at save/publish (see toGatewayConfig); it
 	 *  rides in the config doc so the form can round-trip the selection. The
@@ -98,18 +103,23 @@ const TAG_WRITE_TOOL_NAME = "add_tag";
  * Reshape the builder config into the engine payload.
  *
  * `persona` (resolved from input.personaId by the caller — this function has no
- * DB access) plus the builder's `instructions` (the job's Goal) and `guardrails`
- * are compiled into the final `instructions`: composeInstructions assembles
- * persona → GOAL → GUARDRAILS → VOICE STYLE. The safety baseline and voice-style
- * block apply even when no persona/guardrails are attached. personaId and
- * guardrails stay on the config as opaque metadata for round-tripping (carried
- * by `...rest`); the engine only ever reads the resulting instruction text.
+ * DB access) plus the builder's raw `goal` and `guardrails` are compiled into
+ * the final `instructions`: composeInstructions assembles persona → GOAL →
+ * GUARDRAILS → VOICE STYLE. The safety baseline and voice-style block apply even
+ * when no persona/guardrails are attached.
+ *
+ * CRITICAL: we compose FROM `input.goal` (the raw lean text), never from a
+ * previously composed value — and the raw `goal` rides back onto the config
+ * alongside personaId/guardrails so the builder round-trips the raw text without
+ * re-wrapping. The engine only ever reads the resulting `instructions`.
  */
 export function toGatewayConfig(input: AgentConfigInput, persona?: PersonaPromptInput | null) {
-	const { postCall, stt, instructions, ...rest } = input;
+	const { postCall, stt, goal, ...rest } = input;
+	const rawGoal = goal ?? "";
 	return {
 		...rest,
-		instructions: composeInstructions(instructions, persona, input.guardrails),
+		goal: rawGoal,
+		instructions: composeInstructions(rawGoal, persona, input.guardrails),
 		// Self-describing config: name the tools the engine invokes for its
 		// automatic field/tag writes (objectives + set_field/modify_tags fallback).
 		fieldWriteToolId: FIELD_WRITE_TOOL_NAME,

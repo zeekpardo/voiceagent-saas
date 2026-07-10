@@ -11,6 +11,7 @@ import {
 	GraduationCapIcon,
 	type LucideIcon,
 	MessageSquareIcon,
+	MessagesSquareIcon,
 	PhoneForwardedIcon,
 	SearchIcon,
 	SplitIcon,
@@ -58,6 +59,13 @@ const ACTION_SECTIONS: ActionSection[] = [
 				title: "Objective",
 				subtitle: "Gather info from the caller and update fields",
 				icon: GraduationCapIcon,
+				tileClassName: OBJECTIVE_TILE,
+			},
+			{
+				kind: "conversation",
+				title: "Conversation",
+				subtitle: "Open-ended chat, then wrap up",
+				icon: MessagesSquareIcon,
 				tileClassName: OBJECTIVE_TILE,
 			},
 			{

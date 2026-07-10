@@ -6,10 +6,17 @@ import { FLOW_KIND_LIST } from "../kinds";
 export function validateFlowDoc(doc: CanvasDoc): string[] {
 	const errors: string[] = [];
 	// Conversational nodes can take the call first (they converse): agent nodes
-	// plus objective and booking nodes, which compile to agent engine nodes.
+	// plus objective, conversation and booking nodes, which all compile to agent
+	// engine nodes.
 	const conversationalIds = new Set(
 		doc.nodes
-			.filter((n) => n.type === "agent" || n.type === "objective" || n.type === "booking")
+			.filter(
+				(n) =>
+					n.type === "agent" ||
+					n.type === "objective" ||
+					n.type === "conversation" ||
+					n.type === "booking",
+			)
 			.map((n) => n.id),
 	);
 	const nodeIds = new Set(doc.nodes.map((n) => n.id));

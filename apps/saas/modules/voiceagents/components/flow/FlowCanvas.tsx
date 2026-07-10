@@ -30,6 +30,7 @@ import { FLOW_KIND_META, isFlowNodeKind } from "./kind-meta";
 import type { MentionItem } from "./mentions";
 import { NodeEditorPanel, type FlowToolOption } from "./NodeEditorPanel";
 import type { BookingRFNode } from "./BookingNode";
+import type { ConversationRFNode } from "./ConversationNode";
 import type { ModifyTagsRFNode } from "./ModifyTagsNode";
 import type { ObjectiveRFNode } from "./ObjectiveNode";
 import type { ScenarioRFNode } from "./ScenarioNode";
@@ -43,6 +44,7 @@ import type { TrueFalseRFNode } from "./TrueFalseNode";
 type CanvasRFNode =
 	| AgentRFNode
 	| ObjectiveRFNode
+	| ConversationRFNode
 	| SetFieldRFNode
 	| ModifyTagsRFNode
 	| BookingRFNode

@@ -29,6 +29,10 @@ export const BOOKING_FAILED_HANDLE_ID = "failed";
 /** The single "Jump to" source handle on a scenario node. */
 export const SCENARIO_JUMP_HANDLE_ID = "jump";
 
+/** Wrap-up modes for a conversation node when its goal is exhausted. */
+export const CONVERSATION_WRAP_UP_END_CALL = "end_call";
+export const CONVERSATION_WRAP_UP_EXIT = "exit";
+
 /** dataTransfer type used when dragging an action from the palette onto the canvas. */
 export const FLOW_NODE_DRAG_TYPE = "application/x-voiceagent-flow-node";
 
@@ -36,6 +40,7 @@ export const FLOW_NODE_DRAG_TYPE = "application/x-voiceagent-flow-node";
 export type FlowNodeKind =
 	| "agent"
 	| "objective"
+	| "conversation"
 	| "truefalse"
 	| "switch"
 	| "statement"
@@ -49,6 +54,7 @@ export type FlowNodeKind =
 export const FLOW_PALETTE_KINDS = [
 	"agent",
 	"objective",
+	"conversation",
 	"truefalse",
 	"switch",
 	"statement",
@@ -138,6 +144,31 @@ export interface ObjectiveNodeData {
 	[key: string]: unknown;
 }
 
+/**
+ * A Conversation node (CloseBot's "Keeping the Conversation Going"): objective-less,
+ * tool-less, open-ended. The model self-drives discovery from the conversation
+ * reason + optional talking-point hints, then wraps up explicitly (end the call or
+ * take a named exit) instead of relying on emergent self-closure.
+ */
+export interface ConversationNodeData {
+	title: string;
+	/** What this conversation is for — drives the open-ended probing. */
+	reason: string;
+	/** Optional talking-point hints the model may weave in. */
+	hints: string[];
+	/** Editable exits (same shape as an agent node's). */
+	exits: FlowExitDoc[];
+	/** Explicit closure: end the call, or take one of this node's exits. */
+	wrapUpMode: "end_call" | "exit";
+	/** When wrapUpMode === "exit", the id of the exit to take on wrap-up. */
+	wrapUpExitId?: string;
+	/** Advanced: cap the time spent in this node before wrapping up. */
+	maxDurationSeconds?: number;
+	/** Per-flow: this node catches every unconnected exit (CloseBot parity). Max one per flow. */
+	isDefault?: boolean;
+	[key: string]: unknown;
+}
+
 export interface TrueFalseNodeData {
 	title: string;
 	/** Statement the AI evaluates true/false against the conversation. */
@@ -224,6 +255,7 @@ export interface TransferNodeData {
 export type FlowNodeData =
 	| AgentNodeData
 	| ObjectiveNodeData
+	| ConversationNodeData
 	| TrueFalseNodeData
 	| SwitchNodeData
 	| StatementNodeData
@@ -252,6 +284,13 @@ export interface ObjectiveCanvasNodeDoc {
 	type: "objective";
 	position: { x: number; y: number };
 	data?: ObjectiveNodeData;
+}
+
+export interface ConversationCanvasNodeDoc {
+	id: string;
+	type: "conversation";
+	position: { x: number; y: number };
+	data?: ConversationNodeData;
 }
 
 export interface TrueFalseCanvasNodeDoc {
@@ -314,6 +353,7 @@ export type CanvasNodeDoc =
 	| StartCanvasNodeDoc
 	| AgentCanvasNodeDoc
 	| ObjectiveCanvasNodeDoc
+	| ConversationCanvasNodeDoc
 	| TrueFalseCanvasNodeDoc
 	| SwitchCanvasNodeDoc
 	| StatementCanvasNodeDoc
@@ -374,6 +414,23 @@ export interface EngineFlowNode {
 	exits: EngineFlowExit[];
 	/** Engine-verified data goals; the engine takes the primary exit once met. */
 	objectives?: EngineFlowObjective[];
+	/**
+	 * Conversation-node config (node kind stays "agent" on the wire). When present,
+	 * the engine runs an objective-less, open-ended discovery loop driven by
+	 * `reason` + `hints`, closing per `wrapUp` (end the call or take a named exit).
+	 */
+	conversation?: EngineFlowConversation;
+}
+
+export interface EngineFlowConversation {
+	/** What this conversation is for — drives open-ended probing. */
+	reason: string;
+	/** Optional talking-point hints. */
+	hints?: string[];
+	/** Explicit closure behavior. `exit` names one of the node's exits. */
+	wrapUp: { mode: "end_call" } | { mode: "exit"; exit: string };
+	/** Optional cap on time spent in this node. */
+	maxDurationSeconds?: number;
 }
 
 export interface EngineFlowObjective {
@@ -437,6 +494,17 @@ export const objectiveNodeDataSchema = z.object({
 			sensitivity: z.number().optional(),
 		}),
 	),
+});
+
+export const conversationNodeDataSchema = z.object({
+	title: z.string(),
+	reason: z.string(),
+	hints: z.array(z.string()).default([]),
+	exits: z.array(flowExitSchema).default([]),
+	wrapUpMode: z.enum(["end_call", "exit"]).default("end_call"),
+	wrapUpExitId: z.string().optional(),
+	maxDurationSeconds: z.number().optional(),
+	isDefault: z.boolean().optional(),
 });
 
 export const trueFalseNodeDataSchema = z.object({
@@ -580,6 +648,17 @@ export const engineFlowSchema = z.object({
 						sensitivity: z.number().optional(),
 					}),
 				)
+				.optional(),
+			conversation: z
+				.object({
+					reason: z.string(),
+					hints: z.array(z.string()).optional(),
+					wrapUp: z.union([
+						z.object({ mode: z.literal("end_call") }),
+						z.object({ mode: z.literal("exit"), exit: z.string() }),
+					]),
+					maxDurationSeconds: z.number().optional(),
+				})
 				.optional(),
 		}),
 	),

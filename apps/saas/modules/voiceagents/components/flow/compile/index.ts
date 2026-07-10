@@ -9,6 +9,7 @@ import type {
 import { START_HANDLE_ID, START_NODE_ID } from "../flow-types";
 import { FLOW_KINDS, isFlowNodeKind } from "../kinds";
 import { decompileAgentNode } from "./nodes/agent";
+import { decompileConversationNode } from "./nodes/conversation";
 import { decompileModifyTagsNode } from "./nodes/modify-tags";
 import { decompileObjectiveNode } from "./nodes/objective";
 import { decompileRouterNode } from "./nodes/router";
@@ -31,6 +32,7 @@ export { MENTION_CHAR_EXIT, MENTION_CHAR_TOOL, MENTION_CHAR_VARIABLE } from "./t
 export { validateFlowDoc } from "./validate";
 export { newAgentNodeData } from "./nodes/agent";
 export { newBookingNodeData } from "./nodes/booking";
+export { newConversationNodeData } from "./nodes/conversation";
 export { newModifyTagsNodeData } from "./nodes/modify-tags";
 export { newObjectiveNodeData } from "./nodes/objective";
 export { newSwitchNodeData, newTrueFalseNodeData } from "./nodes/router";
@@ -51,9 +53,24 @@ export function compileCanvas(
 	const startEdge = doc.edges.find((e) => e.source === START_NODE_ID);
 	const entry = startEdge?.target ?? "";
 
-	// No outgoing edge → omit target → the exit ends the call.
-	const targetOf = (nodeId: string, handleId: string) =>
-		doc.edges.find((e) => e.source === nodeId && e.sourceHandle === handleId)?.target;
+	// CloseBot parity: when a conversation node is designated the flow default,
+	// every dangling/unconnected exit falls back to it (instead of ending the
+	// call). The default node's own dangling exits are left alone (no self-loop).
+	const defaultConversationId = doc.nodes.find(
+		(n) => n.type === "conversation" && (n.data as { isDefault?: boolean } | undefined)?.isDefault,
+	)?.id;
+
+	// No outgoing edge → fall back to the default conversation node when one
+	// exists, otherwise omit target → the exit ends the call.
+	const targetOf = (nodeId: string, handleId: string) => {
+		const wired = doc.edges.find((e) => e.source === nodeId && e.sourceHandle === handleId)?.target;
+		if (wired) {
+			return wired;
+		}
+		return defaultConversationId && nodeId !== defaultConversationId
+			? defaultConversationId
+			: undefined;
+	};
 
 	// Per-kind compile lives on each registry entry (kinds/*). Scenario nodes emit
 	// a global scenario (flow.scenarios); every other kind emits a flow node. Nodes
@@ -157,6 +174,15 @@ export function canvasFromFlow(flow: EngineFlow): CanvasDoc {
 
 		if (flowNode.kind === "router") {
 			const { node, edges: nodeEdges } = decompileRouterNode(flowNode, position);
+			nodes.push(node);
+			edges.push(...nodeEdges);
+			continue;
+		}
+
+		// An engine agent node carrying a `conversation` object round-trips as a
+		// Conversation canvas node (node kind stays "agent" on the wire).
+		if (flowNode.conversation) {
+			const { node, edges: nodeEdges } = decompileConversationNode(flowNode, position);
 			nodes.push(node);
 			edges.push(...nodeEdges);
 			continue;

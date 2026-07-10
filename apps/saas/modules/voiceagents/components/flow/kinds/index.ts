@@ -9,6 +9,7 @@ import {
 } from "../flow-types";
 import { agentKind } from "./agent";
 import { bookingKind } from "./booking";
+import { conversationKind } from "./conversation";
 import { modifyTagsKind } from "./modify-tags";
 import { objectiveKind } from "./objective";
 import { scenarioKind } from "./scenario";
@@ -45,6 +46,7 @@ export type {
 export const FLOW_KIND_LIST: FlowKindDefinition<any>[] = [
 	agentKind,
 	objectiveKind,
+	conversationKind,
 	trueFalseKind,
 	switchKind,
 	statementKind,

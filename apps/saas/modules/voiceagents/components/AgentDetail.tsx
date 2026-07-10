@@ -33,6 +33,7 @@ import { ActionsPanel } from "./flow/ActionsPanel";
 import type { FlowPaletteKind } from "./flow/flow-types";
 import { FlowTab } from "./flow/FlowTab";
 import { PersonaBadge } from "./personas/PersonaBadge";
+import { AttachedPersonaProvider } from "./personas/persona-flow-context";
 import { PersonasPanel } from "./personas/PersonasPanel";
 import { TestPortal } from "./TestPortal";
 import { ToolsTab } from "./ToolsTab";
@@ -128,13 +129,15 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 			</div>
 
 			<div className="min-h-0 relative flex-1 overflow-hidden">
-				<FlowTab
-					agent={agent}
-					onAddNodeReady={handleAddNodeReady}
-					onOpenActions={openActions}
-					trace={trace}
-					traceLive={callState.live}
-				/>
+				<AttachedPersonaProvider agent={agent}>
+					<FlowTab
+						agent={agent}
+						onAddNodeReady={handleAddNodeReady}
+						onOpenActions={openActions}
+						trace={trace}
+						traceLive={callState.live}
+					/>
+				</AttachedPersonaProvider>
 
 				{activePanel && (
 					<aside className="slide-in-from-right-4 inset-y-0 right-12 animate-in shadow-xl absolute z-20 flex w-[440px] max-w-[calc(100%-3rem)] flex-col border-l bg-card duration-200">

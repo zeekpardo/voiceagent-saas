@@ -37,6 +37,12 @@ export const createTestSession = protectedProcedure
 			crmContactId: z.string().optional(),
 			/** Alternative to crmContactId: find-or-create the contact by phone. */
 			contactPhone: z.string().optional(),
+			/**
+			 * Channel the worker runs on. "voice" (default) uses STT/TTS audio;
+			 * "text" runs the same flow over LiveKit text streams (lk.chat topic) —
+			 * no audio tracks, no STT/TTS. Transcripts still flow to the gateway.
+			 */
+			channel: z.enum(["voice", "text"]).optional(),
 		}),
 	)
 	.handler(async ({ input, context }) => {
@@ -98,6 +104,7 @@ export const createTestSession = protectedProcedure
 			},
 			...(contactState ? { contactState } : {}),
 			...(contactTags ? { contactTags } : {}),
+			...(input.channel ? { channel: input.channel } : {}),
 			metadata: {
 				source: "builder-test",
 				user_id: context.user.id,

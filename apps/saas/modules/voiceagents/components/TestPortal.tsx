@@ -17,15 +17,18 @@ import {
 	ChevronDownIcon,
 	ChevronRightIcon,
 	FlaskConicalIcon,
+	MessageSquareIcon,
 	MicIcon,
 	PhoneOffIcon,
+	SendIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { useAgentSourcesQuery } from "@sources/lib/api";
 
 import {
 	extractVariableNames,
+	type TestChannel,
 	type TestStatus,
 	useVoiceTestSession,
 } from "../hooks/use-voice-test-session";
@@ -62,13 +65,15 @@ export function TestPortal({
 }) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [showSetup, setShowSetup] = useState(false);
+	const [channel, setChannel] = useState<TestChannel>("voice");
 	const [variables, setVariables] = useState<Record<string, string>>({});
 	const [sourceId, setSourceId] = useState("");
 	const [crmContactId, setCrmContactId] = useState("");
 	const [contactPhone, setContactPhone] = useState("");
+	const [draft, setDraft] = useState("");
 	const transcriptRef = useRef<HTMLDivElement>(null);
-	const { status, turns, error, room, isLive, callId, start, stop, audioContainerRef } =
-		useVoiceTestSession(agentId);
+	const { status, turns, error, room, isLive, callId, start, stop, sendMessage, audioContainerRef } =
+		useVoiceTestSession(agentId, channel);
 	const { data: attachedSources } = useAgentSourcesQuery(agentId);
 	const variableNames = extractVariableNames(agentConfig);
 	const isBusy = isLive || status === "connecting";
@@ -92,6 +97,7 @@ export function TestPortal({
 						<FlaskConicalIcon className="size-4 text-primary" />
 						<span className="font-medium text-sm">Test agent</span>
 						<Badge status={STATUS_BADGE[status]}>{status}</Badge>
+						<ChannelToggle value={channel} onChange={setChannel} disabled={isBusy} />
 						<Button
 							type="button"
 							variant="ghost"
@@ -185,7 +191,7 @@ export function TestPortal({
 							)}
 						</div>
 
-						<TestVisualizer room={room} />
+						{channel === "voice" && <TestVisualizer room={room} />}
 
 						<div
 							ref={transcriptRef}
@@ -196,7 +202,9 @@ export function TestPortal({
 						>
 							{turns.length === 0 ? (
 								<p className="text-xs text-center text-muted-foreground">
-									The live transcript appears here. Saved changes apply to the next conversation.
+									{channel === "text"
+										? "Type below to chat with the agent. Saved changes apply to the next conversation."
+										: "The live transcript appears here. Saved changes apply to the next conversation."}
 								</p>
 							) : (
 								turns.map((t) => (
@@ -215,6 +223,36 @@ export function TestPortal({
 
 						{error && <p className="text-sm text-destructive">{error}</p>}
 
+						{channel === "text" && isBusy && (
+							<form
+								className="gap-2 flex items-center"
+								onSubmit={(e: FormEvent) => {
+									e.preventDefault();
+									const text = draft;
+									setDraft("");
+									void sendMessage(text);
+								}}
+							>
+								<Input
+									className="h-9 flex-1 text-sm"
+									placeholder="Type a message…"
+									value={draft}
+									// eslint-disable-next-line jsx-a11y/no-autofocus
+									autoFocus
+									onChange={(e) => setDraft(e.target.value)}
+								/>
+								<Button
+									type="submit"
+									size="icon"
+									className="size-9 shrink-0"
+									aria-label="Send message"
+									disabled={draft.trim() === ""}
+								>
+									<SendIcon className="size-4" />
+								</Button>
+							</form>
+						)}
+
 						{isBusy ? (
 							<Button type="button" variant="destructive" onClick={() => void stop()}>
 								<PhoneOffIcon className="size-4" /> End conversation
@@ -224,7 +262,12 @@ export function TestPortal({
 								type="button"
 								onClick={() => void start({ variables, sourceId, crmContactId, contactPhone })}
 							>
-								<MicIcon className="size-4" /> Start conversation
+								{channel === "text" ? (
+									<MessageSquareIcon className="size-4" />
+								) : (
+									<MicIcon className="size-4" />
+								)}
+								Start conversation
 							</Button>
 						)}
 					</div>
@@ -247,6 +290,44 @@ export function TestPortal({
 			)}
 			{/* Agent audio attaches here — always mounted so collapsing never kills the call. */}
 			<div ref={audioContainerRef} className="hidden" />
+		</div>
+	);
+}
+
+/** Segmented Voice / Text channel switch. Locked while a conversation is live. */
+function ChannelToggle({
+	value,
+	onChange,
+	disabled,
+}: {
+	value: TestChannel;
+	onChange: (channel: TestChannel) => void;
+	disabled?: boolean;
+}) {
+	const options: { channel: TestChannel; label: string; icon: typeof MicIcon }[] = [
+		{ channel: "voice", label: "Voice", icon: MicIcon },
+		{ channel: "text", label: "Text", icon: MessageSquareIcon },
+	];
+	return (
+		<div className="gap-0.5 p-0.5 flex rounded-lg bg-muted" role="group" aria-label="Test channel">
+			{options.map(({ channel, label, icon: Icon }) => (
+				<button
+					key={channel}
+					type="button"
+					disabled={disabled}
+					aria-pressed={value === channel}
+					onClick={() => onChange(channel)}
+					className={cn(
+						"gap-1 px-2 py-1 text-xs flex items-center rounded-md transition-colors disabled:opacity-50",
+						value === channel
+							? "bg-background text-foreground shadow-sm"
+							: "text-muted-foreground hover:text-foreground",
+					)}
+				>
+					<Icon className="size-3.5" />
+					{label}
+				</button>
+			))}
 		</div>
 	);
 }

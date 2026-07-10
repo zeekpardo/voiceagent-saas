@@ -19,6 +19,8 @@ export interface TestTurn {
 	text: string;
 }
 
+export type TestChannel = "voice" | "text";
+
 export interface StartTestOptions {
 	variables?: Record<string, string>;
 	sourceId?: string;
@@ -43,8 +45,14 @@ export function extractVariableNames(config: Record<string, unknown> | undefined
  *
  * Attach `audioContainerRef` to a div that stays mounted for the whole call —
  * subscribed agent audio elements are appended there.
+ *
+ * `channel` picks the transport: "voice" (default) publishes the mic and renders
+ * STT/TTS transcription; "text" joins the same room audio-free and speaks over
+ * LiveKit text streams on the `lk.chat` topic (outbound via `sendText`, inbound
+ * via `registerTextStreamHandler`). Everything else — session create, call id,
+ * flow trace, transcript-of-record at the gateway — is identical across channels.
  */
-export function useVoiceTestSession(agentId: string) {
+export function useVoiceTestSession(agentId: string, channel: TestChannel = "voice") {
 	const [status, setStatus] = useState<TestStatus>("idle");
 	const [turns, setTurns] = useState<TestTurn[]>([]);
 	const [error, setError] = useState<string | null>(null);
@@ -81,13 +89,18 @@ export function useVoiceTestSession(agentId: string) {
 					sourceId: sourceId || undefined,
 					crmContactId: crmContactId?.trim() || undefined,
 					contactPhone: contactPhone?.trim() || undefined,
+					channel,
 				});
 				setCallId(session.call_id);
 				const newRoom = new Room();
 				roomRef.current = newRoom;
 				setRoom(newRoom);
 
-				newRoom.registerTextStreamHandler("lk.transcription", async (reader, participantInfo) => {
+				// Agent output stream. Voice mode reads STT/TTS transcription; text
+				// mode reads the agent's replies on the shared `lk.chat` topic. Both
+				// accumulate streamed chunks into a single bubble keyed by stream id.
+				const inboundTopic = channel === "text" ? "lk.chat" : "lk.transcription";
+				newRoom.registerTextStreamHandler(inboundTopic, async (reader, participantInfo) => {
 					const id =
 						(reader.info.attributes?.["lk.segment_id"] as string | undefined) ?? reader.info.id;
 					const role: TestTurn["role"] =
@@ -112,7 +125,11 @@ export function useVoiceTestSession(agentId: string) {
 				});
 
 				await newRoom.connect(session.room_url, session.token);
-				await newRoom.localParticipant.setMicrophoneEnabled(true);
+				// Voice mode publishes the mic; text mode stays audio-free (no track
+				// published, no audio subscribed) and drives turns via sendMessage.
+				if (channel === "voice") {
+					await newRoom.localParticipant.setMicrophoneEnabled(true);
+				}
 				setStatus("listening");
 			} catch (err) {
 				setError(err instanceof Error ? err.message : String(err));
@@ -121,10 +138,26 @@ export function useVoiceTestSession(agentId: string) {
 				setRoom(null);
 			}
 		},
-		[agentId],
+		[agentId, channel],
 	);
+
+	/**
+	 * Send a caller turn in text mode over the `lk.chat` topic. The message is
+	 * echoed into the transcript immediately (the agent only publishes its own
+	 * output on `lk.chat`, so inbound never mirrors it back).
+	 */
+	const sendMessage = useCallback(async (text: string) => {
+		const room = roomRef.current;
+		const trimmed = text.trim();
+		if (!room || trimmed === "") return;
+		setTurns((prev) => [
+			...prev,
+			{ id: `user-${Date.now()}-${prev.length}`, role: "user", text: trimmed },
+		]);
+		await room.localParticipant.sendText(trimmed, { topic: "lk.chat" });
+	}, []);
 
 	const isLive = status === "listening" || status === "thinking" || status === "speaking";
 
-	return { status, turns, error, room, isLive, callId, start, stop, audioContainerRef };
+	return { status, turns, error, room, isLive, callId, start, stop, sendMessage, audioContainerRef };
 }

@@ -189,7 +189,10 @@ function filterItems(items: MentionItem[], query: string): MentionItem[] {
 				item.label.toLowerCase().includes(q) ||
 				(item.sub ?? "").toLowerCase().includes(q),
 		)
-		.slice(0, 12);
+		// Cap high enough that whole field families stay visible on an empty
+		// query — contact vars alone are 14, so a cap of 12 hid every location_*
+		// entry below them. The popup scrolls (max-h-64), so a generous cap is fine.
+		.slice(0, 60);
 }
 
 /** A plain absolutely-positioned dropdown — no tippy.js needed. */
@@ -269,6 +272,19 @@ function createDropdownRenderer(
 				container.className =
 					"pointer-events-auto fixed z-[60] max-h-64 w-72 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md";
 				container.dataset.mentionDropdown = "true";
+				// Drive scroll ourselves: this fixed popup lives at document.body,
+				// so the editor Sheet's RemoveScroll would otherwise swallow wheel
+				// events here. Native non-passive listener → always scrollable.
+				container.addEventListener(
+					"wheel",
+					(e) => {
+						if (!container || container.scrollHeight <= container.clientHeight) return;
+						container.scrollTop += e.deltaY;
+						e.preventDefault();
+						e.stopPropagation();
+					},
+					{ passive: false },
+				);
 				document.body.appendChild(container);
 				items = props.items;
 				selectedIndex = 0;

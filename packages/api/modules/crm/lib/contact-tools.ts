@@ -5,7 +5,7 @@ import { normalizeName, toStandardWrite } from "./standard-fields";
 import { stringArg } from "./tool-args";
 
 /**
- * Contact-scoped live CRM tool handlers (update_contact, add_tag,
+ * Contact-scoped live CRM tool handlers (update_contact, add_tag, remove_tag,
  * move_stage) plus contact resolution — see /api/tools/crm/route.ts for the
  * dispatch shell these are called from.
  */
@@ -86,6 +86,19 @@ export async function executeAddTag(
 	}
 	await provider.addContactTags(contactId, [tag]);
 	return { silent: true, detail: `Added tag "${tag}".` };
+}
+
+export async function executeRemoveTag(
+	provider: CrmProvider,
+	contactId: string,
+	args: Record<string, unknown>,
+): Promise<unknown> {
+	const tag = stringArg(args.tag);
+	if (!tag) {
+		return { error: "bad_arguments", message: "tag is required." };
+	}
+	await provider.removeContactTags(contactId, [tag]);
+	return { silent: true, detail: `Removed tag "${tag}".` };
 }
 
 export async function executeMoveStage(

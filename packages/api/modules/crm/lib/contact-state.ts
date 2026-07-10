@@ -28,6 +28,21 @@ export interface ContactStateEntry {
 export type ContactState = ContactStateEntry[];
 
 /**
+ * Parse the comma-separated `contact_tags` context variable into the engine's
+ * `contactTags` array (Phase 5b — tag-driven exit routing seed). Returns
+ * `undefined` when there are no tags, so the dispatch omits the field. Pure —
+ * derives from an already-fetched value, so it never blocks a call.
+ */
+export function parseContactTags(raw: unknown): string[] | undefined {
+	if (typeof raw !== "string" || !raw.trim()) return undefined;
+	const tags = raw
+		.split(",")
+		.map((t) => t.trim())
+		.filter(Boolean);
+	return tags.length ? tags : undefined;
+}
+
+/**
  * Conversation-relevant standard fields, in prompt display order. Composite
  * catalog entries (Full Name / Full Address) are intentionally omitted in favor
  * of the atomic slots so nothing double-renders.

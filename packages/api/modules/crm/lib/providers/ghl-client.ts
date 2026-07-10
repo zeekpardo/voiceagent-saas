@@ -185,6 +185,12 @@ export class GhlClient {
 		await this.request("POST", `/contacts/${contactId}/tags`, { tags });
 	}
 
+	/** Idempotent server-side tag removal (GHL DELETE /contacts/{id}/tags). */
+	async removeTags(contactId: string, tags: string[]): Promise<void> {
+		if (tags.length === 0) return;
+		await this.request("DELETE", `/contacts/${contactId}/tags`, { tags });
+	}
+
 	async createNote(contactId: string, body: string): Promise<void> {
 		await this.request("POST", `/contacts/${contactId}/notes`, { body });
 	}

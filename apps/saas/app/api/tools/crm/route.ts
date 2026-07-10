@@ -5,6 +5,7 @@ import { executeBookAppointment, executeCheckAvailability } from "@repo/api/modu
 import {
 	executeAddTag,
 	executeMoveStage,
+	executeRemoveTag,
 	executeUpdateContact,
 	resolveContactId,
 } from "@repo/api/modules/crm/lib/contact-tools";
@@ -129,6 +130,8 @@ export async function POST(req: Request): Promise<Response> {
 				return toolResult(await executeUpdateContact(provider, contactId, args));
 			case "add_tag":
 				return toolResult(await executeAddTag(provider, contactId, args));
+			case "remove_tag":
+				return toolResult(await executeRemoveTag(provider, contactId, args));
 			case "move_stage":
 				return toolResult(await executeMoveStage(provider, contactId, args));
 			case "book_appointment":

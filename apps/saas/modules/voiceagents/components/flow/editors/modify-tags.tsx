@@ -43,9 +43,7 @@ export function ModifyTagsNodeEditor({
 					onChange={(e) => patch({ removeTags: toList(e.target.value) })}
 					placeholder="cold, unqualified"
 				/>
-				<p className="text-xs opacity-50">
-					Comma-separated. Tag removal isn't wired to the CRM yet — adds work today.
-				</p>
+				<p className="text-xs opacity-50">Comma-separated. Removed from the contact silently.</p>
 			</div>
 		</>
 	);

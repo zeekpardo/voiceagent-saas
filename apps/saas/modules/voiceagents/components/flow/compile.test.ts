@@ -954,3 +954,101 @@ describe("variable helpers", () => {
 		expect(inline[1].attrs?.id).toBe("contact_first_name");
 	});
 });
+
+// --- Phase 5b: aggregate objectives + tag-driven exit routing ---------------
+
+/** Objective node with two part objectives + one aggregate combining them. */
+function makeAggregateDoc(): CanvasDoc {
+	return {
+		version: 1,
+		nodes: [
+			{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+			{
+				id: "obj1",
+				type: "objective",
+				position: { x: 100, y: 0 },
+				data: {
+					title: "Address",
+					entryMessage: "",
+					objectives: [
+						{ id: "o_city", title: "City", description: "the caller's city", field: "City" },
+						{ id: "o_zip", title: "Zip", description: "the caller's zip", field: "Postal Code" },
+						{
+							id: "o_full",
+							title: "Full Address",
+							description: "",
+							field: "Full Address",
+							aggregateOf: ["o_city", "o_zip"],
+						},
+					],
+				},
+			},
+		],
+		edges: [{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "obj1" }],
+	};
+}
+
+describe("aggregate objectives", () => {
+	it("compiles aggregateOf to the parts' engine keys", () => {
+		const { flow } = compileCanvas(makeAggregateDoc(), []);
+		const node = flow.nodes.find((n) => n.id === "obj1")!;
+		const agg = node.objectives!.find((o) => o.key === "full_address")!;
+		expect(agg.aggregateOf).toEqual(["city", "zip"]);
+		expect(agg.field).toBe("Full Address");
+		// Parts keep their own keys/fields.
+		expect(node.objectives!.map((o) => o.key)).toEqual(["city", "zip", "full_address"]);
+	});
+
+	it("round-trips aggregateOf through decompile → recompile", () => {
+		const original = compileCanvas(makeAggregateDoc(), []).flow;
+		const rebuilt = canvasFromFlow(original);
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		const agg = recompiled.nodes
+			.find((n) => n.id === "obj1")!
+			.objectives!.find((o) => o.key === "full_address")!;
+		expect(agg.aggregateOf).toEqual(["city", "zip"]);
+	});
+
+	it("rejects a self-referential aggregate", () => {
+		const doc = makeAggregateDoc();
+		const objs = (doc.nodes[1].data as { objectives: { id: string; aggregateOf?: string[] }[] })
+			.objectives;
+		objs[2].aggregateOf = ["o_full"];
+		const errors = validateFlowDoc(doc);
+		expect(errors.some((e) => e.includes("can't include itself"))).toBe(true);
+	});
+
+	it("rejects aggregate-of-aggregate", () => {
+		const doc = makeAggregateDoc();
+		const objs = (doc.nodes[1].data as { objectives: { id: string; aggregateOf?: string[] }[] })
+			.objectives;
+		// o_zip becomes an aggregate; o_full references it → aggregate-of-aggregate.
+		objs[1].aggregateOf = ["o_city"];
+		const errors = validateFlowDoc(doc);
+		expect(errors.some((e) => e.includes("another combined objective"))).toBe(true);
+	});
+});
+
+describe("exit tag rules (tag-driven routing)", () => {
+	it("passes exit tagRules through compile", () => {
+		const doc = makeDoc();
+		const agentData = doc.nodes[1].data as {
+			exits: { id: string; name: string; description: string; tagRules?: unknown }[];
+		};
+		agentData.exits[0].tagRules = { mustHave: ["qualified"], cantHave: ["dnc"] };
+		const { flow } = compileCanvas(doc, []);
+		const exit = flow.nodes.find((n) => n.id === "n1")!.exits.find((e) => e.name === "qualified")!;
+		expect(exit.tagRules).toEqual({ mustHave: ["qualified"], cantHave: ["dnc"] });
+	});
+
+	it("drops empty tagRules to undefined (byte-identical to no rules)", () => {
+		const doc = makeDoc();
+		const agentData = doc.nodes[1].data as {
+			exits: { id: string; tagRules?: unknown }[];
+		};
+		agentData.exits[0].tagRules = { mustHave: ["  ", ""], cantHave: [] };
+		const { flow } = compileCanvas(doc, []);
+		const exit = flow.nodes.find((n) => n.id === "n1")!.exits.find((e) => e.name === "qualified")!;
+		expect(exit.tagRules).toBeUndefined();
+	});
+});

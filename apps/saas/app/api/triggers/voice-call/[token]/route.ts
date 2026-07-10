@@ -1,4 +1,4 @@
-import { buildContactState } from "@repo/api/modules/crm/lib/contact-state";
+import { buildContactState, parseContactTags } from "@repo/api/modules/crm/lib/contact-state";
 import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
 import { normalizePhone } from "@repo/api/modules/crm/lib/normalize";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
@@ -127,6 +127,10 @@ export async function POST(
 				contactId,
 			})
 		: undefined;
+	// Seed the engine's tag set (Phase 5b — tag-driven exit routing) from the
+	// caller's current CRM tags. Derived from the already-fetched contact_tags
+	// variable, so it adds no CRM call and can't block the dispatch.
+	const contactTags = parseContactTags(variables.contact_tags);
 
 	try {
 		const call = await gatewayFetch<{ id: string; status: string }>("POST", "/v1/calls", {
@@ -134,6 +138,7 @@ export async function POST(
 			to: phone,
 			variables,
 			...(contactState ? { contactState } : {}),
+			...(contactTags ? { contactTags } : {}),
 			metadata: {
 				source: "crm_workflow",
 				source_id: identity.sourceId,

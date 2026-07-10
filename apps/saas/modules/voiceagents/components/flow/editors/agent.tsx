@@ -23,7 +23,7 @@ import { makeId, textToTiptapDoc } from "../compile";
 import type { AgentNodeData, FlowNodeData } from "../flow-types";
 import type { createFlowMentionExtension } from "../mentions";
 import { SectionEditor } from "../SectionEditor";
-import { AGENT_DEFAULT_CALENDAR, type FlowToolOption, TitleInput, usePatch } from "./shared";
+import { AGENT_DEFAULT_CALENDAR, ExitTagConditions, type FlowToolOption, TitleInput, usePatch } from "./shared";
 
 const INHERIT_MODEL = "__inherit__";
 
@@ -297,6 +297,14 @@ export function AgentExitsPanel({
 						}
 						placeholder="When to take this exit, e.g. the caller wants to book"
 						className="text-sm"
+					/>
+					<ExitTagConditions
+						tagRules={exit.tagRules}
+						onChange={(tagRules) =>
+							patch({
+								exits: data.exits.map((x) => (x.id === exit.id ? { ...x, tagRules } : x)),
+							})
+						}
 					/>
 				</div>
 			))}

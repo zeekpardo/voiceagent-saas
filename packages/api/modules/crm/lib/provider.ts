@@ -42,6 +42,9 @@ export interface CrmProvider {
 	/** Additively apply tags (idempotent — never clobbers the CRM's tag set). */
 	addContactTags(contactId: string, tags: string[]): Promise<void>;
 
+	/** Remove tags from the contact (idempotent — absent tags are a no-op). */
+	removeContactTags(contactId: string, tags: string[]): Promise<void>;
+
 	/** Drop a note onto the contact's timeline. */
 	createContactNote(contactId: string, body: string): Promise<void>;
 

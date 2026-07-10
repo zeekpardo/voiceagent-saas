@@ -5,7 +5,7 @@ import type {
 	CanvasNodeDoc,
 	EngineFlowNode,
 } from "../../flow-types";
-import { applyBookingPromptExtras, instructionsToSections, makeId, sectionsToInstructions, textToTiptapDoc } from "../text";
+import { applyBookingPromptExtras, compileExitTagRules, instructionsToSections, makeId, sectionsToInstructions, textToTiptapDoc } from "../text";
 
 export function compileAgentNode(
 	node: AgentCanvasNodeDoc & { data: AgentNodeData },
@@ -34,6 +34,7 @@ export function compileAgentNode(
 			name: exit.name.trim(),
 			description: exit.description.trim(),
 			target: targetOf(node.id, exit.id),
+			tagRules: compileExitTagRules(exit.tagRules),
 		})),
 	};
 }
@@ -48,6 +49,7 @@ export function decompileAgentNode(
 		id: makeId("exit"),
 		name: exit.name,
 		description: exit.description,
+		tagRules: exit.tagRules,
 	}));
 	flowNode.exits.forEach((exit, i) => {
 		if (exit.target) {

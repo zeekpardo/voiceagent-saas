@@ -96,10 +96,22 @@ export interface FlowSectionDoc {
 	body: unknown;
 }
 
+/**
+ * Tag-driven exit gating (Phase 5b — deterministic, zero LLM cost). An exit
+ * carrying tagRules is only offered when the call's current tag set satisfies
+ * them: every `mustHave` tag present, no `cantHave` tag present.
+ */
+export interface ExitTagRules {
+	mustHave?: string[];
+	cantHave?: string[];
+}
+
 export interface FlowExitDoc {
 	id: string;
 	name: string;
 	description: string;
+	/** Advanced: gate this exit on the caller's CRM tags (Phase 5b). */
+	tagRules?: ExitTagRules;
 }
 
 export interface AgentNodeData {
@@ -134,6 +146,14 @@ export interface ObjectiveDoc {
 	maxAttempts?: number;
 	/** Judge strictness 0-100 (CloseBot "Sensitivity", default 90). */
 	sensitivity?: number;
+	/**
+	 * Aggregate objective (CloseBot's get_full_address). Ids of OTHER objectives
+	 * in THIS node whose answers this objective composes. When set, the objective
+	 * has no own judge question: it completes once every part is met and its answer
+	 * is the parts' answers joined in order. Stored as objective doc ids (stable);
+	 * compiled to the parts' engine keys.
+	 */
+	aggregateOf?: string[];
 }
 
 export interface ObjectiveNodeData {
@@ -383,6 +403,8 @@ export interface EngineFlowExit {
 	name: string;
 	description: string;
 	target?: string;
+	/** Tag-driven gating (Phase 5b) — passed through to the engine. */
+	tagRules?: { mustHave?: string[]; cantHave?: string[] };
 }
 
 export interface EngineFlowNode {
@@ -441,6 +463,8 @@ export interface EngineFlowObjective {
 	required?: boolean;
 	maxAttempts?: number;
 	sensitivity?: number;
+	/** Aggregate objective (Phase 5b): engine keys of the parts it composes. */
+	aggregateOf?: string[];
 }
 
 /** Global detect-and-jump: valid from every agent node, target = flow node id. */
@@ -466,6 +490,12 @@ const flowExitSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	description: z.string(),
+	tagRules: z
+		.object({
+			mustHave: z.array(z.string()).optional(),
+			cantHave: z.array(z.string()).optional(),
+		})
+		.optional(),
 });
 
 export const agentNodeDataSchema = z.object({
@@ -492,6 +522,7 @@ export const objectiveNodeDataSchema = z.object({
 			options: z.array(z.string()).optional(),
 			maxAttempts: z.number().optional(),
 			sensitivity: z.number().optional(),
+			aggregateOf: z.array(z.string()).optional(),
 		}),
 	),
 });
@@ -633,6 +664,12 @@ export const engineFlowSchema = z.object({
 						name: z.string(),
 						description: z.string(),
 						target: z.string().optional(),
+						tagRules: z
+							.object({
+								mustHave: z.array(z.string()).optional(),
+								cantHave: z.array(z.string()).optional(),
+							})
+							.optional(),
 					}),
 				)
 				.optional(),
@@ -646,6 +683,7 @@ export const engineFlowSchema = z.object({
 						required: z.boolean().optional(),
 						maxAttempts: z.number().optional(),
 						sensitivity: z.number().optional(),
+						aggregateOf: z.array(z.string()).optional(),
 					}),
 				)
 				.optional(),

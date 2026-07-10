@@ -3,7 +3,7 @@
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 
-import type { FlowNodeData } from "../flow-types";
+import type { ExitTagRules, FlowNodeData } from "../flow-types";
 
 export interface FlowToolOption {
 	id: string;
@@ -29,6 +29,65 @@ export function usePatch<T extends FlowNodeData>(
 	onChange: (nodeId: string, data: FlowNodeData) => void,
 ) {
 	return (partial: Partial<T>) => onChange(nodeId, { ...data, ...partial });
+}
+
+/**
+ * Advanced "Tag conditions" for an exit (Phase 5b — tag-driven exit routing).
+ * Shared by every exits editor (agent + conversation). The exit is only offered
+ * mid-call when the caller's tag set has all `mustHave` tags and none of the
+ * `cantHave` tags. Empty → the exit is always available (compiles away).
+ */
+export function ExitTagConditions({
+	tagRules,
+	onChange,
+}: {
+	tagRules: ExitTagRules | undefined;
+	onChange: (next: ExitTagRules | undefined) => void;
+}) {
+	const toList = (raw: string) =>
+		raw
+			.split(",")
+			.map((t) => t.trim())
+			.filter(Boolean);
+	const update = (partial: ExitTagRules) => {
+		const next: ExitTagRules = { ...tagRules, ...partial };
+		const mustHave = next.mustHave?.length ? next.mustHave : undefined;
+		const cantHave = next.cantHave?.length ? next.cantHave : undefined;
+		onChange(mustHave || cantHave ? { mustHave, cantHave } : undefined);
+	};
+	const active = !!(tagRules?.mustHave?.length || tagRules?.cantHave?.length);
+
+	return (
+		<details className="text-xs" open={active}>
+			<summary className="cursor-pointer text-primary">
+				Tag conditions{active ? " (on)" : ""}
+			</summary>
+			<div className="mt-2 flex flex-col gap-2">
+				<div className="flex flex-col gap-1">
+					<Label className="text-xs">Only if tagged</Label>
+					<Input
+						className="h-8 text-sm"
+						value={(tagRules?.mustHave ?? []).join(", ")}
+						onChange={(e) => update({ mustHave: toList(e.target.value) })}
+						placeholder="qualified, hot"
+					/>
+				</div>
+				<div className="flex flex-col gap-1">
+					<Label className="text-xs">Never if tagged</Label>
+					<Input
+						className="h-8 text-sm"
+						value={(tagRules?.cantHave ?? []).join(", ")}
+						onChange={(e) => update({ cantHave: toList(e.target.value) })}
+						placeholder="dnc, unqualified"
+					/>
+				</div>
+				<p className="opacity-50">
+					Comma-separated CRM tags. This exit is hidden mid-call until the conditions are met
+					(checked at each stage change).
+				</p>
+			</div>
+		</details>
+	);
 }
 
 /** The `Label` + `Input` "Title" field repeated across every per-kind node editor. */

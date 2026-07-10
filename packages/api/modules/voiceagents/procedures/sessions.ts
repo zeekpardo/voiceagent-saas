@@ -1,7 +1,7 @@
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
-import { buildContactState } from "../../crm/lib/contact-state";
+import { buildContactState, parseContactTags } from "../../crm/lib/contact-state";
 import { normalizePhone } from "../../crm/lib/normalize";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { requireOwnedSource } from "../../sources/lib/require-owned-source";
@@ -79,6 +79,9 @@ export const createTestSession = protectedProcedure
 						contactId: crmContactId,
 					})
 				: undefined;
+		// Seed the engine's tag set (Phase 5b) from the caller's current CRM tags —
+		// derived from the already-fetched contact_tags variable, never a new call.
+		const contactTags = parseContactTags(crmVariables.contact_tags);
 
 		return gatewayFetch<{
 			call_id: string;
@@ -94,6 +97,7 @@ export const createTestSession = protectedProcedure
 				...input.variables, // explicit values override CRM-derived ones
 			},
 			...(contactState ? { contactState } : {}),
+			...(contactTags ? { contactTags } : {}),
 			metadata: {
 				source: "builder-test",
 				user_id: context.user.id,

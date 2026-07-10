@@ -9,7 +9,7 @@ import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { makeId } from "../compile";
 import type { ConversationNodeData, FlowNodeData } from "../flow-types";
-import { TitleInput, usePatch } from "./shared";
+import { ExitTagConditions, TitleInput, usePatch } from "./shared";
 
 export function ConversationNodeEditor({
 	nodeId,
@@ -90,45 +90,55 @@ export function ConversationNodeEditor({
 					unwired to end the call. Removing an exit removes its edge.
 				</p>
 				{data.exits.map((exit) => (
-					<div key={exit.id} className="flex items-start gap-2">
-						<Input
-							value={exit.name}
-							onChange={(e) =>
+					<div key={exit.id} className="flex flex-col gap-2 rounded-lg border p-2.5">
+						<div className="flex items-start gap-2">
+							<Input
+								value={exit.name}
+								onChange={(e) =>
+									patch({
+										exits: data.exits.map((x) =>
+											x.id === exit.id ? { ...x, name: e.target.value } : x,
+										),
+									})
+								}
+								placeholder="Wants to book"
+								className="max-w-36 font-mono text-sm"
+							/>
+							<Input
+								value={exit.description}
+								onChange={(e) =>
+									patch({
+										exits: data.exits.map((x) =>
+											x.id === exit.id ? { ...x, description: e.target.value } : x,
+										),
+									})
+								}
+								placeholder="When to take it, e.g. the caller is ready to book"
+							/>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="shrink-0"
+								onClick={() =>
+									patch({
+										exits: data.exits.filter((x) => x.id !== exit.id),
+										wrapUpExitId:
+											data.wrapUpExitId === exit.id ? undefined : data.wrapUpExitId,
+									})
+								}
+							>
+								<Trash2Icon className="size-4" />
+							</Button>
+						</div>
+						<ExitTagConditions
+							tagRules={exit.tagRules}
+							onChange={(tagRules) =>
 								patch({
-									exits: data.exits.map((x) =>
-										x.id === exit.id ? { ...x, name: e.target.value } : x,
-									),
+									exits: data.exits.map((x) => (x.id === exit.id ? { ...x, tagRules } : x)),
 								})
 							}
-							placeholder="Wants to book"
-							className="max-w-36 font-mono text-sm"
 						/>
-						<Input
-							value={exit.description}
-							onChange={(e) =>
-								patch({
-									exits: data.exits.map((x) =>
-										x.id === exit.id ? { ...x, description: e.target.value } : x,
-									),
-								})
-							}
-							placeholder="When to take it, e.g. the caller is ready to book"
-						/>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							className="shrink-0"
-							onClick={() =>
-								patch({
-									exits: data.exits.filter((x) => x.id !== exit.id),
-									wrapUpExitId:
-										data.wrapUpExitId === exit.id ? undefined : data.wrapUpExitId,
-								})
-							}
-						>
-							<Trash2Icon className="size-4" />
-						</Button>
 					</div>
 				))}
 				<Button

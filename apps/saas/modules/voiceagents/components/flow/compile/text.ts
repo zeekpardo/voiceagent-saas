@@ -1,4 +1,4 @@
-import type { FlowSectionDoc } from "../flow-types";
+import type { ExitTagRules, FlowSectionDoc } from "../flow-types";
 
 /**
  * Canvas document → engine flow payload. Pure functions only — no React,
@@ -15,6 +15,25 @@ interface TiptapNode {
 	text?: string;
 	attrs?: Record<string, unknown>;
 	content?: TiptapNode[];
+}
+
+/**
+ * Normalize an exit's tag-gating rules for the engine (Phase 5b): trim tags,
+ * drop empties, and collapse to `undefined` when nothing is left — so an exit
+ * without real conditions compiles byte-identical to a pre-tagRules exit.
+ */
+export function compileExitTagRules(
+	tagRules: ExitTagRules | undefined,
+): { mustHave?: string[]; cantHave?: string[] } | undefined {
+	if (!tagRules) return undefined;
+	const clean = (arr: string[] | undefined) => {
+		const out = (arr ?? []).map((t) => t.trim()).filter(Boolean);
+		return out.length ? out : undefined;
+	};
+	const mustHave = clean(tagRules.mustHave);
+	const cantHave = clean(tagRules.cantHave);
+	if (!mustHave && !cantHave) return undefined;
+	return { ...(mustHave ? { mustHave } : {}), ...(cantHave ? { cantHave } : {}) };
 }
 
 /** Exit names become engine tools `exit_<sanitized>`: lowercase, non-alnum runs → _. */

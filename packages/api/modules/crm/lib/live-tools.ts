@@ -55,6 +55,19 @@ export const LIVE_TOOL_DEFS: LiveToolDef[] = [
 		},
 	},
 	{
+		name: "remove_tag",
+		description:
+			"Remove a tag from the CRM contact for this caller. Idempotent — removing an absent tag is a no-op. The engine's default tag-removal tool (config.tagRemoveToolId).",
+		jsonSchema: {
+			type: "object",
+			properties: {
+				tag: { type: "string" },
+			},
+			required: ["tag"],
+			additionalProperties: false,
+		},
+	},
+	{
 		name: "move_stage",
 		description:
 			"Move this caller's opportunity to a pipeline stage in the CRM (creates the opportunity if missing). Use the pipeline and stage display names.",

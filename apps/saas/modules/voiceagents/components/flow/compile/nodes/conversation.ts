@@ -6,7 +6,7 @@ import type {
 	EngineFlowConversation,
 	EngineFlowNode,
 } from "../../flow-types";
-import { makeId } from "../text";
+import { compileExitTagRules, makeId } from "../text";
 
 /**
  * Compose the node's `instructions` from the conversation reason + hints. The
@@ -34,6 +34,7 @@ export function compileConversationNode(
 		name: exit.name.trim(),
 		description: exit.description.trim(),
 		target: targetOf(node.id, exit.id),
+		tagRules: compileExitTagRules(exit.tagRules),
 	}));
 
 	// wrapUp references one of the node's exits by its (trimmed) name.
@@ -74,6 +75,7 @@ export function decompileConversationNode(
 		id: makeId("exit"),
 		name: exit.name,
 		description: exit.description,
+		tagRules: exit.tagRules,
 	}));
 	flowNode.exits.forEach((exit, i) => {
 		if (exit.target) {

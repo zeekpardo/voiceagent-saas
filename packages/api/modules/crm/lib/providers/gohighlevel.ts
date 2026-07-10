@@ -94,6 +94,11 @@ export class GoHighLevelProvider implements CrmProvider {
 		await this.client.addTags(contactId, tags);
 	}
 
+	async removeContactTags(contactId: string, tags: string[]): Promise<void> {
+		await this.ensureFreshToken();
+		await this.client.removeTags(contactId, tags);
+	}
+
 	async createContactNote(contactId: string, body: string): Promise<void> {
 		await this.ensureFreshToken();
 		await this.client.createNote(contactId, body);

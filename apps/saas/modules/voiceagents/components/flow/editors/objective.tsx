@@ -156,13 +156,30 @@ export function ObjectiveNodeEditor({
 									rows={2}
 									value={objective.description}
 									onChange={(e) => patchObjective(objective.id, { description: e.target.value })}
-									placeholder="the caller's full property address"
+									placeholder="determine the caller's full property address"
 								/>
-								<p className="text-xs opacity-50">
-									{objective.aggregateOf?.length
-										? "Optional for a combined objective — its answer comes from the parts below."
-										: 'Describe what to find out — "the caller\'s full address", not "ask for the address".'}
-								</p>
+								{objective.aggregateOf?.length ? (
+									<p className="text-xs opacity-50">
+										Optional for a combined objective — its answer comes from the parts below.
+									</p>
+								) : (
+									<div className="text-xs opacity-60 flex flex-col gap-0.5">
+										<p>
+											The most important field — it tells the agent what to{" "}
+											<span className="font-medium">find out</span>, and it's how the agent knows
+											the objective is done. Describe one thing to learn, not a question to ask.
+										</p>
+										<p className="text-emerald-600 dark:text-emerald-400">
+											✓ "determine the caller's name" · "find out why they want to sell" · "see
+											whether or not they're interested"
+										</p>
+										<p className="text-red-500 dark:text-red-400">
+											✗ "ask for their name" (just asks, never confirms) · "get their name and
+											budget" (one thing at a time) · "see if they're interested" (never done if
+											they aren't — use "whether or not")
+										</p>
+									</div>
+								)}
 							</div>
 
 							{/* Combine other objectives (aggregate — CloseBot's get_full_address). */}

@@ -46,7 +46,6 @@ export function ObjectiveNodeEditor({
 				<Label>Objectives</Label>
 				{data.objectives.map((objective, index) => {
 					const isComposite = isCompositeField(objective.field, fields);
-					const pickOptions = fieldOptionsFor(objective.field, fields);
 					const isManaged = !!objective.managed;
 					if (isManaged) {
 						return (
@@ -126,12 +125,6 @@ export function ObjectiveNodeEditor({
 									allowCustomKey
 									placeholder="Leave Empty (gather only)"
 								/>
-								{pickOptions && (
-									<p className="text-xs opacity-50">
-										The agent will match the caller's answer to one of this field's{" "}
-										{pickOptions.length} options.
-									</p>
-								)}
 								{isComposite && (
 									<p className="text-xs opacity-50">
 										One objective fills every part (street, city, state, zip / first &amp; last

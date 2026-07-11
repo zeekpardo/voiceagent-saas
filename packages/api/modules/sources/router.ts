@@ -8,6 +8,7 @@ import {
 	listSourceTags,
 } from "./procedures/directory";
 import { disconnectSourceProcedure } from "./procedures/disconnect";
+import { listLimits, setLimit } from "./procedures/limits";
 import { listSourcesProcedure } from "./procedures/list";
 import {
 	listNumbersForSource,
@@ -41,4 +42,8 @@ export const sourcesRouter = {
 	},
 	usage: sourceUsage,
 	usageSummary,
+	limits: {
+		list: listLimits,
+		set: setLimit,
+	},
 };

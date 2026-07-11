@@ -274,6 +274,33 @@ export function useSourceUsageSummaryQuery(days = 30, enabled = true) {
 	});
 }
 
+// ---------------------------------------------------------------- concurrency limits (platform admin only)
+
+export const limitsQueryKey = ["sources", "limits"] as const;
+
+/** Configured concurrency limits (project/agent/group). Platform-admin only
+ * — the server enforces the role check too; pass `enabled: false` for
+ * non-admins to skip the request entirely. */
+export function useLimitsQuery(enabled = true) {
+	return useQuery({
+		queryKey: limitsQueryKey,
+		queryFn: () => orpcClient.sources.limits.list(),
+		enabled,
+	});
+}
+
+export function useSetLimitMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: {
+			scope: "project" | "agent" | "group";
+			ref?: string;
+			maxConcurrent: number | null;
+		}) => orpcClient.sources.limits.set(input),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: limitsQueryKey }),
+	});
+}
+
 /**
  * Match the selected call to a CRM contact (by stored contact id, else by
  * the human's phone number). Resolves which Source via the call's

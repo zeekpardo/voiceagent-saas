@@ -1,12 +1,14 @@
 "use client";
 
+import { useSession } from "@auth/hooks/use-session";
 import { cn } from "@repo/ui";
 import { Button } from "@repo/ui/components/button";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { PhoneCallIcon } from "lucide-react";
 import { useState } from "react";
 
-import { useSourceUsageQuery } from "../lib/api";
+import { useLimitsQuery, useSourceUsageQuery } from "../lib/api";
+import { LimitEditor } from "./LimitEditor";
 
 const PERIOD_OPTIONS = [7, 30, 90] as const;
 
@@ -16,6 +18,12 @@ const PERIOD_OPTIONS = [7, 30, 90] as const;
 export function SourceUsageCard({ sourceId }: { sourceId: string }) {
 	const [days, setDays] = useState<(typeof PERIOD_OPTIONS)[number]>(30);
 	const { data: usage, isLoading } = useSourceUsageQuery(sourceId, days);
+
+	const { user } = useSession();
+	const isPlatformAdmin = user?.role === "admin";
+	const { data: limits, isLoading: isLoadingLimits } = useLimitsQuery(isPlatformAdmin);
+	const groupLimit =
+		limits?.rows.find((row) => row.scope === "group" && row.ref === sourceId) ?? null;
 
 	return (
 		<div className="gap-4 flex flex-col">
@@ -58,7 +66,20 @@ export function SourceUsageCard({ sourceId }: { sourceId: string }) {
 				</p>
 			) : null}
 
-			{/* TODO: per-source concurrency limit setting lands with the engine limiter */}
+			{isPlatformAdmin ? (
+				<div className="pt-3 border-t">
+					<p className="mb-1.5 text-xs text-muted-foreground">Concurrent call limit</p>
+					{isLoadingLimits ? (
+						<Skeleton className="h-8 w-40" />
+					) : (
+						<LimitEditor
+							scope="group"
+							targetRef={sourceId}
+							currentValue={groupLimit?.maxConcurrent ?? null}
+						/>
+					)}
+				</div>
+			) : null}
 		</div>
 	);
 }

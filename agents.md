@@ -761,7 +761,7 @@ pnpm format               # oxfmt (root)
 pnpm dev                  # turbo dev (saas on :3000)
 ```
 
-**Test baseline (do not "fix" unrelated to your change):** `apps/saas` vitest has **2 pre-existing failures** in `modules/voiceagents/components/flow/compile.test.ts` — "rejects a branch node as the entry" and "flags an empty say and rejects a statement as the entry" — with **36 passing**. A change is regression-free when those same 2 (and only those 2) fail.
+**Test baseline:** `apps/saas` vitest is fully green (165/165 as of 2026-07-11; the two historical compile.test.ts failures are fixed). ANY test failure is a regression you must fix before merging.
 
 ## Conventions
 

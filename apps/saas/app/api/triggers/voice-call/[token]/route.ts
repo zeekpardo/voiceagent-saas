@@ -1,4 +1,8 @@
-import { buildContactState, parseContactTags } from "@repo/api/modules/crm/lib/contact-state";
+import {
+	buildContactState,
+	customFieldVariables,
+	parseContactTags,
+} from "@repo/api/modules/crm/lib/contact-state";
 import { normalizePhone } from "@repo/api/modules/crm/lib/normalize";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
 import {
@@ -174,6 +178,9 @@ export async function POST(
 				contactId,
 			})
 		: undefined;
+	// Custom contact-field values become {{contact_<custom>}} variables — merged
+	// at the LOWEST priority so CRM standard slots and customData always win.
+	variables = { ...customFieldVariables(contactState), ...variables };
 	// Seed the engine's tag set (Phase 5b — tag-driven exit routing) from the
 	// caller's current CRM tags. Derived from the already-fetched contact_tags
 	// variable, so it adds no CRM call and can't block the dispatch.

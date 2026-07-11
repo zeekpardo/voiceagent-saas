@@ -4,18 +4,20 @@ import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { Switch } from "@repo/ui/components/switch";
-import { Textarea } from "@repo/ui/components/textarea";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { makeId } from "../compile";
+import { FieldPickerInput, FieldPickerTextarea } from "../FieldPicker";
 import type { ConversationNodeData, FlowNodeData } from "../flow-types";
 import { ExitTagConditions, TitleInput, usePatch } from "./shared";
 
 export function ConversationNodeEditor({
+	agentId,
 	nodeId,
 	data,
 	onChange,
 }: {
+	agentId: string;
 	nodeId: string;
 	data: ConversationNodeData;
 	onChange: (nodeId: string, data: FlowNodeData) => void;
@@ -34,10 +36,11 @@ export function ConversationNodeEditor({
 				<Label>
 					Conversation reason <span className="text-destructive">*</span>
 				</Label>
-				<Textarea
+				<FieldPickerTextarea
+					agentId={agentId}
 					rows={3}
 					value={data.reason}
-					onChange={(e) => patch({ reason: e.target.value })}
+					onValueChange={(reason) => patch({ reason })}
 					placeholder="Real estate lead looking to sell or buy a property"
 				/>
 				<p className="text-xs opacity-50">
@@ -54,10 +57,11 @@ export function ConversationNodeEditor({
 				</p>
 				{data.hints.map((hint, index) => (
 					<div key={index} className="gap-2 flex items-center">
-						<Input
+						<FieldPickerInput
+							agentId={agentId}
 							value={hint}
-							onChange={(e) =>
-								patch({ hints: data.hints.map((h, i) => (i === index ? e.target.value : h)) })
+							onValueChange={(next) =>
+								patch({ hints: data.hints.map((h, i) => (i === index ? next : h)) })
 							}
 							placeholder="Ask what's motivating the move"
 						/>

@@ -9,10 +9,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@repo/ui/components/select";
-import { Textarea } from "@repo/ui/components/textarea";
 import { useState } from "react";
 
 import { useAgentCalendarsQuery } from "../../../lib/api";
+import { FieldPickerInput, FieldPickerTextarea } from "../FieldPicker";
 import type { BookingNodeData, FlowNodeData } from "../flow-types";
 import { AGENT_DEFAULT_CALENDAR, TitleInput, usePatch } from "./shared";
 
@@ -74,10 +74,11 @@ export function BookingNodeEditor({
 
 			<div className="gap-1.5 flex flex-col">
 				<Label>Short description</Label>
-				<Textarea
+				<FieldPickerTextarea
+					agentId={agentId}
 					rows={2}
 					value={data.description}
-					onChange={(e) => patch({ description: e.target.value })}
+					onValueChange={(description) => patch({ description })}
 					placeholder="Book a 30 minute appointment with the contact."
 				/>
 				<p className="text-xs opacity-50">
@@ -97,19 +98,21 @@ export function BookingNodeEditor({
 					<div className="gap-3 p-3 flex flex-col rounded-lg border bg-muted/30">
 						<div className="gap-1.5 flex flex-col">
 							<Label className="text-xs">Extra prompt</Label>
-							<Textarea
+							<FieldPickerTextarea
+								agentId={agentId}
 								rows={2}
 								value={data.extraPrompt}
-								onChange={(e) => patch({ extraPrompt: e.target.value })}
+								onValueChange={(extraPrompt) => patch({ extraPrompt })}
 								placeholder="Extra context used only while booking."
 							/>
 						</div>
 						<div className="gap-1.5 flex flex-col">
 							<Label className="text-xs">Appointment title</Label>
-							<Input
+							<FieldPickerInput
+								agentId={agentId}
 								className="h-9"
 								value={data.appointmentTitle}
-								onChange={(e) => patch({ appointmentTitle: e.target.value })}
+								onValueChange={(appointmentTitle) => patch({ appointmentTitle })}
 								placeholder="Intro call with {{contact_first_name}}"
 							/>
 						</div>

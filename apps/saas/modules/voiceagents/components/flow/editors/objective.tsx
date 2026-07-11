@@ -2,7 +2,6 @@
 
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
-import { Textarea } from "@repo/ui/components/textarea";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
@@ -15,6 +14,7 @@ import {
 	isCompositeField,
 	keyToStored,
 } from "../field-adapter";
+import { FieldPickerTextarea } from "../FieldPicker";
 import type { FlowNodeData, ObjectiveDoc, ObjectiveNodeData } from "../flow-types";
 import { TitleInput, usePatch } from "./shared";
 
@@ -116,10 +116,11 @@ export function ObjectiveNodeEditor({
 
 							<div className="gap-1.5 flex flex-col">
 								<Label className="text-xs">Short description</Label>
-								<Textarea
+								<FieldPickerTextarea
+									agentId={agentId}
 									rows={2}
 									value={objective.description}
-									onChange={(e) => patchObjective(objective.id, { description: e.target.value })}
+									onValueChange={(description) => patchObjective(objective.id, { description })}
 									placeholder="determine the caller's full property address"
 								/>
 								{objective.aggregateOf?.length ? (
@@ -226,11 +227,12 @@ export function ObjectiveNodeEditor({
 
 			<div className="gap-1.5 flex flex-col">
 				<Label className={isEntry ? "opacity-50" : ""}>Entry message</Label>
-				<Textarea
+				<FieldPickerTextarea
+					agentId={agentId}
 					rows={2}
 					disabled={isEntry}
 					value={data.entryMessage}
-					onChange={(e) => patch({ entryMessage: e.target.value })}
+					onValueChange={(entryMessage) => patch({ entryMessage })}
 					placeholder="Move naturally into collecting these details."
 				/>
 				<p className="text-xs opacity-50">

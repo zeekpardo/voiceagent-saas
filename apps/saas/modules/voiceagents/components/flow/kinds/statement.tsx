@@ -13,8 +13,13 @@ export const statementKind = defineKind<StatementNodeData>({
 	kind: "statement",
 	schema: statementNodeDataSchema,
 	canvasNode: StatementNode,
-	editor: ({ nodeId, data, onChange }) => (
-		<StatementNodeEditor nodeId={nodeId} data={data as StatementNodeData} onChange={onChange} />
+	editor: ({ agentId, nodeId, data, onChange }) => (
+		<StatementNodeEditor
+			agentId={agentId}
+			nodeId={nodeId}
+			data={data as StatementNodeData}
+			onChange={onChange}
+		/>
 	),
 	sheetMeta: {
 		title: "Edit Statement",

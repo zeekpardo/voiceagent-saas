@@ -1,6 +1,6 @@
 import { getAgentSource } from "@repo/database";
 
-import { humanizeKey, type MappingEntry } from "./field-mapping";
+import { customFieldVariableName, humanizeKey, type MappingEntry } from "./field-mapping";
 import { resolveCrmProvider } from "./resolve";
 import { normalizeName, STANDARD_CONTACT_FIELDS } from "./standard-fields";
 
@@ -40,6 +40,27 @@ export function parseContactTags(raw: unknown): string[] | undefined {
 		.map((t) => t.trim())
 		.filter(Boolean);
 	return tags.length ? tags : undefined;
+}
+
+const STANDARD_KEYS = new Set(STANDARD_CONTACT_FIELDS.map((f) => f.key));
+
+/**
+ * Interpolation variables for a dispatch's CUSTOM contact fields. Standard
+ * slots already flow through getContactContext() as contact_first_name etc. —
+ * here we expose only the CUSTOM entries of an already-built contact state
+ * (value present, key outside the standard catalog) under their
+ * customFieldVariableName. Callers merge these at the LOWEST priority so a
+ * name collision with a standard/runtime variable never shadows it.
+ */
+export function customFieldVariables(state: ContactState | undefined): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const entry of state ?? []) {
+		if (STANDARD_KEYS.has(entry.key)) continue;
+		if (entry.value == null || entry.value === "") continue;
+		const name = customFieldVariableName(entry.key);
+		if (name && !(name in out)) out[name] = entry.value;
+	}
+	return out;
 }
 
 /**

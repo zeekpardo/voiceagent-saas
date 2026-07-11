@@ -84,6 +84,23 @@ export function dedupeFieldOptions(options: ContactFieldOption[]): ContactFieldO
 	return out;
 }
 
+/**
+ * Custom contact-field key → the `{{variable}}` name its value is exposed under
+ * at dispatch, e.g. "contact.kitchen_year" → "contact_kitchen_year". ONE
+ * derivation shared by the dispatch merge (contact-state's customFieldVariables)
+ * AND the builder's field pickers, so an inserted token is byte-identical to the
+ * variable the engine interpolates. Returns undefined for an unusable key.
+ * (Lives here, not in contact-state, so client code can import it without
+ * pulling server-only dependencies.)
+ */
+export function customFieldVariableName(key: string): string | undefined {
+	const slug = (key.split(".").pop() ?? "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "");
+	return slug ? `contact_${slug}` : undefined;
+}
+
 /** "callback_number" / "contact.callback_number" → "Callback Number". */
 export function humanizeKey(key: string): string {
 	return (key.split(".").pop() ?? key)

@@ -67,7 +67,7 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 		return (
 			<Form {...form}>
 				<form onSubmit={onSubmit} className="gap-6 flex flex-col">
-					<JobInformationSection form={form} />
+					<JobInformationSection form={form} agentId={agent?.id} />
 
 					<div className="gap-3 flex justify-end">
 						<Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
@@ -101,7 +101,7 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 			    itself is wide enough — one column in the 440px builder aside, two
 			    on the full-width create page. */}
 			<form onSubmit={onSubmit} className="gap-6 @container flex flex-col">
-				<IdentityPersonaSection form={form} variant={variant} />
+				<IdentityPersonaSection form={form} variant={variant} agentId={agent?.id} />
 				<VoiceModelSection form={form} />
 				<ConversationDynamicsSection form={form} />
 

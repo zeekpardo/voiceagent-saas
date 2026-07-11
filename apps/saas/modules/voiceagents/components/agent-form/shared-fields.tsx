@@ -6,6 +6,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@repo/
 import { Input } from "@repo/ui/components/input";
 import { Textarea } from "@repo/ui/components/textarea";
 import { InfoHint } from "@voiceagents/components/shared/InfoHint";
+import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { InfoIcon, XIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
@@ -86,18 +87,28 @@ export function InstructionsEditor({
 	onChange,
 	hint,
 	editorClassName = "min-h-44",
+	fields = [],
+	customVariables = [],
 }: {
 	value: string;
 	onChange: (next: string) => void;
 	hint?: string;
 	editorClassName?: string;
+	/** Unified contact-fields catalog to merge into the @ picker (useContactFieldsQuery). */
+	fields?: { key: string }[];
+	/** Agent-level Job Flow Variable definitions to merge into the @ picker. */
+	customVariables?: { name: string; description?: string }[];
 }) {
 	// Hydrate once — the editor owns the text after mount.
 	const [initialBody] = useState<unknown>(() => textToTiptapDoc(value));
-	// Latest text via ref so the suggestion list can include {{vars}} the
-	// prompt already references without recreating the extension.
+	// Latest text/fields/custom variables via refs so the suggestion list stays
+	// current without recreating the extension (and thus losing focus).
 	const valueRef = useRef(value);
 	valueRef.current = value;
+	const fieldsRef = useRef(fields);
+	fieldsRef.current = fields;
+	const customVariablesRef = useRef(customVariables);
+	customVariablesRef.current = customVariables;
 	const mentionExtension = useMemo(
 		() =>
 			createFlowMentionExtension({
@@ -105,7 +116,7 @@ export function InstructionsEditor({
 					const referenced = [...valueRef.current.matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)].map(
 						(m) => m[1]!,
 					);
-					return buildVariableItems(referenced);
+					return buildVariableItems(referenced, fieldsRef.current, customVariablesRef.current);
 				},
 				getTools: () => [],
 				getExits: () => [],
@@ -139,6 +150,8 @@ interface InstructionsFieldProps extends AgentFormFieldProps {
 	description?: string;
 	/** Helper line under the editor (e.g. an example objective). */
 	hint?: string;
+	/** Existing agent id — fetches the unified contact-fields catalog for the @ picker. */
+	agentId?: string;
 }
 
 export function InstructionsField({
@@ -146,7 +159,12 @@ export function InstructionsField({
 	label = "Goal",
 	description = "Sent with every message — keep it to who the agent works for, what the business is, and why this conversation is happening (2–4 sentences). Don't put booking steps, service catalogs, or stage-by-stage instructions here — the flow's nodes handle those.",
 	hint = "For example: You work for Empire Cleaning in Austin TX — a family-run residential cleaning company known for move-out and pet-mess jobs. The contact reached out to learn more about our services.",
+	agentId,
 }: InstructionsFieldProps) {
+	// Same @-variable source as the flow builder's node editors: contact-field
+	// catalog + this agent's Job Flow Variables, merged into the picker.
+	const { data: contactFields } = useContactFieldsQuery(agentId);
+	const customVariables = form.watch("customVariables");
 	return (
 		<FormField
 			control={form.control}
@@ -158,7 +176,13 @@ export function InstructionsField({
 						<InfoHint>{description}</InfoHint>
 					</FormLabel>
 					<FormControl>
-						<InstructionsEditor value={field.value ?? ""} onChange={field.onChange} hint={hint} />
+						<InstructionsEditor
+							value={field.value ?? ""}
+							onChange={field.onChange}
+							hint={hint}
+							fields={contactFields?.fields ?? []}
+							customVariables={customVariables ?? []}
+						/>
 					</FormControl>
 					<FormMessage />
 				</FormItem>

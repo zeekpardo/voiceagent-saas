@@ -10,14 +10,20 @@ import { GuardrailsField, InstructionsField, UserInfoNote } from "./shared-field
  *  auto-injected caller/CRM details. Prohibited words moved to the Preferences
  *  panel (word rules). The connect-time greeting is owned by the flow's Greeter
  *  node (canvas), not this panel. */
-export function JobInformationSection({ form }: { form: UseFormReturn<AgentFormValues> }) {
+export function JobInformationSection({
+	form,
+	agentId,
+}: {
+	form: UseFormReturn<AgentFormValues>;
+	agentId?: string;
+}) {
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Job information</CardTitle>
 			</CardHeader>
 			<CardContent className="gap-4 flex flex-col">
-				<InstructionsField form={form} />
+				<InstructionsField form={form} agentId={agentId} />
 				<GuardrailsField form={form} />
 				<UserInfoNote />
 			</CardContent>

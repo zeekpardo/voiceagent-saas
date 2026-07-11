@@ -16,9 +16,11 @@ import { GreetingField, InstructionsField, ProhibitedWordsField } from "./shared
 export function IdentityPersonaSection({
 	form,
 	variant,
+	agentId,
 }: {
 	form: UseFormReturn<AgentFormValues>;
 	variant?: "job" | "settings";
+	agentId?: string;
 }) {
 	return (
 		<Card>
@@ -55,7 +57,7 @@ export function IdentityPersonaSection({
 				</div>
 				{variant !== "settings" && (
 					<>
-						<InstructionsField form={form} />
+						<InstructionsField form={form} agentId={agentId} />
 						<ProhibitedWordsField form={form} />
 						<GreetingField form={form} />
 					</>

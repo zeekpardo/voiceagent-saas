@@ -56,6 +56,17 @@ You are speaking out loud on a phone call. Everything you say is converted to sp
 /** Max length of the author's custom guardrails text (mirrors agentConfigInput). */
 export const GUARDRAILS_MAX_CHARS = 3000;
 
+/** Max length of the author's Response Style directive (mirrors agentConfigInput). */
+export const RESPONSE_STYLE_MAX_CHARS = 1000;
+
+/**
+ * The RECOMMENDED starter for the Response Style field — offered as placeholder
+ * text and a one-click "Use recommended" fill in the builder. Existing agents
+ * are never auto-populated with it; a blank field injects nothing on the engine.
+ */
+export const RECOMMENDED_RESPONSE_STYLE =
+	"Ask thoughtful, open-ended questions that invite detail. Keep the tone warm, friendly, and conversational. Use positive reinforcement and show genuine interest. Vary your phrasing so replies never sound scripted or repetitive. Avoid sounding robotic. Do not use em-dashes.";
+
 /**
  * The `## GOAL` block: the overarching objective for the job. This is the text
  * the builder edits in the Job panel's "Goal" field (config.instructions). It

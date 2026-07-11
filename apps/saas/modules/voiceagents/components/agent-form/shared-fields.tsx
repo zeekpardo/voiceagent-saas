@@ -1,7 +1,12 @@
 "use client";
 
-import { GUARDRAILS_MAX_CHARS } from "@repo/api/modules/voiceagents/lib/persona-prompt";
+import {
+	GUARDRAILS_MAX_CHARS,
+	RECOMMENDED_RESPONSE_STYLE,
+	RESPONSE_STYLE_MAX_CHARS,
+} from "@repo/api/modules/voiceagents/lib/persona-prompt";
 import { cn } from "@repo/ui";
+import { Button } from "@repo/ui/components/button";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { Textarea } from "@repo/ui/components/textarea";
@@ -234,6 +239,72 @@ export function GuardrailsField({ form }: AgentFormFieldProps) {
 						/>
 					</FormControl>
 					<FormMessage />
+				</FormItem>
+			)}
+		/>
+	);
+}
+
+/**
+ * Response Style — a free-text phrasing/tone directive injected into EVERY
+ * generated message (voice + text, every node) as a `## RESPONSE STYLE` block.
+ * Distinct from persona (identity/character): this governs HOW replies are
+ * phrased. Stored RAW on the config and read live by the engine; blank injects
+ * nothing, so existing agents are unchanged until they opt in. The "Use
+ * recommended" button fills a strong starter the author can then edit or clear.
+ */
+export function ResponseStyleField({ form }: AgentFormFieldProps) {
+	return (
+		<FormField
+			control={form.control}
+			name="responseStyle"
+			render={({ field }) => (
+				<FormItem>
+					<div className="flex items-center justify-between">
+						<FormLabel className="gap-1.5 flex items-center">
+							Response style
+							<InfoHint>
+								How the agent phrases its replies — tone, variety, and pacing — applied to every
+								generated message. Leave blank to keep the default voice. This is separate from the
+								persona's identity.
+							</InfoHint>
+						</FormLabel>
+						<Button
+							type="button"
+							variant="link"
+							size="sm"
+							className="p-0 text-xs h-auto"
+							onClick={() =>
+								form.setValue("responseStyle", RECOMMENDED_RESPONSE_STYLE, { shouldDirty: true })
+							}
+						>
+							Use recommended
+						</Button>
+					</div>
+					<FormControl>
+						<Textarea
+							rows={3}
+							maxLength={RESPONSE_STYLE_MAX_CHARS}
+							className="max-h-72 field-sizing-content"
+							placeholder={RECOMMENDED_RESPONSE_STYLE}
+							value={field.value ?? ""}
+							onChange={field.onChange}
+							onBlur={field.onBlur}
+							name={field.name}
+							ref={field.ref}
+						/>
+					</FormControl>
+					<div className="flex items-center justify-between">
+						<FormMessage />
+						<span
+							className={cn(
+								"text-xs ml-auto text-muted-foreground tabular-nums",
+								(field.value?.length ?? 0) > RESPONSE_STYLE_MAX_CHARS && "text-destructive",
+							)}
+						>
+							{field.value?.length ?? 0}/{RESPONSE_STYLE_MAX_CHARS}
+						</span>
+					</div>
 				</FormItem>
 			)}
 		/>

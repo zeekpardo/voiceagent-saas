@@ -21,9 +21,11 @@ export const flowInput = z.object({
 				// "router" nodes never speak — the engine evaluates router.condition
 				// against the conversation and picks one exit. "statement" nodes speak
 				// statement.say and immediately continue. "transfer" nodes announce,
-				// play hold music, then continue with a new voice. Default is "agent".
+				// play hold music, then continue with a new voice. "handoff" nodes hand
+				// the live call off to a different published agent (one-way, carrying
+				// context). Default is "agent".
 				kind: z
-					.enum(["agent", "router", "statement", "transfer", "set_field", "modify_tags"])
+					.enum(["agent", "router", "statement", "transfer", "set_field", "modify_tags", "handoff"])
 					.optional(),
 				router: z.object({ condition: z.string().min(1) }).optional(),
 				statement: z.object({ say: z.string().min(1) }).optional(),
@@ -47,6 +49,8 @@ export const flowInput = z.object({
 							.optional(),
 					})
 					.optional(),
+				// handoff-only: the target published agent id the live call is handed to.
+				handoffAgentId: z.string().min(1).optional(),
 				instructions: z.string().min(1),
 				entryInstructions: z.string().optional(),
 				toolIds: z.array(z.string()),

@@ -4,6 +4,7 @@ import { cn } from "@repo/ui";
 import { Input } from "@repo/ui/components/input";
 import {
 	AngryIcon,
+	ArrowRightLeftIcon,
 	BotIcon,
 	CalendarCheckIcon,
 	CornerUpRightIcon,
@@ -88,6 +89,13 @@ const ACTION_SECTIONS: ActionSection[] = [
 				title: "Transfer",
 				subtitle: "Hold music, then a different voice takes over",
 				icon: PhoneForwardedIcon,
+				tileClassName: TRANSFER_TILE,
+			},
+			{
+				kind: "handoff",
+				title: "Hand off to agent",
+				subtitle: "Another agent takes over the call, carrying context",
+				icon: ArrowRightLeftIcon,
 				tileClassName: TRANSFER_TILE,
 			},
 		],

@@ -57,7 +57,8 @@ export type FlowNodeKind =
 	| "transfer"
 	| "set_field"
 	| "modify_tags"
-	| "booking";
+	| "booking"
+	| "handoff";
 
 /** Palette entries: node kinds plus pre-filled presets (they map onto a kind). */
 export const FLOW_PALETTE_KINDS = [
@@ -74,6 +75,7 @@ export const FLOW_PALETTE_KINDS = [
 	"transfer",
 	"set_field",
 	"modify_tags",
+	"handoff",
 ] as const;
 
 /**
@@ -287,6 +289,13 @@ export interface TransferNodeData {
 	[key: string]: unknown;
 }
 
+export interface HandoffNodeData {
+	title: string;
+	/** The target published agent this node hands the live call off to (agent id). */
+	handoffAgentId?: string;
+	[key: string]: unknown;
+}
+
 export type FlowNodeData =
 	| GreeterNodeData
 	| AgentNodeData
@@ -297,6 +306,7 @@ export type FlowNodeData =
 	| StatementNodeData
 	| ScenarioNodeData
 	| TransferNodeData
+	| HandoffNodeData
 	| SetFieldNodeData
 	| ModifyTagsNodeData
 	| BookingNodeData;
@@ -371,6 +381,13 @@ export interface TransferCanvasNodeDoc {
 	data?: TransferNodeData;
 }
 
+export interface HandoffCanvasNodeDoc {
+	id: string;
+	type: "handoff";
+	position: { x: number; y: number };
+	data?: HandoffNodeData;
+}
+
 export interface SetFieldCanvasNodeDoc {
 	id: string;
 	type: "set_field";
@@ -403,6 +420,7 @@ export type CanvasNodeDoc =
 	| StatementCanvasNodeDoc
 	| ScenarioCanvasNodeDoc
 	| TransferCanvasNodeDoc
+	| HandoffCanvasNodeDoc
 	| SetFieldCanvasNodeDoc
 	| ModifyTagsCanvasNodeDoc
 	| BookingCanvasNodeDoc;
@@ -439,7 +457,7 @@ export interface EngineFlowNode {
 	 * "statement" nodes speak statement.say and immediately continue (at most one exit).
 	 * "transfer" nodes announce, play hold music, then continue with a new voice.
 	 */
-	kind?: "agent" | "router" | "statement" | "transfer" | "set_field" | "modify_tags";
+	kind?: "agent" | "router" | "statement" | "transfer" | "set_field" | "modify_tags" | "handoff";
 	router?: { condition: string };
 	statement?: { say: string };
 	/** `toolId` names the engine tool that writes the field (self-describing —
@@ -453,6 +471,8 @@ export interface EngineFlowNode {
 		holdSeconds: number;
 		voice?: { provider: string; voice: string; speed?: number };
 	};
+	/** handoff-only: the target published agent id the live call is handed to. */
+	handoffAgentId?: string;
 	instructions: string;
 	entryInstructions?: string;
 	toolIds: string[];
@@ -602,6 +622,11 @@ export const transferNodeDataSchema = z.object({
 	holdSeconds: z.number(),
 	voiceId: z.string().optional(),
 	voiceProvider: z.string().optional(),
+});
+
+export const handoffNodeDataSchema = z.object({
+	title: z.string(),
+	handoffAgentId: z.string().optional(),
 });
 
 export const setFieldNodeDataSchema = z.object({

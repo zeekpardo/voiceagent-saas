@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { type CallCompletedEvent, syncCallToCrm } from "@repo/api/modules/crm/lib/sync";
+import { runTextFallback } from "@repo/api/modules/crm/lib/text-fallback";
 import { db } from "@repo/database";
 
 /**
@@ -56,7 +57,25 @@ export async function POST(req: Request): Promise<Response> {
 				`[crm-sync] call ${event.call_id} → ${result.provider} contact ${result.contactId}: ${result.fieldsUpdated} fields, tags [${result.tagsAdded?.join(", ")}]`,
 			);
 		}
-		return Response.json({ received: true, ...result });
+
+		// Voice-fail → text fallback: continue the same workflow over text when an
+		// outbound call didn't connect and the agent opted in. Fully fail-isolated
+		// (never blocks the sync ack) — an error here still lets the webhook 200.
+		let fallback: Awaited<ReturnType<typeof runTextFallback>> | undefined;
+		try {
+			fallback = await runTextFallback(event);
+			if (fallback.fallbackStarted) {
+				console.info(
+					`[text-fallback] call ${event.call_id} → text conversation ${fallback.conversationId} on ${fallback.channel}`,
+				);
+			} else if (fallback.skipped) {
+				console.info(`[text-fallback] call ${event.call_id}: skipped — ${fallback.skipped}`);
+			}
+		} catch (err) {
+			console.error(`[text-fallback] call ${event.call_id} failed:`, err);
+		}
+
+		return Response.json({ received: true, ...result, ...(fallback ? { fallback } : {}) });
 	} catch (err) {
 		console.error(`[crm-sync] call ${event.call_id} failed:`, err);
 		const status = (err as { status?: number }).status;

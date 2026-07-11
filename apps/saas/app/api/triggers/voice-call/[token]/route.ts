@@ -1,7 +1,12 @@
 import { buildContactState, parseContactTags } from "@repo/api/modules/crm/lib/contact-state";
 import { normalizePhone } from "@repo/api/modules/crm/lib/normalize";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
+import {
+	pickTextChannel,
+	startTextConversation,
+} from "@repo/api/modules/crm/lib/text-conversation";
 import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
+import { readChannelMode } from "@repo/api/modules/voiceagents/lib/channel-mode";
 import { mergeCustomVariables } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
@@ -182,6 +187,62 @@ export async function POST(
 		.then((a) => a.config)
 		.catch(() => undefined);
 	variables = mergeCustomVariables(agentConfig, mapping, variables);
+
+	// Channel mode: a text-only agent places NO call. Instead, continue the same
+	// workflow over text — find-or-create an engine text conversation for the
+	// contact and send the opener on the source's text channel.
+	if (readChannelMode(agentConfig) === "text") {
+		if (!provider?.sendConversationMessage) {
+			return Response.json(
+				{ error: "agent is text-only but the source has no messaging-capable CRM connection" },
+				{ status: 409 },
+			);
+		}
+		if (!contactId) {
+			return Response.json(
+				{ error: "agent is text-only but no contact could be resolved for this trigger" },
+				{ status: 409 },
+			);
+		}
+		const channel = pickTextChannel(mapping?.channels);
+		if (!channel) {
+			return Response.json(
+				{ error: "agent is text-only but no text channel is enabled on the source" },
+				{ status: 409 },
+			);
+		}
+		try {
+			const greeting =
+				typeof (agentConfig as { greeting?: unknown } | undefined)?.greeting === "string"
+					? (agentConfig as { greeting: string }).greeting.trim()
+					: "";
+			const result = await startTextConversation({
+				provider,
+				agentId: identity.agentId,
+				sourceId: identity.sourceId,
+				contactId,
+				channel,
+				externalRef: `text:${identity.sourceId}:${contactId}`,
+				openerFallback: greeting || "Hi! Reaching out — how can we help?",
+				variables,
+				...(contactState ? { contactState } : {}),
+				...(contactTags ? { contactTags } : {}),
+				metadata: { source: "crm_workflow_text" },
+			});
+			return Response.json(
+				{
+					queued: true,
+					channel: "text",
+					conversation_id: result.conversationId,
+					sent: result.sent,
+				},
+				{ status: 201 },
+			);
+		} catch (err) {
+			console.error("[voice-trigger] text-mode conversation start failed:", err);
+			return Response.json({ error: (err as Error).message }, { status: 502 });
+		}
+	}
 
 	try {
 		const call = await gatewayFetch<{ id: string; status: string }>("POST", "/v1/calls", {

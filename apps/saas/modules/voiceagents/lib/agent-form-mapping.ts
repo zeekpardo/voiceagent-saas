@@ -41,6 +41,10 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 		customVariables: Array.isArray(c.customVariables) ? c.customVariables : [],
 		greeting: c.greeting ?? "",
 		language: c.language ?? "en",
+		channels: {
+			mode: c.channels?.mode === "voice" || c.channels?.mode === "text" ? c.channels.mode : "both",
+			textFallback: typeof c.channels?.textFallback === "boolean" ? c.channels.textFallback : false,
+		},
 		llm: c.llm,
 		tts: c.tts ? { provider: c.tts.provider, voice: c.tts.voice, speed: c.tts.speed } : undefined,
 		stt: c.stt?.model ? { model: c.stt.model } : undefined,

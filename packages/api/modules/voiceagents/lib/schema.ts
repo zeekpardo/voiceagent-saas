@@ -49,6 +49,23 @@ export const agentConfigInput = z.object({
 		.default([]),
 	greeting: z.string().optional(),
 	language: z.string().default("en"),
+	/**
+	 * Channel preferences for this agent (engine slot already merged):
+	 * - `mode`: which channels the agent handles — "voice" only, "text" only, or
+	 *   "both" (default). Enforced at every entry point (CRM trigger, omni-channel
+	 *   inbound resolution, widget/test sessions).
+	 * - `textFallback`: when an OUTBOUND voice call fails to connect, automatically
+	 *   continue the same workflow as a text conversation on the source's text
+	 *   channel. Not applicable when mode is "text" (there's no voice call to fail).
+	 * Rides on the config doc; the engine reads `mode` to run text-vs-voice, while
+	 * the fallback is a SaaS-side behavior (see the voice-webhook consumer).
+	 */
+	channels: z
+		.object({
+			mode: z.enum(["voice", "text", "both"]).default("both"),
+			textFallback: z.boolean().default(false),
+		})
+		.default({ mode: "both", textFallback: false }),
 	llm: z
 		.object({
 			model: z.string().default("grok-4-fast"),

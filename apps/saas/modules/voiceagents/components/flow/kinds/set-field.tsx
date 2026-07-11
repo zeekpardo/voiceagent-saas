@@ -1,3 +1,5 @@
+import { VariableIcon } from "lucide-react";
+
 import {
 	compileSetFieldNode,
 	decompileSetFieldNode,
@@ -25,6 +27,13 @@ export const setFieldKind = defineKind<SetFieldNodeData>({
 		title: "Edit Set Field",
 		description:
 			"Deterministically write one CRM field, then continue. No conversation — the value is saved silently and the flow moves on.",
+	},
+	subPanels: {
+		fields: {
+			title: "Fields & variables",
+			description: "Insert contact and source fields into this stage.",
+			icon: VariableIcon,
+		},
 	},
 	newData: () => newSetFieldNodeData(),
 	sourceHandles: () => new Set(),

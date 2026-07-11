@@ -3,7 +3,6 @@
 import { readCustomVariableDefs } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { cn } from "@repo/ui";
 import { Input } from "@repo/ui/components/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
 import { Textarea } from "@repo/ui/components/textarea";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import {
@@ -14,14 +13,24 @@ import {
 	SearchIcon,
 	UserIcon,
 } from "lucide-react";
-import { type ComponentProps, useCallback, useMemo, useRef, useState } from "react";
+import {
+	type ComponentProps,
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 
 import { useAgentQuery } from "../../lib/api";
+import { useFieldFocus } from "./field-focus-context";
 import { fieldRuntimeVariable } from "./mentions";
 
 /**
- * CloseBot-style "+" field picker: a small plus button that opens a floating
- * panel (search + collapsible groups) of insertable `{{variable}}` tokens.
+ * CloseBot-style field picker: search + collapsible Contact/Source groups of
+ * insertable `{{variable}}` tokens, hosted inside the node editor's "Fields &
+ * variables" rail panel (see NodeEditorPanel) rather than a floating popover.
  *
  * Groups:
  *  - Contact — the unified field catalog (standard contact fields AND the
@@ -36,11 +45,12 @@ import { fieldRuntimeVariable } from "./mentions";
  * to, so compile/runtime are untouched. The panel is purely additive — the
  * @-trigger keeps working everywhere it already does.
  *
- * Reusable by design: `FieldPickerButton` is a standalone trigger taking an
- * `onInsert(token)` callback, and `FieldPickerTextarea` / `FieldPickerInput`
- * wrap the shadcn primitives with the button overlaid top-right plus
- * cursor-position insertion and focus restore — attach to any editor field
- * whose compiled output supports {{var}} interpolation.
+ * Reusable by design: `FieldsPanel` renders the search+groups content and
+ * inserts into whichever field was last focused (via FieldFocusContext).
+ * `FieldPickerTextarea` / `FieldPickerInput` wrap the shadcn primitives,
+ * registering themselves with that context and overlaying a small "+" button
+ * that opens the rail panel — attach to any editor field whose compiled
+ * output supports {{var}} interpolation.
  */
 
 interface FieldPickerEntry {
@@ -58,17 +68,11 @@ interface FieldPickerGroupDef {
 	entries: FieldPickerEntry[];
 }
 
-export function FieldPickerButton({
-	agentId,
-	onInsert,
-	className,
-}: {
-	agentId: string;
-	onInsert: (token: string) => void;
-	className?: string;
-}) {
-	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState("");
+/**
+ * Data hook shared by the rail panel: the same Contact/Source grouping logic
+ * that used to live inline in the floating popover's trigger component.
+ */
+function useFieldPickerGroups(agentId: string) {
 	// Both queries are already warm on the agent page (flow tab / settings), so
 	// opening the panel is instant; keyed per agent so custom fields + variables
 	// track the agent's connected source.
@@ -104,6 +108,19 @@ export function FieldPickerButton({
 		return defs;
 	}, [fieldsData, agent]);
 
+	return { groups, isLoading };
+}
+
+/**
+ * The "Fields & variables" rail panel body: search + collapsible Contact /
+ * Source groups of chips. Lives inside NodeEditorPanel's secondary aside;
+ * inserts into whichever field was last focused via FieldFocusContext.
+ */
+export function FieldsPanel({ agentId }: { agentId: string }) {
+	const [search, setSearch] = useState("");
+	const { groups, isLoading } = useFieldPickerGroups(agentId);
+	const fieldFocus = useFieldFocus();
+
 	const query = search.trim().toLowerCase();
 	const filtered = groups
 		.map((group) => ({
@@ -120,8 +137,8 @@ export function FieldPickerButton({
 		.filter((group) => group.entries.length > 0);
 
 	// Native non-passive wheel handler so the list scrolls inside the editor
-	// Sheet, whose RemoveScroll would otherwise swallow wheel events on this
-	// portalled popover (same trick as ContactFieldCombobox).
+	// Sheet, whose RemoveScroll would otherwise swallow wheel events (same
+	// trick as ContactFieldCombobox).
 	const scrollRef = useCallback((el: HTMLDivElement | null) => {
 		if (!el) {
 			return;
@@ -141,70 +158,52 @@ export function FieldPickerButton({
 	}, []);
 
 	const pick = (entry: FieldPickerEntry) => {
-		onInsert(`{{${entry.name}}}`);
-		setOpen(false);
-		setSearch("");
+		fieldFocus?.insertIntoLastFocused(`{{${entry.name}}}`);
 	};
 
 	return (
-		<Popover
-			open={open}
-			onOpenChange={(o) => {
-				setOpen(o);
-				if (!o) {
-					setSearch("");
-				}
-			}}
+		<div className="flex h-full flex-col">
+			<div className="mb-1.5 relative shrink-0">
+				<SearchIcon className="left-2.5 size-3.5 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
+				<Input
+					value={search}
+					onChange={(e) => setSearch(e.target.value)}
+					placeholder="Search fields..."
+					className="h-8 pl-8 text-sm"
+				/>
+			</div>
+			<div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+				{isLoading && groups.length === 0 ? (
+					<p className="px-2 py-3 text-xs text-center text-muted-foreground">Loading fields…</p>
+				) : filtered.length === 0 ? (
+					<p className="px-2 py-3 text-xs text-center text-muted-foreground">
+						{groups.length ? `No fields match "${search}"` : "No fields available"}
+					</p>
+				) : (
+					filtered.map((group) => (
+						<FieldPickerGroup key={group.label} group={group} onPick={pick} />
+					))
+				)}
+			</div>
+		</div>
+	);
+}
+
+/** Small "+" affordance overlaid on a field — opens the rail's fields panel. */
+function FieldPickerOpenButton({ onOpen, className }: { onOpen: () => void; className?: string }) {
+	return (
+		<button
+			type="button"
+			title="Insert a contact field or variable"
+			aria-label="Insert a contact field or variable"
+			onClick={onOpen}
+			className={cn(
+				"size-6 flex items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+				className,
+			)}
 		>
-			<PopoverTrigger asChild>
-				<button
-					type="button"
-					title="Insert a contact field or variable"
-					aria-label="Insert a contact field or variable"
-					className={cn(
-						"size-6 flex items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-						className,
-					)}
-				>
-					<PlusIcon className="size-3.5" />
-				</button>
-			</PopoverTrigger>
-			<PopoverContent
-				side="left"
-				align="start"
-				className="p-2 w-[400px]"
-				// Focus goes back to the field (the insert handler restores it), not
-				// to this trigger button.
-				onCloseAutoFocus={(event) => event.preventDefault()}
-			>
-				<div className="mb-1.5 relative">
-					<SearchIcon className="left-2.5 size-3.5 absolute top-1/2 -translate-y-1/2 text-muted-foreground" />
-					<Input
-						autoFocus
-						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Search fields..."
-						className="h-8 pl-8 text-sm"
-					/>
-				</div>
-				<div
-					ref={scrollRef}
-					className="max-h-[min(600px,65vh)] [scrollbar-width:thin] [scrollbar-gutter:stable] overflow-y-auto"
-				>
-					{isLoading && groups.length === 0 ? (
-						<p className="px-2 py-3 text-xs text-center text-muted-foreground">Loading fields…</p>
-					) : filtered.length === 0 ? (
-						<p className="px-2 py-3 text-xs text-center text-muted-foreground">
-							{groups.length ? `No fields match "${search}"` : "No fields available"}
-						</p>
-					) : (
-						filtered.map((group) => (
-							<FieldPickerGroup key={group.label} group={group} onPick={pick} />
-						))
-					)}
-				</div>
-			</PopoverContent>
-		</Popover>
+			<PlusIcon className="size-3.5" />
+		</button>
 	);
 }
 
@@ -270,7 +269,8 @@ function insertAtCursor(
 	const start = el?.selectionStart ?? value.length;
 	const end = el?.selectionEnd ?? value.length;
 	onValueChange(value.slice(0, start) + token + value.slice(end));
-	// Refocus after React commits the new value (the popover has just closed).
+	// Refocus after React commits the new value (the field may have blurred
+	// when the rail panel button/chip was clicked).
 	requestAnimationFrame(() => {
 		if (!el) {
 			return;
@@ -289,25 +289,39 @@ interface FieldPickerFieldProps {
 
 /** Textarea with the "+" field picker overlaid in its top-right corner. */
 export function FieldPickerTextarea({
-	agentId,
+	agentId: _agentId,
 	value,
 	onValueChange,
 	className,
 	...props
 }: FieldPickerFieldProps & Omit<ComponentProps<typeof Textarea>, "value" | "onChange">) {
 	const ref = useRef<HTMLTextAreaElement>(null);
+	const id = useId();
+	const fieldFocus = useFieldFocus();
+
+	// Re-register on every render so the closure always inserts against the
+	// latest `value`/`onValueChange` (list rows re-key by id, not by index).
+	useEffect(() => {
+		return fieldFocus?.register(id, {
+			insert: (token) => insertAtCursor(ref.current, value, token, onValueChange),
+		});
+	}, [fieldFocus, id, value, onValueChange]);
+
 	return (
 		<div className="relative w-full">
 			<Textarea
 				ref={ref}
 				value={value}
 				onChange={(e) => onValueChange(e.target.value)}
+				onFocus={() => fieldFocus?.focus(id)}
 				className={cn("pr-10", className)}
 				{...props}
 			/>
-			<FieldPickerButton
-				agentId={agentId}
-				onInsert={(token) => insertAtCursor(ref.current, value, token, onValueChange)}
+			<FieldPickerOpenButton
+				onOpen={() => {
+					fieldFocus?.focus(id);
+					fieldFocus?.openPanel();
+				}}
 				className="right-1.5 top-1.5 absolute"
 			/>
 		</div>
@@ -316,7 +330,7 @@ export function FieldPickerTextarea({
 
 /** Input with the "+" field picker overlaid at its right edge. */
 export function FieldPickerInput({
-	agentId,
+	agentId: _agentId,
 	value,
 	onValueChange,
 	className,
@@ -324,24 +338,35 @@ export function FieldPickerInput({
 }: FieldPickerFieldProps & Omit<ComponentProps<typeof Input>, "value" | "onChange">) {
 	// The shared Input doesn't forward a ref, so grab the element off the wrapper.
 	const wrapRef = useRef<HTMLDivElement>(null);
+	const id = useId();
+	const fieldFocus = useFieldFocus();
+
+	useEffect(() => {
+		return fieldFocus?.register(id, {
+			insert: (token) =>
+				insertAtCursor(
+					wrapRef.current?.querySelector("input") ?? null,
+					value,
+					token,
+					onValueChange,
+				),
+		});
+	}, [fieldFocus, id, value, onValueChange]);
+
 	return (
 		<div ref={wrapRef} className="relative w-full">
 			<Input
 				value={value}
 				onChange={(e) => onValueChange(e.target.value)}
+				onFocus={() => fieldFocus?.focus(id)}
 				className={cn("pr-10", className)}
 				{...props}
 			/>
-			<FieldPickerButton
-				agentId={agentId}
-				onInsert={(token) =>
-					insertAtCursor(
-						wrapRef.current?.querySelector("input") ?? null,
-						value,
-						token,
-						onValueChange,
-					)
-				}
+			<FieldPickerOpenButton
+				onOpen={() => {
+					fieldFocus?.focus(id);
+					fieldFocus?.openPanel();
+				}}
 				className="right-1.5 absolute top-1/2 -translate-y-1/2"
 			/>
 		</div>

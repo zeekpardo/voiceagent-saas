@@ -14,21 +14,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AgentExitsPanel, AgentSettingsPanel, AgentToolsPanel } from "./editors/agent";
 import type { FlowToolOption } from "./editors/shared";
+import { FieldFocusProvider } from "./field-focus-context";
+import { FieldsPanel } from "./FieldPicker";
 import type { AgentNodeData, FlowNodeData, FlowNodeKind } from "./flow-types";
 import { FLOW_KINDS } from "./kinds";
-import type { FlowKindSubPanel } from "./kinds";
 import { createFlowMentionExtension, type MentionItem } from "./mentions";
 
 export type { FlowToolOption } from "./editors/shared";
-
-type AgentSubPanel = "settings" | "tools" | "exits";
-
-/**
- * The agent node's mini icon-rail sub-panels (settings / tools / exits) — defined
- * on the agent registry entry. The per-kind sheet header copy lives on each
- * entry's `sheetMeta`; this panel reads both from the registry.
- */
-const SUB_PANEL_META = FLOW_KINDS.agent.subPanels as Record<AgentSubPanel, FlowKindSubPanel>;
 
 /**
  * Right-side sheet for editing one flow node. Agent nodes get a CloseBot-style
@@ -74,7 +66,7 @@ export function NodeEditorPanel({
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
 
-	const [subPanel, setSubPanel] = useState<AgentSubPanel | null>(null);
+	const [subPanel, setSubPanel] = useState<string | null>(null);
 	// Selecting a different node resets the secondary aside.
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	useEffect(() => setSubPanel(null), [nodeId]);
@@ -151,6 +143,13 @@ export function NodeEditorPanel({
 	// kind's editor is a single-column body.
 	const AgentEditor = FLOW_KINDS.agent.editor;
 	const NodeEditor = FLOW_KINDS[nodeType].editor;
+	// Any kind may define a rail of secondary asides (agent: settings/tools/
+	// exits; everything else that hosts field-picker fields: a single "Fields &
+	// variables" entry) — the rail itself is generic, only its icon/content per
+	// key differs by kind.
+	const subPanelMeta = FLOW_KINDS[nodeType].subPanels;
+	const subPanelKeys = subPanelMeta ? Object.keys(subPanelMeta) : [];
+	const hasRail = subPanelKeys.length > 0;
 
 	// The Greeter is a fixture (like Start) — it can be edited but never deleted.
 	const isFixture = nodeType === "greeter";
@@ -176,11 +175,11 @@ export function NodeEditorPanel({
 				// default p-6/gap-4/max-w-sm would race ours — force the row layout
 				// with important modifiers and pin the width inline.
 				className={cn(
-					isAgent
+					hasRail
 						? "!gap-0 !p-0 flex w-full flex-row overflow-hidden transition-[max-width] duration-200"
 						: "gap-5 flex w-full flex-col overflow-y-auto",
 				)}
-				style={{ maxWidth: isAgent ? (subPanel ? 940 : 576) : 576 }}
+				style={{ maxWidth: hasRail ? (subPanel ? (isAgent ? 940 : 860) : 576) : 576 }}
 				onPointerDownOutside={(event) => {
 					if ((event.target as HTMLElement | null)?.closest?.("[data-mention-dropdown]")) {
 						event.preventDefault();
@@ -192,12 +191,12 @@ export function NodeEditorPanel({
 					}
 				}}
 			>
-				{isAgent ? (
-					<>
+				{hasRail && subPanelMeta ? (
+					<FieldFocusProvider openPanel={() => setSubPanel("fields")}>
 						{/* Mini icon rail — the panel's edge, CloseBot style. */}
 						<div className="w-12 pt-14 flex shrink-0 flex-col items-center border-r bg-muted/40">
-							{(Object.keys(SUB_PANEL_META) as AgentSubPanel[]).map((key, index) => {
-								const meta = SUB_PANEL_META[key];
+							{subPanelKeys.map((key, index) => {
+								const meta = subPanelMeta[key];
 								const Icon = meta.icon;
 								return (
 									<div key={key} className="flex w-full flex-col items-center">
@@ -223,69 +222,86 @@ export function NodeEditorPanel({
 						</div>
 
 						{/* Secondary aside — one concern at a time. */}
-						{subPanel && (
+						{subPanel && subPanelMeta[subPanel] && (
 							<div className="w-80 flex shrink-0 flex-col overflow-hidden border-r">
 								<div className="px-4 pt-5 pb-3 shrink-0 border-b">
-									<h3 className="font-semibold text-base">{SUB_PANEL_META[subPanel].title}</h3>
+									<h3 className="font-semibold text-base">{subPanelMeta[subPanel].title}</h3>
 									<p className="mt-0.5 text-xs line-clamp-2 text-muted-foreground">
-										{SUB_PANEL_META[subPanel].description}
+										{subPanelMeta[subPanel].description}
 									</p>
 								</div>
 								<div className="min-h-0 p-4 flex-1 overflow-y-auto">
-									{subPanel === "settings" && (
-										<AgentSettingsPanel
-											agentId={agentId}
-											nodeId={nodeId}
-											data={data as AgentNodeData}
-											bookingToolIds={bookingToolIds}
-											onChange={onChange}
-										/>
-									)}
-									{subPanel === "tools" && (
-										<AgentToolsPanel
-											nodeId={nodeId}
-											data={data as AgentNodeData}
-											tools={tools}
-											onChange={onChange}
-										/>
-									)}
-									{subPanel === "exits" && (
-										<AgentExitsPanel
-											nodeId={nodeId}
-											data={data as AgentNodeData}
-											onChange={onChange}
-										/>
+									{isAgent ? (
+										<>
+											{subPanel === "settings" && (
+												<AgentSettingsPanel
+													agentId={agentId}
+													nodeId={nodeId}
+													data={data as AgentNodeData}
+													bookingToolIds={bookingToolIds}
+													onChange={onChange}
+												/>
+											)}
+											{subPanel === "tools" && (
+												<AgentToolsPanel
+													nodeId={nodeId}
+													data={data as AgentNodeData}
+													tools={tools}
+													onChange={onChange}
+												/>
+											)}
+											{subPanel === "exits" && (
+												<AgentExitsPanel
+													nodeId={nodeId}
+													data={data as AgentNodeData}
+													onChange={onChange}
+												/>
+											)}
+										</>
+									) : (
+										subPanel === "fields" && <FieldsPanel agentId={agentId} />
 									)}
 								</div>
 							</div>
 						)}
 
-						{/* Main column — the prompt is the focus. The agent prompt editor
-						    is the agent registry entry's `editor` (it consumes the mention
-						    extension; every other kind ignores it). */}
+						{/* Main column. The agent prompt editor is the agent registry
+						    entry's `editor` (it consumes the mention extension); every
+						    other kind's editor is the single-column body dispatched
+						    straight from the registry. */}
 						<div className="min-w-0 gap-5 p-5 flex flex-1 flex-col overflow-y-auto">
 							<SheetHeader className="p-0">
-								<SheetTitle>{FLOW_KINDS.agent.sheetMeta.title}</SheetTitle>
-								<SheetDescription>{FLOW_KINDS.agent.sheetMeta.description}</SheetDescription>
+								<SheetTitle>{FLOW_KINDS[nodeType].sheetMeta.title}</SheetTitle>
+								<SheetDescription>{FLOW_KINDS[nodeType].sheetMeta.description}</SheetDescription>
 							</SheetHeader>
-							<AgentEditor
-								agentId={agentId}
-								nodeId={nodeId}
-								data={data}
-								isEntry={isEntry}
-								mentionExtension={mentionExtension}
-								onChange={onChange}
-							/>
+							{isAgent ? (
+								<AgentEditor
+									agentId={agentId}
+									nodeId={nodeId}
+									data={data}
+									isEntry={isEntry}
+									mentionExtension={mentionExtension}
+									onChange={onChange}
+								/>
+							) : (
+								<NodeEditor
+									agentId={agentId}
+									nodeId={nodeId}
+									data={data}
+									isEntry={isEntry}
+									onChange={onChange}
+								/>
+							)}
 							{footer}
 						</div>
-					</>
+					</FieldFocusProvider>
 				) : (
 					<>
 						<SheetHeader>
 							<SheetTitle>{FLOW_KINDS[nodeType].sheetMeta.title}</SheetTitle>
 							<SheetDescription>{FLOW_KINDS[nodeType].sheetMeta.description}</SheetDescription>
 						</SheetHeader>
-						{/* Every non-agent kind's editor is a single-column body dispatched
+						{/* Kinds without a rail render as a single-column body dispatched
 						    straight from the registry. */}
 						<NodeEditor
 							agentId={agentId}

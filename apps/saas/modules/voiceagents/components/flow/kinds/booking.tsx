@@ -1,3 +1,5 @@
+import { VariableIcon } from "lucide-react";
+
 import { BookingNode } from "../BookingNode";
 import { compileBookingNode, newBookingNodeData } from "../compile/nodes/booking";
 import { BookingNodeEditor } from "../editors/booking";
@@ -21,6 +23,13 @@ export const bookingKind = defineKind<BookingNodeData>({
 		title: "Edit Booking",
 		description:
 			"Conversationally book an appointment onto a calendar, then branch on the outcome (booked, or no time worked).",
+	},
+	subPanels: {
+		fields: {
+			title: "Fields & variables",
+			description: "Insert contact and source fields into this stage.",
+			icon: VariableIcon,
+		},
 	},
 	newData: (bookingToolIds) => newBookingNodeData(bookingToolIds),
 	fallbackData: () => newBookingNodeData([]),

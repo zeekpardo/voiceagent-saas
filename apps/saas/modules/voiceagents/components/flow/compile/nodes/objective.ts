@@ -132,10 +132,12 @@ export function newObjectiveNodeData(): ObjectiveNodeData {
 }
 
 /**
- * The "Get Full Address" palette preset — a platform-managed composite: four
+ * The managed "Full address" objective set — a platform-managed composite: four
  * part objectives (street/city/state/zip) plus an aggregate that assembles
  * them into contact.address once every part is met. All five are `managed`,
- * so the editor renders them read-only (see ObjectiveNodeEditor).
+ * so the editor renders them read-only (see ObjectiveNodeEditor). Applied when
+ * the user picks "Full address" as an objective's output field (see
+ * ObjectiveNodeEditor's field-pick handler) — not a standalone palette item.
  */
 export function newFullAddressObjectiveData(): ObjectiveNodeData {
 	const streetId = makeId("obj");

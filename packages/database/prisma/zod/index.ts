@@ -94,6 +94,12 @@ export const SourceScalarFieldEnumSchema = z.enum(['id', 'organizationId', 'name
 
 export type SourceScalarFieldEnum = z.infer<typeof SourceScalarFieldEnumSchema>;
 
+// File: SourceWidgetScalarFieldEnum.schema.ts
+
+export const SourceWidgetScalarFieldEnumSchema = z.enum(['id', 'sourceId', 'agentId', 'name', 'enabled', 'widgetToken', 'origins', 'appearance', 'targeting', 'behavior', 'createdAt', 'updatedAt'])
+
+export type SourceWidgetScalarFieldEnum = z.infer<typeof SourceWidgetScalarFieldEnumSchema>;
+
 // File: SourcePhoneNumberScalarFieldEnum.schema.ts
 
 export const SourcePhoneNumberScalarFieldEnumSchema = z.enum(['id', 'sourceId', 'e164', 'providerRef', 'label', 'inboundAgentId', 'createdAt'])
@@ -404,6 +410,26 @@ export const SourceSchema = z.object({
 });
 
 export type SourceType = z.infer<typeof SourceSchema>;
+
+
+// File: SourceWidget.schema.ts
+
+export const SourceWidgetSchema = z.object({
+  id: z.string(),
+  sourceId: z.string(),
+  agentId: z.string(),
+  name: z.string(),
+  enabled: z.boolean().default(true),
+  widgetToken: z.string(),
+  origins: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10"),
+  appearance: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10"),
+  targeting: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10"),
+  behavior: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10"),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type SourceWidgetType = z.infer<typeof SourceWidgetSchema>;
 
 
 // File: SourcePhoneNumber.schema.ts

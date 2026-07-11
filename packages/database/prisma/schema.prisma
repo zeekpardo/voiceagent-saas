@@ -290,9 +290,41 @@ model Source {
 
   agentSources VoiceAgentSource[]
   phoneNumbers SourcePhoneNumber[]
+  widgets      SourceWidget[]
 
   @@index([organizationId])
   @@map("source")
+}
+
+/// A saved, named Website Widget for a Source (CloseBot "Chat Widgets" model).
+/// A Source can have many widgets; each pins one gateway agent and carries the
+/// signed session token plus three config blobs (appearance / targeting /
+/// behavior). The public config-by-ID endpoint serves these by `id` so a
+/// customer's pasted snippet never changes when the merchant edits the widget.
+model SourceWidget {
+  id       String @id @default(cuid())
+  sourceId String
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  /// gateway agent id (agt_…) that answers conversations from this widget
+  agentId  String
+  /// display/channel name, e.g. "Pricing page assistant"
+  name     String
+  enabled  Boolean @default(true)
+  /// signed widget session token (re-minted when origins or agent change)
+  widgetToken String
+  /// allowed website origins (same semantics as the legacy token path)
+  origins     Json
+  /// { style, position, accent, theme, icon, headerTitle, welcomeMessage, placeholder, visualizer, voice, chat, showOnlineDot }
+  appearance  Json
+  /// { include: [{pattern}], exclude: [{pattern}] }
+  targeting   Json
+  /// { exitIntent, timeOnPage, scrollPercent } auto-open triggers
+  behavior    Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sourceId])
+  @@map("source_widget")
 }
 
 /// A phone number provisioned on the engine and mapped to a specific Source.

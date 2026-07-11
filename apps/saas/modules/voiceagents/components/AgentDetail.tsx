@@ -130,8 +130,8 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 						<TooltipTrigger asChild>
 							<div className="gap-1.5 flex cursor-default items-center">
 								<Badge status="info">v{agent.version}</Badge>
-								<span className="gap-1 flex items-center text-[11px] font-medium text-emerald-500">
-									<span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
+								<span className="gap-1 font-medium text-emerald-500 flex items-center text-[11px]">
+									<span className="size-1.5 animate-pulse bg-emerald-500 rounded-full" />
 									Live
 								</span>
 							</div>

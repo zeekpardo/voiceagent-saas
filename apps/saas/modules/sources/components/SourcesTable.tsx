@@ -21,7 +21,14 @@ import {
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { DataTable, type DataTableColumn } from "@shared/components/DataTable";
 import { useTableState } from "@shared/hooks/use-table-state";
-import { DatabaseIcon, EllipsisVerticalIcon, PlusIcon, Unlink2Icon } from "lucide-react";
+import {
+	DatabaseIcon,
+	EllipsisVerticalIcon,
+	ExternalLinkIcon,
+	PlusIcon,
+	Unlink2Icon,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { useDisconnectSourceMutation, useSourcesQuery } from "../lib/api";
@@ -41,6 +48,7 @@ interface SourceRow {
 type SortKey = "name" | "providerType" | "address" | "connectedAgentsCount" | "status";
 
 export function SourcesTable() {
+	const router = useRouter();
 	const { data: sources, isLoading } = useSourcesQuery();
 	const disconnectMutation = useDisconnectSourceMutation();
 
@@ -62,6 +70,15 @@ export function SourcesTable() {
 		defaultSortKey: "name",
 		defaultSortDir: "asc",
 	});
+
+	function handleRowClick(event: React.MouseEvent<HTMLTableRowElement>, source: SourceRow) {
+		const target = event.target as HTMLElement;
+		// Interactive elements inside the row handle their own clicks.
+		if (target.closest("a,button,input,[role=menuitem]")) {
+			return;
+		}
+		router.push(`/sources/${source.id}`);
+	}
 
 	async function handleConfirmDisconnect() {
 		const ids = confirmIds;
@@ -148,6 +165,7 @@ export function SourcesTable() {
 				allSelected={table.allPageSelected}
 				someSelected={table.somePageSelected}
 				selectAllLabel="Select all sources on page"
+				onRowClick={handleRowClick}
 				renderRowActions={(source) => (
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
@@ -155,12 +173,16 @@ export function SourcesTable() {
 								variant="ghost"
 								size="icon"
 								aria-label={`Actions for ${source.name}`}
+								onClick={(e) => e.stopPropagation()}
 								className="size-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
 							>
 								<EllipsisVerticalIcon className="size-4" />
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={() => router.push(`/sources/${source.id}`)}>
+								<ExternalLinkIcon className="mr-2 size-4" /> Manage
+							</DropdownMenuItem>
 							<DropdownMenuItem
 								className="text-destructive focus:text-destructive"
 								onClick={() => setConfirmIds([source.id])}

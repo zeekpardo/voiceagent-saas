@@ -121,10 +121,10 @@ export function compileObjectiveNode(
 		instructions:
 			`Gather the following from the caller, naturally and one question at a time:\n${list}` ||
 			"Gather the information for this stage.",
-		entryInstructions:
-			node.id !== entry && node.data.entryMessage.trim()
-				? node.data.entryMessage.trim()
-				: undefined,
+		// Compiled for every node, including the entry node: on a normal call the
+		// engine ignores the entry node's entryInstructions (the greeting opens),
+		// but on a HANDOFF the target's entry node is entered fresh and speaks it.
+		entryInstructions: node.data.entryMessage.trim() || undefined,
 		toolIds: [],
 		objectives,
 		exits: [{ name: "Next", description: "All objectives gathered", target }],

@@ -52,6 +52,9 @@ jobs:
         run: pnpm --filter @repo/api --filter saas --filter marketing test
   e2e:
     name: Run e2e tests
+    # Non-blocking until a Postgres service + app boot are provisioned in CI.
+    # The job still runs and reports, but a failure won't block a PR.
+    continue-on-error: true
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:

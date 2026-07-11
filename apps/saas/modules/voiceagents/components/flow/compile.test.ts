@@ -15,7 +15,7 @@ import {
 	tiptapToText,
 	validateFlowDoc,
 } from "./compile";
-import type { CanvasDoc, ObjectiveNodeData, TransferNodeData } from "./flow-types";
+import type { CanvasDoc, HandoffNodeData, ObjectiveNodeData, TransferNodeData } from "./flow-types";
 import {
 	FALSE_HANDLE_ID,
 	GREETER_NEXT_HANDLE_ID,
@@ -1309,7 +1309,7 @@ describe("greeter fixture", () => {
 	});
 });
 
-function makeHandoffDoc(): CanvasDoc {
+function makeHandoffDoc(data: Partial<HandoffNodeData> = {}): CanvasDoc {
 	return {
 		version: 1,
 		nodes: [
@@ -1330,7 +1330,7 @@ function makeHandoffDoc(): CanvasDoc {
 				id: "h1",
 				type: "handoff",
 				position: { x: 400, y: 0 },
-				data: { title: "To booking agent", handoffAgentId: "ag_booking" },
+				data: { title: "To booking agent", handoffAgentId: "ag_booking", ...data },
 			},
 		],
 		edges: [
@@ -1388,6 +1388,43 @@ describe("handoff nodes", () => {
 		expect(recompiled.nodes.map((n) => [n.id, n.kind, n.handoffAgentId, n.exits])).toEqual(
 			original.nodes.map((n) => [n.id, n.kind, n.handoffAgentId, n.exits]),
 		);
+	});
+
+	it("compiles a handoff with say and holdSeconds into a handoff object", () => {
+		const { flow } = compileCanvas(
+			makeHandoffDoc({ say: "One moment — connecting you now.", holdSeconds: 5 }),
+			[],
+		);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toEqual({ say: "One moment — connecting you now.", holdSeconds: 5 });
+	});
+
+	it("omits the handoff key entirely when neither say nor holdSeconds is set", () => {
+		const { flow } = compileCanvas(makeHandoffDoc(), []);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toBeUndefined();
+	});
+
+	it("preserves holdSeconds of 0 (disables music) rather than dropping it as falsy", () => {
+		const { flow } = compileCanvas(makeHandoffDoc({ holdSeconds: 0 }), []);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toEqual({ holdSeconds: 0 });
+	});
+
+	it("round-trips say and holdSeconds (including 0) flow → canvas → flow", () => {
+		const original = compileCanvas(makeHandoffDoc({ say: "Hang tight.", holdSeconds: 0 }), []).flow;
+		const rebuilt = canvasFromFlow(original);
+
+		const h1 = rebuilt.nodes.find((n) => n.id === "h1");
+		expect(h1?.type).toBe("handoff");
+		if (h1?.type === "handoff") {
+			expect(h1.data?.say).toBe("Hang tight.");
+			expect(h1.data?.holdSeconds).toBe(0);
+		}
+
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		const recompiledH1 = recompiled.nodes.find((n) => n.id === "h1");
+		expect(recompiledH1?.handoff).toEqual({ say: "Hang tight.", holdSeconds: 0 });
 	});
 });
 

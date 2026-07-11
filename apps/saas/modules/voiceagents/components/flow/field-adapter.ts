@@ -23,9 +23,10 @@ import type { ContactFieldOption } from "@voiceagents/lib/contact-fields-api";
 const norm = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 
 /**
- * The "Full address" standard field's key. Picking it as an objective's
- * output field triggers the managed multi-part address collector (see
- * `newFullAddressObjectiveData` and `ObjectiveNodeEditor`) rather than just
+ * The "Full address" standard field's key. Picking it as an objective's output
+ * field marks the objective `fullAddress` and keeps it a single normal row in
+ * the builder; at compile time it expands into the managed multi-part address
+ * collector (see `expandFullAddress` / `newFullAddressObjectiveData`) rather than
  * writing a single field.
  */
 export const FULL_ADDRESS_FIELD_KEY = "contact.address";

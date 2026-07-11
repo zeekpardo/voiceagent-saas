@@ -13,7 +13,7 @@ import { decompileConversationNode } from "./nodes/conversation";
 import { newGreeterNodeData } from "./nodes/greeter";
 import { decompileHandoffNode } from "./nodes/handoff";
 import { decompileModifyTagsNode } from "./nodes/modify-tags";
-import { decompileObjectiveNode } from "./nodes/objective";
+import { collapseFullAddress, decompileObjectiveNode } from "./nodes/objective";
 import { decompileRouterNode } from "./nodes/router";
 import { decompileScenario } from "./nodes/scenario";
 import { decompileSetFieldNode } from "./nodes/set-field";
@@ -144,6 +144,28 @@ function greeterNodeAndEdges(
  * between Start and the entry node. Canvases that already have a greeter are
  * returned unchanged. Applied wherever a saved canvas is loaded (FlowTab).
  */
+/**
+ * Normalize a persisted canvas on load: collapse any managed full-address group
+ * (4 street/city/state/zip parts + aggregate) back into ONE `fullAddress`
+ * objective row, so agents saved before full address became a single row show
+ * the same clean single-row UI. No-op for canvases without such a group.
+ */
+export function collapseManagedObjectives(doc: CanvasDoc): CanvasDoc {
+	let changed = false;
+	const nodes = doc.nodes.map((node) => {
+		if (node.type !== "objective" || !node.data) {
+			return node;
+		}
+		const collapsed = collapseFullAddress(node.data.objectives);
+		if (collapsed === node.data.objectives) {
+			return node;
+		}
+		changed = true;
+		return { ...node, data: { ...node.data, objectives: collapsed } };
+	});
+	return changed ? { ...doc, nodes } : doc;
+}
+
 export function ensureGreeter(doc: CanvasDoc, greeting: string): CanvasDoc {
 	if (doc.nodes.some((n) => n.type === "greeter")) {
 		return doc;

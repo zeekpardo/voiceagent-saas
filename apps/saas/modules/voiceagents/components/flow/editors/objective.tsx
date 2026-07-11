@@ -1,13 +1,12 @@
 "use client";
 
-import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import { Textarea } from "@repo/ui/components/textarea";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
-import { makeId, newFullAddressObjectiveData } from "../compile";
+import { makeId } from "../compile";
 import { ContactWriteFieldCombobox } from "../ContactWriteFieldCombobox";
 import {
 	fieldOptionsFor,
@@ -52,43 +51,6 @@ export function ObjectiveNodeEditor({
 				<Label>Objectives</Label>
 				{data.objectives.map((objective, index) => {
 					const isComposite = isCompositeField(objective.field, fields);
-					const isManaged = !!objective.managed;
-					if (isManaged) {
-						return (
-							<div
-								key={objective.id}
-								className="gap-2 p-3 flex flex-col rounded-lg border bg-muted/30"
-							>
-								<div className="flex items-center justify-between">
-									<span className="font-medium text-xs opacity-60">
-										{objective.title || `Objective ${index + 1}`}
-									</span>
-									<span className="text-xs italic opacity-50">Managed — address capture</span>
-								</div>
-								<div className="text-xs gap-1 flex flex-col opacity-70">
-									<p>
-										<span className="opacity-50">Output variable:</span> {objective.field || "—"}
-									</p>
-									{objective.description ? (
-										<p>
-											<span className="opacity-50">Description:</span> {objective.description}
-										</p>
-									) : null}
-									{objective.aggregateOf?.length ? (
-										<p className="opacity-50">
-											Assembled from {objective.aggregateOf.length} other objective
-											{objective.aggregateOf.length === 1 ? "" : "s"} in this node, in order.
-										</p>
-									) : null}
-									<p>
-										<span className="opacity-50">Sensitivity:</span> {objective.sensitivity ?? 90} /
-										100 · <span className="opacity-50">Max attempts:</span>{" "}
-										{objective.maxAttempts ?? "Keep trying (default)"}
-									</p>
-								</div>
-							</div>
-						);
-					}
 					return (
 						<div
 							key={objective.id}
@@ -116,15 +78,16 @@ export function ObjectiveNodeEditor({
 									agentId={agentId}
 									value={fieldToKey(objective.field, fields)}
 									onChange={(key) => {
-										// Picking "Full address" swaps this single objective for the
-										// managed street/city/state/zip collector + aggregate — the same
-										// behavior the old standalone "Get Full Address" preset produced.
+										// "Full address" stays ONE normal-looking objective row (its field
+										// is the composite contact.address). The managed street/city/state/zip
+										// parts + aggregate only materialize at compile time (see
+										// expandFullAddress), so the builder shows a single clean row.
 										if (key === FULL_ADDRESS_FIELD_KEY) {
-											const managed = newFullAddressObjectiveData().objectives;
-											patch({
-												objectives: data.objectives.flatMap((o) =>
-													o.id === objective.id ? managed : [o],
-												),
+											patchObjective(objective.id, {
+												field: keyToStored(key, fields),
+												fullAddress: true,
+												options: undefined,
+												aggregateOf: undefined,
 											});
 											return;
 										}
@@ -136,6 +99,7 @@ export function ObjectiveNodeEditor({
 										patchObjective(objective.id, {
 											field: stored,
 											options: fieldOptionsFor(stored, fields),
+											fullAddress: undefined,
 										});
 									}}
 									allowEmpty

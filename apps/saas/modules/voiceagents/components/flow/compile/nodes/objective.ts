@@ -1,12 +1,68 @@
+import { FULL_ADDRESS_FIELD_KEY } from "../../field-adapter";
 import type {
 	CanvasEdgeDoc,
 	CanvasNodeDoc,
 	EngineFlowNode,
 	ObjectiveCanvasNodeDoc,
+	ObjectiveDoc,
 	ObjectiveNodeData,
 } from "../../flow-types";
 import { OBJECTIVE_NEXT_HANDLE_ID } from "../../flow-types";
 import { makeId } from "../text";
+
+/** The engine field keys the managed full-address parts write to, in order. */
+const FULL_ADDRESS_PART_FIELDS = [
+	"contact.address1",
+	"contact.city",
+	"contact.state",
+	"contact.postal_code",
+] as const;
+
+/**
+ * Expand any single "Full address" objective (`fullAddress`) into the managed
+ * street/city/state/zip parts + aggregate. The builder keeps full address as one
+ * normal-looking row; the four-part collector only materializes here at compile
+ * time, so the engine spec is unchanged. Non-full-address objectives pass through.
+ */
+export function expandFullAddress(objectives: ObjectiveDoc[]): ObjectiveDoc[] {
+	if (!objectives.some((o) => o.fullAddress)) return objectives;
+	return objectives.flatMap((o) =>
+		o.fullAddress ? newFullAddressObjectiveData().objectives : [o],
+	);
+}
+
+/**
+ * Inverse of `expandFullAddress`: fold a saved managed full-address group (four
+ * street/city/state/zip parts + a contact.address aggregate composing them) back
+ * into ONE `fullAddress` objective row. Detected purely by shape, so it collapses
+ * both older canvases (parts flagged `managed`) and flows decompiled from the
+ * engine. Generic user-built aggregates (different field / parts) are untouched.
+ */
+export function collapseFullAddress(objectives: ObjectiveDoc[]): ObjectiveDoc[] {
+	const aggregate = objectives.find(
+		(o) => o.field === FULL_ADDRESS_FIELD_KEY && !!o.aggregateOf?.length,
+	);
+	if (!aggregate?.aggregateOf) return objectives;
+	const partIds = new Set(aggregate.aggregateOf);
+	const parts = objectives.filter((o) => partIds.has(o.id));
+	const partFields = new Set(parts.map((o) => o.field));
+	const isManagedAddress =
+		parts.length === FULL_ADDRESS_PART_FIELDS.length &&
+		FULL_ADDRESS_PART_FIELDS.every((f) => partFields.has(f));
+	if (!isManagedAddress) return objectives;
+	const memberIds = new Set<string>([aggregate.id, ...partIds]);
+	const single: ObjectiveDoc = {
+		id: aggregate.id,
+		title: "Full Address",
+		description: "",
+		field: FULL_ADDRESS_FIELD_KEY,
+		fullAddress: true,
+	};
+	return objectives.flatMap((o) => {
+		if (o.id === aggregate.id) return [single];
+		return memberIds.has(o.id) ? [] : [o];
+	});
+}
 
 export function compileObjectiveNode(
 	node: ObjectiveCanvasNodeDoc & { data: ObjectiveNodeData },
@@ -17,10 +73,13 @@ export function compileObjectiveNode(
 	// objectives[]; the engine gathers them one at a time and auto-takes
 	// the single Next exit once every required objective is verified.
 	const target = targetOf(node.id, OBJECTIVE_NEXT_HANDLE_ID);
+	// Expand any single "Full address" row into its managed parts + aggregate
+	// before compiling, so the engine spec is identical to authoring them by hand.
+	const expanded = expandFullAddress(node.data.objectives);
 	// An aggregate objective composes other objectives' answers, so it may carry no
 	// own description — keep it even when the description is blank (a non-aggregate
 	// still needs a description to be judged).
-	const kept = node.data.objectives.filter((o) => o.description.trim() || o.aggregateOf?.length);
+	const kept = expanded.filter((o) => o.description.trim() || o.aggregateOf?.length);
 	// Stable slug per surviving objective, keyed by its doc id, so aggregateOf
 	// (stored as doc ids) resolves to the engine keys.
 	const slugById = new Map<string, string>();
@@ -96,6 +155,22 @@ export function decompileObjectiveNode(
 	for (const o of flowNode.objectives ?? []) {
 		idByKey.set(o.key, makeId("obj"));
 	}
+	// Collapse a managed full-address group (4 parts + aggregate) back into ONE
+	// row so it renders like every other objective (inverse of expandFullAddress).
+	const objectives = collapseFullAddress(
+		(flowNode.objectives ?? []).map((o) => ({
+			id: idByKey.get(o.key)!,
+			title: o.key,
+			description: o.description,
+			field: o.field ?? "",
+			options: o.options,
+			maxAttempts: o.maxAttempts,
+			sensitivity: o.sensitivity,
+			aggregateOf: o.aggregateOf?.length
+				? o.aggregateOf.map((k) => idByKey.get(k)).filter((id): id is string => !!id)
+				: undefined,
+		})),
+	);
 	return {
 		node: {
 			id: flowNode.id,
@@ -104,18 +179,7 @@ export function decompileObjectiveNode(
 			data: {
 				title: flowNode.name ?? flowNode.id,
 				entryMessage: flowNode.entryInstructions ?? "",
-				objectives: (flowNode.objectives ?? []).map((o) => ({
-					id: idByKey.get(o.key)!,
-					title: o.key,
-					description: o.description,
-					field: o.field ?? "",
-					options: o.options,
-					maxAttempts: o.maxAttempts,
-					sensitivity: o.sensitivity,
-					aggregateOf: o.aggregateOf?.length
-						? o.aggregateOf.map((k) => idByKey.get(k)).filter((id): id is string => !!id)
-						: undefined,
-				})),
+				objectives,
 			},
 		},
 		edges,
@@ -134,10 +198,10 @@ export function newObjectiveNodeData(): ObjectiveNodeData {
 /**
  * The managed "Full address" objective set — a platform-managed composite: four
  * part objectives (street/city/state/zip) plus an aggregate that assembles
- * them into contact.address once every part is met. All five are `managed`,
- * so the editor renders them read-only (see ObjectiveNodeEditor). Applied when
- * the user picks "Full address" as an objective's output field (see
- * ObjectiveNodeEditor's field-pick handler) — not a standalone palette item.
+ * them into contact.address once every part is met. All five are `managed`.
+ * This is the COMPILE-TIME expansion of a single `fullAddress` objective row
+ * (see `expandFullAddress`): the builder shows one clean row, and these parts
+ * only materialize when compiling to the engine spec — never in the editor.
  */
 export function newFullAddressObjectiveData(): ObjectiveNodeData {
 	const streetId = makeId("obj");

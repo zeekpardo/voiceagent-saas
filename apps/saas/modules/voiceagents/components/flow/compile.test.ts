@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	canvasFromFlow,
+	collapseManagedObjectives,
 	compileCanvas,
 	ensureGreeter,
 	extractVariableNames,
@@ -14,7 +15,7 @@ import {
 	tiptapToText,
 	validateFlowDoc,
 } from "./compile";
-import type { CanvasDoc } from "./flow-types";
+import type { CanvasDoc, ObjectiveNodeData } from "./flow-types";
 import {
 	FALSE_HANDLE_ID,
 	GREETER_NEXT_HANDLE_ID,
@@ -1080,8 +1081,39 @@ describe("aggregate objectives", () => {
 	});
 });
 
-describe("Get Full Address preset", () => {
+describe("Full address objective", () => {
+	// A single "Full address" objective row (fullAddress) — the builder keeps ONE
+	// normal-looking row; the managed 4-part collector materializes at COMPILE time.
 	function makeFullAddressDoc(): CanvasDoc {
+		return {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				{
+					id: "obj1",
+					type: "objective",
+					position: { x: 100, y: 0 },
+					data: {
+						title: "Get Full Address",
+						entryMessage: "",
+						objectives: [
+							{
+								id: "o_addr",
+								title: "Full Address",
+								description: "",
+								field: "Full Address",
+								fullAddress: true,
+							},
+						],
+					},
+				},
+			],
+			edges: [{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "obj1" }],
+		};
+	}
+
+	/** Objective node whose data is the managed 4-part + aggregate set authored by hand. */
+	function makeManagedDoc(): CanvasDoc {
 		return {
 			version: 1,
 			nodes: [
@@ -1097,7 +1129,7 @@ describe("Get Full Address preset", () => {
 		};
 	}
 
-	it("produces 4 managed parts + 1 managed aggregate on the canvas", () => {
+	it("newFullAddressObjectiveData is still 4 managed parts + 1 managed aggregate (expansion source)", () => {
 		const data = newFullAddressObjectiveData();
 		expect(data.objectives).toHaveLength(5);
 		expect(data.objectives.every((o) => o.managed)).toBe(true);
@@ -1108,7 +1140,7 @@ describe("Get Full Address preset", () => {
 		expect(aggregate.aggregateOf).toEqual(partIds);
 	});
 
-	it("compiles to 4 parts + 1 aggregate whose aggregateOf references the 4 parts' engine keys", () => {
+	it("a SINGLE full-address row compiles to 4 parts + 1 aggregate referencing the parts' engine keys", () => {
 		const { flow } = compileCanvas(makeFullAddressDoc(), []);
 		const node = flow.nodes.find((n) => n.id === "obj1")!;
 		expect(node.objectives).toHaveLength(5);
@@ -1119,14 +1151,42 @@ describe("Get Full Address preset", () => {
 		expect(aggregate.field).toBe("contact.address");
 	});
 
-	it("strips `managed` from the compiled engine objectives — canvas-only metadata", () => {
+	it("compiles byte-identically to authoring the managed 4-part + aggregate objectives by hand", () => {
+		const single = compileCanvas(makeFullAddressDoc(), []).flow.nodes.find((n) => n.id === "obj1")!;
+		const managed = compileCanvas(makeManagedDoc(), []).flow.nodes.find((n) => n.id === "obj1")!;
+		expect(single).toEqual(managed);
+	});
+
+	it("strips canvas-only metadata (managed/fullAddress) from the compiled engine objectives", () => {
 		const { flow } = compileCanvas(makeFullAddressDoc(), []);
 		const node = flow.nodes.find((n) => n.id === "obj1")!;
 		for (const objective of node.objectives!) {
 			expect(objective).not.toHaveProperty("managed");
+			expect(objective).not.toHaveProperty("fullAddress");
 		}
-		// Also confirm it isn't hiding under JSON serialization (belt and suspenders).
 		expect(JSON.stringify(flow)).not.toContain("managed");
+		expect(JSON.stringify(flow)).not.toContain("fullAddress");
+	});
+
+	it("round-trips: compile then decompile collapses the 4-part group back to ONE full-address row", () => {
+		const flow = compileCanvas(makeFullAddressDoc(), []).flow;
+		const rebuilt = canvasFromFlow(flow);
+		const objectives = (rebuilt.nodes.find((n) => n.id === "obj1")!.data as ObjectiveNodeData)
+			.objectives;
+		expect(objectives).toHaveLength(1);
+		expect(objectives[0].fullAddress).toBe(true);
+		expect(objectives[0].field).toBe("contact.address");
+		// ...and it recompiles to the identical engine spec.
+		const recompiled = compileCanvas(rebuilt, []).flow.nodes.find((n) => n.id === "obj1")!;
+		expect(recompiled.objectives).toEqual(flow.nodes.find((n) => n.id === "obj1")!.objectives);
+	});
+
+	it("collapseManagedObjectives folds a saved managed 4-part canvas back to ONE row", () => {
+		const collapsed = collapseManagedObjectives(makeManagedDoc());
+		const objectives = (collapsed.nodes[1].data as ObjectiveNodeData).objectives;
+		expect(objectives).toHaveLength(1);
+		expect(objectives[0].fullAddress).toBe(true);
+		expect(objectives[0].field).toBe("contact.address");
 	});
 });
 

@@ -89,6 +89,27 @@ describe("config-crypto with a configured key", () => {
 		expect(openSourceConfig(legacy)).toEqual(legacy);
 	});
 
+	it("re-seals a rotated secret while leaving an already-sealed one untouched", () => {
+		// Mirrors token rotation: the provider hands back a config whose
+		// refreshToken is still the sealed value it was given and whose
+		// accessToken is a freshly-rotated plaintext. sealSourceConfig must seal
+		// the new one without double-sealing the old.
+		const sealedRefresh = encryptSourceSecret("refresh-original");
+		const resealed = sealSourceConfig({
+			locationId: "loc_1",
+			accessToken: "access-rotated",
+			refreshToken: sealedRefresh,
+		});
+
+		expect(resealed.refreshToken).toBe(sealedRefresh);
+		expect(resealed.accessToken.startsWith("enc:v1:")).toBe(true);
+		expect(openSourceConfig(resealed)).toEqual({
+			locationId: "loc_1",
+			accessToken: "access-rotated",
+			refreshToken: "refresh-original",
+		});
+	});
+
 	it("reports secret presence and sealed status", () => {
 		expect(configHasSecrets({ locationId: "loc_1" })).toBe(false);
 		expect(configHasSecrets({ accessToken: "abc" })).toBe(true);
@@ -124,5 +145,17 @@ describe("config-crypto without a key (dev passthrough)", () => {
 		} finally {
 			vi.stubEnv("NODE_ENV", prev ?? "test");
 		}
+	});
+
+	it("refuses to silently expose an encrypted secret when the key is missing", () => {
+		// If a row was sealed with a key that later went missing, decrypting must
+		// fail loudly rather than hand back the ciphertext envelope as if it were
+		// the token. Legacy plaintext still passes through (no enc: prefix).
+		const enc = "enc:v1:aXY:Y3Q:dGFn";
+		expect(() => decryptSourceSecret(enc)).toThrow(/SOURCE_ENCRYPTION_KEY is not set/);
+		expect(() => openSourceConfig({ accessToken: enc })).toThrow(
+			/SOURCE_ENCRYPTION_KEY is not set/,
+		);
+		expect(openSourceConfig({ accessToken: "legacy-plain" }).accessToken).toBe("legacy-plain");
 	});
 });

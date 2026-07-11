@@ -53,6 +53,7 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 		postCall: {
 			summarize: c.postCall?.summarize ?? true,
 			summaryField: typeof c.postCall?.summaryField === "string" ? c.postCall.summaryField : null,
+			writeNote: typeof c.postCall?.writeNote === "boolean" ? c.postCall.writeNote : true,
 		},
 	});
 	if (!agent) {

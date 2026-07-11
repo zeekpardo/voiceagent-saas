@@ -56,24 +56,32 @@ export interface SyncResult {
 }
 
 /**
- * The agent's configured summary-write target: the CRM contact-field KEY the
- * call summary should be written to (post-call). Lives on the agent config
- * under postCall.summaryField (a SaaS-side sync target the engine round-trips
- * but never reads). Fetched fresh per sync because the webhook caller only has
- * the completed-call event, not the agent. Failure-isolated — a gateway hiccup
- * here must never break the rest of the sync.
+ * The agent's post-call output preferences that live on the agent config under
+ * `postCall` (SaaS-side sync targets the engine round-trips but never reads):
+ * - `summaryField`: the CRM contact-field KEY the call summary is written to.
+ * - `writeNote`: whether to post a timeline note to the contact. Undefined when
+ *   the agent predates the per-agent control — the caller falls back to the
+ *   per-source VoiceAgentSource.writeNote in that case.
+ * Fetched fresh per sync because the webhook caller only has the completed-call
+ * event, not the agent. Failure-isolated — a gateway hiccup here must never
+ * break the rest of the sync.
  */
-async function resolveSummaryField(agentId: string): Promise<string | undefined> {
+async function resolvePostCallPrefs(
+	agentId: string,
+): Promise<{ summaryField?: string; writeNote?: boolean }> {
 	try {
-		const agent = await gatewayFetch<{ config?: { postCall?: { summaryField?: unknown } } }>(
-			"GET",
-			`/v1/agents/${encodeURIComponent(agentId)}`,
-		);
+		const agent = await gatewayFetch<{
+			config?: { postCall?: { summaryField?: unknown; writeNote?: unknown } };
+		}>("GET", `/v1/agents/${encodeURIComponent(agentId)}`);
 		const field = agent.config?.postCall?.summaryField;
-		return typeof field === "string" && field.length > 0 ? field : undefined;
+		const writeNote = agent.config?.postCall?.writeNote;
+		return {
+			summaryField: typeof field === "string" && field.length > 0 ? field : undefined,
+			writeNote: typeof writeNote === "boolean" ? writeNote : undefined,
+		};
 	} catch (err) {
-		console.warn(`[crm-sync] could not load agent ${agentId} for summaryField`, err);
-		return undefined;
+		console.warn(`[crm-sync] could not load agent ${agentId} for post-call prefs`, err);
+		return {};
 	}
 }
 
@@ -178,7 +186,11 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 	//     (create-if-missing) exactly like every other mapping. Failure-isolated:
 	//     a summary-write error never breaks the rest of the sync.
 	let summaryWritten = false;
-	const summaryField = await resolveSummaryField(event.agent_id);
+	const postCallPrefs = await resolvePostCallPrefs(event.agent_id);
+	const summaryField = postCallPrefs.summaryField;
+	// Per-agent Call-notes preference wins; fall back to the legacy per-source
+	// flag for agents that predate the Preferences panel.
+	const writeNote = postCallPrefs.writeNote ?? mapping.writeNote;
 	if (summaryField && event.summary) {
 		try {
 			const written = await applyFieldMappings(
@@ -194,7 +206,7 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 	}
 
 	// 4. Timeline note with the call summary + outcomes.
-	if (mapping.writeNote && (event.summary || fieldsWritten > 0)) {
+	if (writeNote && (event.summary || fieldsWritten > 0)) {
 		const lines = [
 			`🎙 AI voice call completed (${event.duration_seconds ?? 0}s, ${event.end_reason ?? "ended"})`,
 			event.summary ? `\n${event.summary}` : "",
@@ -216,7 +228,7 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 		fieldsUpdated: fieldsWritten,
 		tagsAdded: tags,
 		stagesMoved,
-		noteWritten: mapping.writeNote,
+		noteWritten: writeNote,
 		summaryWritten,
 	};
 }

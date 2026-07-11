@@ -10,10 +10,10 @@ import { useForm } from "react-hook-form";
 
 import { toFormValues } from "../lib/agent-form-mapping";
 import { useCreateAgentMutation, useUpdateAgentMutation } from "../lib/api";
-import { AfterCallSection } from "./agent-form/AfterCallSection";
 import { ConversationDynamicsSection } from "./agent-form/ConversationDynamicsSection";
 import { IdentityPersonaSection } from "./agent-form/IdentityPersonaSection";
 import { JobInformationSection } from "./agent-form/JobInformationSection";
+import { PreferencesSection } from "./agent-form/PreferencesSection";
 import { VoiceModelSection } from "./agent-form/VoiceModelSection";
 
 // Re-exported for flow/NodeEditorPanel.tsx, which shares these catalogs when
@@ -26,11 +26,13 @@ interface AgentFormProps {
 	 * Which slice of the form to render. The form always hydrates and submits
 	 * the FULL config regardless of variant, so saving one slice never loses
 	 * the other's fields.
-	 * - "job": only Instructions, Greeting and Prohibited words.
-	 * - "settings": everything except those three fields.
+	 * - "job": Instructions, Guardrails (Greeting is owned by the Greeter node).
+	 * - "settings": Identity/Persona, Voice/Model, Conversation dynamics.
+	 * - "preferences": post-call CRM outputs (summarize, summary field, call note)
+	 *   and word rules (prohibited words).
 	 * - undefined: the whole form (e.g. the create page).
 	 */
-	variant?: "job" | "settings";
+	variant?: "job" | "settings" | "preferences";
 }
 
 export function AgentForm({ agent, variant }: AgentFormProps) {
@@ -77,6 +79,22 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 		);
 	}
 
+	if (variant === "preferences") {
+		return (
+			<Form {...form}>
+				<form onSubmit={onSubmit} className="gap-6 flex flex-col">
+					<PreferencesSection form={form} agentId={agent?.id} />
+
+					<div className="gap-3 flex justify-end">
+						<Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
+							{agent ? "Save changes" : "Create agent"}
+						</Button>
+					</div>
+				</form>
+			</Form>
+		);
+	}
+
 	return (
 		<Form {...form}>
 			{/* @container: grids below split into two columns only when the FORM
@@ -86,7 +104,6 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 				<IdentityPersonaSection form={form} variant={variant} />
 				<VoiceModelSection form={form} />
 				<ConversationDynamicsSection form={form} />
-				<AfterCallSection form={form} agentId={agent?.id} />
 
 				<div className="gap-3 flex justify-end">
 					<Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>

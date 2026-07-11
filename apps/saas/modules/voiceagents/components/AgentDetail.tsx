@@ -18,6 +18,7 @@ import {
 	HistoryIcon,
 	type LucideIcon,
 	SettingsIcon,
+	SlidersHorizontalIcon,
 	SparklesIcon,
 	WrenchIcon,
 	XIcon,
@@ -40,7 +41,15 @@ import { TestPortal } from "./TestPortal";
 import { ToolsTab } from "./ToolsTab";
 import { VersionHistoryPanel } from "./VersionHistoryPanel";
 
-type WorkspacePanel = "actions" | "job" | "agent" | "personas" | "tools" | "sources" | "history";
+type WorkspacePanel =
+	| "actions"
+	| "job"
+	| "agent"
+	| "preferences"
+	| "personas"
+	| "tools"
+	| "sources"
+	| "history";
 
 const PANEL_META: Record<WorkspacePanel, { title: string; description: string }> = {
 	actions: {
@@ -53,7 +62,11 @@ const PANEL_META: Record<WorkspacePanel, { title: string; description: string }>
 	},
 	agent: {
 		title: "Agent settings",
-		description: "Model, voice, timing, and extraction.",
+		description: "Model, voice, and timing.",
+	},
+	preferences: {
+		title: "Preferences",
+		description: "What happens after the call in your CRM, plus word rules.",
 	},
 	personas: {
 		title: "Personas",
@@ -202,6 +215,7 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							)}
 							{activePanel === "job" && <AgentForm agent={agent} variant="job" />}
 							{activePanel === "agent" && <AgentForm agent={agent} variant="settings" />}
+							{activePanel === "preferences" && <AgentForm agent={agent} variant="preferences" />}
 							{activePanel === "personas" && <PersonasPanel agent={agent} />}
 							{activePanel === "tools" && (
 								<ToolsTab agentId={agent.id} agentConfig={agent.config} />
@@ -237,6 +251,13 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							label="Agent settings"
 							isActive={activePanel === "agent"}
 							onClick={() => togglePanel("agent")}
+						/>
+						<div className="my-1 w-6 h-px bg-border" />
+						<RailButton
+							icon={SlidersHorizontalIcon}
+							label="Preferences"
+							isActive={activePanel === "preferences"}
+							onClick={() => togglePanel("preferences")}
 						/>
 						<div className="my-1 w-6 h-px bg-border" />
 						<RailButton

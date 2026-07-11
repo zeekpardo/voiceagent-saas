@@ -376,7 +376,6 @@ function SourceDetail({
 
 	// Hydrate once per mount — the component is keyed by sourceId.
 	const [enabled, setEnabled] = useState(() => mapping?.enabled ?? true);
-	const [writeNote, setWriteNote] = useState(() => mapping?.writeNote ?? true);
 	// Per extractField: the picked contact field (key + label). Legacy saved
 	// mappings may only have crmFieldId/crmFieldName or standardField — resolve
 	// those to a best-effort key/label so the picker preselects correctly.
@@ -473,7 +472,6 @@ function SourceDetail({
 			await saveMutation.mutateAsync({
 				sourceId,
 				enabled,
-				writeNote,
 				fieldMappings: Object.entries(fieldMap)
 					.filter(([, m]) => m.contactField)
 					.map(([extractField, m]) => ({
@@ -745,15 +743,6 @@ function SourceDetail({
 						<p className="text-xs text-muted-foreground opacity-70">
 							Keep this URL secret — anyone who has it can place calls with this agent.
 						</p>
-					</div>
-				</Section>
-
-				<Section title="Call notes" defaultOpen={false}>
-					<div className="gap-3 flex items-center justify-between">
-						<p className="text-xs text-muted-foreground">
-							Write a summary + captured values to the contact's timeline after each call.
-						</p>
-						<Switch checked={writeNote} onCheckedChange={setWriteNote} />
 					</div>
 				</Section>
 			</div>

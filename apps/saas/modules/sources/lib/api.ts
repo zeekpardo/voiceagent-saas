@@ -1,5 +1,10 @@
 "use client";
 
+import type {
+	WidgetAppearance,
+	WidgetBehavior,
+	WidgetTargeting,
+} from "@repo/api/modules/voiceagents/lib/widget-config";
 import type { GatewayCall } from "@repo/api/modules/voiceagents/procedures/calls";
 import { orpcClient } from "@shared/lib/orpc-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -334,5 +339,72 @@ export function useContactMatchQuery(call: GatewayCall | null) {
 			}),
 		enabled: !!call && (!!contactId || !!phone),
 		staleTime: 5 * 60 * 1000,
+	});
+}
+
+// ---------------------------------------------------------------- website widgets (Studio)
+
+/** A saved Website Widget as served by the oRPC `sources.widgets` procedures. */
+export interface SourceWidgetDto {
+	id: string;
+	sourceId: string;
+	agentId: string;
+	name: string;
+	enabled: boolean;
+	token: string;
+	origins: string[];
+	appearance: WidgetAppearance;
+	targeting: WidgetTargeting;
+	behavior: WidgetBehavior;
+	createdAt: string | Date;
+	updatedAt: string | Date;
+}
+
+export const sourceWidgetsQueryKey = (sourceId: string) =>
+	["sources", sourceId, "widgets"] as const;
+
+export function useSourceWidgetsQuery(sourceId: string) {
+	return useQuery({
+		queryKey: sourceWidgetsQueryKey(sourceId),
+		queryFn: () => orpcClient.sources.widgets.list({ sourceId }),
+	});
+}
+
+export function useCreateWidgetMutation(sourceId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: { agentId: string; name: string }) =>
+			orpcClient.sources.widgets.create({ sourceId, ...input }),
+		onSuccess: () =>
+			void queryClient.invalidateQueries({ queryKey: sourceWidgetsQueryKey(sourceId) }),
+	});
+}
+
+export interface UpdateWidgetInput {
+	id: string;
+	name?: string;
+	agentId?: string;
+	enabled?: boolean;
+	origins?: string[];
+	appearance?: Partial<WidgetAppearance>;
+	targeting?: WidgetTargeting;
+	behavior?: WidgetBehavior;
+}
+
+export function useUpdateWidgetMutation(sourceId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: UpdateWidgetInput) => orpcClient.sources.widgets.update(input),
+		onSuccess: () =>
+			void queryClient.invalidateQueries({ queryKey: sourceWidgetsQueryKey(sourceId) }),
+	});
+}
+
+export function useRemoveWidgetMutation(sourceId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => orpcClient.sources.widgets.remove({ id }),
+		onSuccess: () =>
+			void queryClient.invalidateQueries({ queryKey: sourceWidgetsQueryKey(sourceId) }),
 	});
 }

@@ -57,7 +57,7 @@
 			.join(".*");
 		try {
 			return new RegExp(escaped).test(haystack);
-		} catch (e) {
+		} catch {
 			return false;
 		}
 	}
@@ -261,7 +261,7 @@
 		var already = false;
 		try {
 			already = sessionStorage.getItem(key) === "1";
-		} catch (e) {
+		} catch {
 			already = false;
 		}
 
@@ -289,7 +289,7 @@
 		function autoOpen() {
 			try {
 				sessionStorage.setItem(key, "1");
-			} catch (e) {
+			} catch {
 				/* ignore */
 			}
 			cancelTriggers();

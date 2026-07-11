@@ -18,6 +18,7 @@ import {
 } from "../../lib/api";
 import {
 	canvasFromFlow,
+	collapseManagedObjectives,
 	compileCanvas,
 	ensureGreeter,
 	extractVariableNames,
@@ -82,11 +83,11 @@ export function FlowTab({
 		const draftCanvas = draftConfig?.canvas;
 		const savedDraftCanvas = canvasDocSchema.safeParse(draftCanvas);
 		if (savedDraftCanvas.success) {
-			return ensureGreeter(savedDraftCanvas.data, draftGreeting);
+			return ensureGreeter(collapseManagedObjectives(savedDraftCanvas.data), draftGreeting);
 		}
 		const savedCanvas = canvasDocSchema.safeParse(config.canvas);
 		if (savedCanvas.success) {
-			return ensureGreeter(savedCanvas.data, publishedGreeting);
+			return ensureGreeter(collapseManagedObjectives(savedCanvas.data), publishedGreeting);
 		}
 		const savedFlow = engineFlowSchema.safeParse(config.flow);
 		if (savedFlow.success) {

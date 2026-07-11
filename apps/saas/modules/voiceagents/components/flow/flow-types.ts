@@ -171,6 +171,15 @@ export interface ObjectiveDoc {
 	 * to the engine.
 	 */
 	managed?: boolean;
+	/**
+	 * A single "Full address" objective. Rendered as ONE normal objective row in
+	 * the builder (its `field` is the composite contact.address). At COMPILE time
+	 * it expands into the managed street/city/state/zip parts + aggregate (see
+	 * `expandFullAddress`/`newFullAddressObjectiveData`); on load the reverse
+	 * `collapseFullAddress` folds a saved 4-part group back into this one row.
+	 * Canvas-only — never sent to the engine.
+	 */
+	fullAddress?: boolean;
 }
 
 export interface ObjectiveNodeData {
@@ -573,6 +582,7 @@ export const objectiveNodeDataSchema = z.object({
 			sensitivity: z.number().optional(),
 			aggregateOf: z.array(z.string()).optional(),
 			managed: z.boolean().optional(),
+			fullAddress: z.boolean().optional(),
 		}),
 	),
 });

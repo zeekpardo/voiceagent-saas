@@ -7,7 +7,7 @@ import {
 } from "../compile/nodes/objective";
 import { ObjectiveNodeEditor } from "../editors/objective";
 import type { ObjectiveCanvasNodeDoc, ObjectiveDoc, ObjectiveNodeData } from "../flow-types";
-import { objectiveNodeDataSchema } from "../flow-types";
+import { OBJECTIVE_NEXT_HANDLE_ID, objectiveNodeDataSchema } from "../flow-types";
 import { ObjectiveNode } from "../ObjectiveNode";
 import { defineKind } from "./types";
 
@@ -71,7 +71,7 @@ export const objectiveKind = defineKind<ObjectiveNodeData>({
 		},
 	},
 	newData: () => newObjectiveNodeData(),
-	sourceHandles: () => new Set(),
+	sourceHandles: () => new Set([OBJECTIVE_NEXT_HANDLE_ID]),
 	edgeLabel: () => undefined,
 	compile: (node, { entry, targetOf }) => ({
 		node: compileObjectiveNode(

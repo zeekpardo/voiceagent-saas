@@ -23,6 +23,7 @@ import { Skeleton } from "@repo/ui/components/skeleton";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { avatarClasses, initials } from "@shared/lib/avatar";
 import { SourcePhoneNumbers } from "@sources/components/SourcePhoneNumbers";
+import { SourceUsageCard } from "@sources/components/SourceUsageCard";
 import { useDisconnectSourceMutation, useSourceQuery } from "@sources/lib/api";
 import { ArrowLeftIcon, Unlink2Icon } from "lucide-react";
 import Link from "next/link";
@@ -133,6 +134,16 @@ export function SourceDetail({ sourceId }: { sourceId: string }) {
 							Sources page.
 						</p>
 					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Usage</CardTitle>
+					<CardDescription>Call volume routed through this source.</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<SourceUsageCard sourceId={sourceId} />
 				</CardContent>
 			</Card>
 

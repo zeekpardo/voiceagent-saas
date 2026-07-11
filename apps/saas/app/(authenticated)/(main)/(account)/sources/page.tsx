@@ -1,6 +1,7 @@
 import { PageHeader } from "@shared/components/PageHeader";
 import { SourcesStatsCards } from "@sources/components/SourcesStatsCards";
 import { SourcesTable } from "@sources/components/SourcesTable";
+import { SourcesUsageSummary } from "@sources/components/SourcesUsageSummary";
 
 export default async function SourcesPage() {
 	return (
@@ -10,6 +11,7 @@ export default async function SourcesPage() {
 			<div className="mb-6">
 				<SourcesStatsCards />
 			</div>
+			<SourcesUsageSummary />
 			<div className="min-h-0 flex-1">
 				<SourcesTable />
 			</div>

@@ -18,6 +18,7 @@ import {
 	prettifyVariable,
 	sanitizeExitName,
 } from "./compile";
+import type { FlowNodeKind } from "./flow-types";
 
 /**
  * CloseBot-style mention chips: one Mention extension with three triggers —
@@ -479,6 +480,12 @@ const PILL_ICON_SHAPES: Record<string, [string, Record<string, string>][]> = {
 		["path", { d: "M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" }],
 		["path", { d: "M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" }],
 	],
+	// lucide "workflow" — the Nodes group (a prior node's runtime outcome).
+	Nodes: [
+		["rect", { width: "8", height: "8", x: "3", y: "3", rx: "2" }],
+		["path", { d: "M7 11v4a2 2 0 0 0 2 2h4" }],
+		["rect", { width: "8", height: "8", x: "13", y: "13", rx: "2" }],
+	],
 };
 
 /** DOM spec for a pill's group icon (namespaced so ProseMirror emits real SVG). */
@@ -608,4 +615,108 @@ export function buildVariableItems(
 			sub: `{{${name}}}`,
 		})),
 	];
+}
+
+/* ----------------------------------------------------------------------------
+ * Nodes group (CloseBot "Nodes" variables, Tier 1 — context-feeding only).
+ *
+ * Each flow node exposes its runtime outcome as insertable {{variables}} so
+ * LATER nodes can reference a prior node's result in prompts / statements /
+ * entry messages. The picker renders a pretty `<NodeTitle>.Result` label but
+ * inserts an ID-BASED token so renaming a node's title never breaks references.
+ *
+ * TOKEN CONTRACT — identical to the engine's worker/src/flow/context.ts
+ * nodeResultVarName() (its `slugify` is byte-identical to sanitizeExitName here):
+ *   node_<slug>_result      objective: captured answer(s); agent/conversation: exit taken
+ *   node_<slug>_attempts    caller turns spent at the node
+ *   node_<slug>_succeeded   "true" | "false"
+ *   where slug = sanitizeExitName(nodeId)
+ * -------------------------------------------------------------------------- */
+
+export type NodeResultSuffix = "result" | "attempts" | "succeeded";
+
+const NODE_RESULT_SUFFIX_LABEL: Record<NodeResultSuffix, string> = {
+	result: "Result",
+	attempts: "Attempts",
+	succeeded: "Succeeded",
+};
+
+/**
+ * Which result sub-entries each canvas node kind exposes. Only kinds that
+ * resolve to a REAL runtime value at call time are listed — the engine populates
+ * a node's variables when it becomes an agent (plain agent, objective,
+ * conversation). Deterministic inline kinds (statement / set_field / router-based
+ * true-false & switch / transfer / booking …) produce no natural per-node value,
+ * so no dead tokens are offered for them.
+ */
+const NODE_RESULT_KIND_SUFFIXES: Partial<Record<FlowNodeKind, NodeResultSuffix[]>> = {
+	agent: ["result", "attempts", "succeeded"],
+	objective: ["result", "attempts", "succeeded"],
+	conversation: ["result", "attempts", "succeeded"],
+};
+
+/** The engine-matching interpolation token for a node outcome (ID-based, stable). */
+export function nodeResultVarName(nodeId: string, suffix: NodeResultSuffix): string {
+	return `node_${sanitizeExitName(nodeId)}_${suffix}`;
+}
+
+/** A node the current flow contains (canvas ref: id + kind + display title). */
+export interface FlowNodeRef {
+	id: string;
+	kind: FlowNodeKind;
+	title: string;
+}
+
+/** One picker entry for a node-result token (title + suffix carried separately
+ * so both the rail-panel and @-mention label shapes can be built from it). */
+export interface NodeResultEntry {
+	name: string;
+	nodeTitle: string;
+	suffixLabel: string;
+}
+
+/**
+ * Structured node-result entries for the flow's nodes. `excludeNodeId` drops the
+ * node currently being edited (a node referencing its own result is a no-op that
+ * would only confuse). Kinds with no runtime value are skipped.
+ */
+export function nodeResultEntries(
+	nodes: FlowNodeRef[],
+	excludeNodeId?: string | null,
+): NodeResultEntry[] {
+	const entries: NodeResultEntry[] = [];
+	for (const node of nodes) {
+		const suffixes = NODE_RESULT_KIND_SUFFIXES[node.kind];
+		if (!suffixes) {
+			continue;
+		}
+		if (excludeNodeId && node.id === excludeNodeId) {
+			continue;
+		}
+		const title = node.title.trim() || "Untitled node";
+		for (const suffix of suffixes) {
+			entries.push({
+				name: nodeResultVarName(node.id, suffix),
+				nodeTitle: title,
+				suffixLabel: NODE_RESULT_SUFFIX_LABEL[suffix],
+			});
+		}
+	}
+	return entries;
+}
+
+/**
+ * Node-result mention items for the agent-prompt editors' @-suggestion list +
+ * chip rendering (grouped under "Nodes."). The single-field pill editors instead
+ * build a FieldPickerGroup from nodeResultEntries directly (see FieldPicker).
+ */
+export function buildNodeResultItems(
+	nodes: FlowNodeRef[],
+	excludeNodeId?: string | null,
+): MentionItem[] {
+	return nodeResultEntries(nodes, excludeNodeId).map((entry) => ({
+		id: entry.name,
+		label: `Nodes.${entry.nodeTitle}.${entry.suffixLabel}`,
+		sub: `{{${entry.name}}}`,
+	}));
 }

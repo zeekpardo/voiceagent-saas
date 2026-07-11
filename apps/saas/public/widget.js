@@ -8,6 +8,9 @@
  *           data-position="left|right"     (default right)
  *           data-accent="#6366f1"          (any CSS color)
  *           data-target="#voice-widget"    (required for card)
+ *           data-visualizer="bars|pulse|waveform|dots"  (default bars)
+ *           data-voice="false"             (disable the voice experience)
+ *           data-chat="false"              (disable the text/chat experience)
  *           async></script>
  *
  * The loader draws lightweight chrome (launcher button / drawer tab / bar)
@@ -37,6 +40,10 @@
 	var position = script.getAttribute("data-position") === "left" ? "left" : "right";
 	var accent = script.getAttribute("data-accent") || "#6366f1";
 	var target = script.getAttribute("data-target");
+	var visualizer = script.getAttribute("data-visualizer") || "bars";
+	if (["bars", "pulse", "waveform", "dots"].indexOf(visualizer) === -1) visualizer = "bars";
+	var voiceEnabled = script.getAttribute("data-voice") !== "false";
+	var chatEnabled = script.getAttribute("data-chat") !== "false";
 
 	var Z = "2147483000";
 	var isOpen = false;
@@ -51,7 +58,11 @@
 			"&style=" +
 			encodeURIComponent(style) +
 			"&accent=" +
-			encodeURIComponent(accent);
+			encodeURIComponent(accent) +
+			"&visualizer=" +
+			encodeURIComponent(visualizer) +
+			(voiceEnabled ? "" : "&voice=false") +
+			(chatEnabled ? "" : "&chat=false");
 		frame.allow = "microphone; autoplay";
 		frame.title = "Voice assistant";
 		frame.style.cssText =

@@ -1,6 +1,12 @@
 "use client";
 
-import { BarVisualizer, RoomContext, useVoiceAssistant } from "@livekit/components-react";
+import {
+	BarVisualizer,
+	RoomContext,
+	useMultibandTrackVolume,
+	useTrackVolume,
+	useVoiceAssistant,
+} from "@livekit/components-react";
 import { cn } from "@repo/ui";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
@@ -20,7 +26,12 @@ import {
 	type AgentSessionInfo,
 	useAgentRoomSession,
 } from "../../hooks/use-agent-room-session";
-import type { WidgetStyle } from "../../lib/widget-snippet";
+import {
+	resolveWidgetChannels,
+	type WidgetChannel,
+	type WidgetStyle,
+	type WidgetVisualizer,
+} from "../../lib/widget-snippet";
 
 /**
  * The embeddable widget's UI — a restyled, anonymous cousin of TestPortal.

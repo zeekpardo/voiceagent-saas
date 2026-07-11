@@ -7,11 +7,26 @@
 
 export type WidgetStyle = "bubble" | "card" | "panel" | "bar";
 export type WidgetPosition = "left" | "right";
+export type WidgetVisualizer = "bars" | "pulse" | "waveform" | "dots";
+
+/** The two experiences a widget can offer a visitor. Internally the room hook
+ *  calls the chat experience "text"; the embed attr/param is "chat". */
+export type WidgetChannel = "voice" | "text";
+
+export const WIDGET_VISUALIZERS: readonly WidgetVisualizer[] = [
+	"bars",
+	"pulse",
+	"waveform",
+	"dots",
+];
 
 export const WIDGET_DEFAULTS = {
 	style: "bubble" as WidgetStyle,
 	position: "right" as WidgetPosition,
 	accent: "#6366f1",
+	visualizer: "bars" as WidgetVisualizer,
+	voice: true,
+	chat: true,
 };
 
 export interface WidgetSnippetOptions {
@@ -23,6 +38,12 @@ export interface WidgetSnippetOptions {
 	accent?: string;
 	/** CSS selector of the host element — required by the card style. */
 	target?: string;
+	/** Voice-mode visualizer style (default "bars"). */
+	visualizer?: WidgetVisualizer;
+	/** Whether the widget offers a voice experience (default true). */
+	voice?: boolean;
+	/** Whether the widget offers a text/chat experience (default true). */
+	chat?: boolean;
 }
 
 function escapeAttribute(value: string): string {
@@ -55,7 +76,39 @@ export function composeWidgetSnippet(options: WidgetSnippetOptions): string {
 	if (style === "card") {
 		attrs.push(`data-target="${escapeAttribute(options.target?.trim() || "#voice-widget")}"`);
 	}
+	const visualizer = options.visualizer ?? WIDGET_DEFAULTS.visualizer;
+	if (visualizer !== WIDGET_DEFAULTS.visualizer) {
+		attrs.push(`data-visualizer="${visualizer}"`);
+	}
+	// Mode toggles ride along only when a mode is turned OFF — the default is
+	// "both on", so the minimal snippet stays minimal.
+	if (options.voice === false) {
+		attrs.push(`data-voice="false"`);
+	}
+	if (options.chat === false) {
+		attrs.push(`data-chat="false"`);
+	}
 	return `<script ${attrs.join(" ")} async></script>`;
+}
+
+/**
+ * Which channels the widget can actually offer a visitor: the intersection of
+ * what the embed enables (its voice/chat attrs) and what the agent allows
+ * server-side (`modes` returned by /api/widget/session). Pure so it can be
+ * unit-tested and shared by the widget app.
+ *
+ * `serverModes` is null before the first session attempt tells us the agent's
+ * allowed channels — until then we trust the embed's own configuration.
+ */
+export function resolveWidgetChannels(
+	offered: { voice: boolean; chat: boolean },
+	serverModes: readonly WidgetChannel[] | null,
+): WidgetChannel[] {
+	const wanted: WidgetChannel[] = [];
+	if (offered.voice) wanted.push("voice");
+	if (offered.chat) wanted.push("text");
+	if (!serverModes) return wanted;
+	return wanted.filter((channel) => serverModes.includes(channel));
 }
 
 /** Loose origin check for the allowed-origins editor: "*" or scheme://host[:port]. */

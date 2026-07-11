@@ -1,4 +1,5 @@
 import { WidgetApp } from "@voiceagents/components/widget/WidgetApp";
+import { WIDGET_VISUALIZERS, type WidgetVisualizer } from "@voiceagents/lib/widget-snippet";
 import type { Metadata } from "next";
 
 /**
@@ -30,6 +31,20 @@ export default async function WidgetEmbedPage({
 	const embedStyle =
 		styleParam === "card" || styleParam === "panel" || styleParam === "bar" ? styleParam : "bubble";
 	const accent = firstString(params.accent) || "#6366f1";
+	const visualizerParam = firstString(params.visualizer) as WidgetVisualizer;
+	const visualizer = WIDGET_VISUALIZERS.includes(visualizerParam) ? visualizerParam : "bars";
+	// Modes are enabled unless explicitly turned off via ?voice=false / ?chat=false.
+	const voice = firstString(params.voice) !== "false";
+	const chat = firstString(params.chat) !== "false";
 
-	return <WidgetApp token={token} embedStyle={embedStyle} accent={accent} />;
+	return (
+		<WidgetApp
+			token={token}
+			embedStyle={embedStyle}
+			accent={accent}
+			visualizer={visualizer}
+			voice={voice}
+			chat={chat}
+		/>
+	);
 }

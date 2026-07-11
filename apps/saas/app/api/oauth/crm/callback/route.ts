@@ -2,6 +2,7 @@ import { ensureCrmLiveTools } from "@repo/api/modules/crm/lib/live-tools";
 import { verifyOauthState } from "@repo/api/modules/crm/lib/oauth-state";
 import { getCrmRegistration } from "@repo/api/modules/crm/lib/resolve";
 import { ensureVoiceWebhook } from "@repo/api/modules/crm/lib/webhook-registration";
+import { sealSourceConfig } from "@repo/api/modules/sources/lib/config-crypto";
 import { createSource } from "@repo/database";
 
 /**
@@ -50,7 +51,8 @@ export async function GET(req: Request): Promise<Response> {
 			name: accountName || registration.label,
 			providerType: verified.providerType,
 			accountName,
-			config,
+			// Encrypt token secrets at rest (leaves locationId etc. readable).
+			config: sealSourceConfig(config),
 		});
 		await ensureVoiceWebhook();
 

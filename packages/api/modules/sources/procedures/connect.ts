@@ -6,6 +6,7 @@ import { protectedProcedure } from "../../../orpc/procedures";
 import { ensureCrmLiveTools } from "../../crm/lib/live-tools";
 import { getCrmRegistration } from "../../crm/lib/resolve";
 import { ensureVoiceWebhook } from "../../crm/lib/webhook-registration";
+import { sealSourceConfig } from "../lib/config-crypto";
 import { requireActiveOrganizationId } from "../lib/org";
 
 export const connectSource = protectedProcedure
@@ -52,7 +53,8 @@ export const connectSource = protectedProcedure
 			name: input.name?.trim() || accountName || registration.label,
 			providerType: input.providerType,
 			accountName,
-			config: input.config,
+			// Encrypt token secrets at rest (leaves locationId etc. readable).
+			config: sealSourceConfig(input.config),
 		});
 
 		// Make sure call.completed events reach this app.

@@ -6,6 +6,7 @@
 		"clean": "git clean -xdf .cache .turbo dist node_modules",
 		"create:user": "dotenv -c -e ../../.env -- tsx ./src/create-user.ts",
 		"migrate:agent-orgs": "dotenv -c -e ../../.env -- tsx ./src/assign-agents-to-organization.ts",
+		"migrate:source-crypto": "dotenv -c -e ../../.env -- tsx ./src/reencrypt-source-configs.ts",
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {

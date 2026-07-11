@@ -40,6 +40,7 @@ export function TransferNode({ id, data, selected }: NodeProps<TransferRFNode>) 
 			handleClassName="!bg-cyan-500"
 			targetHandleClassName="!bg-teal-500"
 			sourceHandles={SOURCE_HANDLES}
+			channels={["voice"]}
 			{...nodeTraceProps(data)}
 			badge={
 				BadgeIcon ? (

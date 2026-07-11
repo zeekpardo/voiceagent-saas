@@ -4,7 +4,7 @@ import { Label } from "@repo/ui/components/label";
 import { Textarea } from "@repo/ui/components/textarea";
 
 import type { FlowNodeData, StatementNodeData } from "../flow-types";
-import { TitleInput, usePatch } from "./shared";
+import { ChannelSelector, TitleInput, usePatch } from "./shared";
 
 export function StatementNodeEditor({
 	nodeId,
@@ -38,6 +38,8 @@ export function StatementNodeEditor({
 					the next node. Leave the Next handle unwired to end the call after speaking.
 				</p>
 			</div>
+
+			<ChannelSelector value={data.channels} onChange={(channels) => patch({ channels })} />
 		</>
 	);
 }

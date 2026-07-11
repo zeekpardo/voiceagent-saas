@@ -25,6 +25,7 @@ import type { createFlowMentionExtension } from "../mentions";
 import { SectionEditor } from "../SectionEditor";
 import {
 	AGENT_DEFAULT_CALENDAR,
+	ChannelSelector,
 	ExitTagConditions,
 	type FlowToolOption,
 	TitleInput,
@@ -370,6 +371,8 @@ export function AgentSettingsPanel({
 				</Select>
 				<p className="text-xs opacity-50">A different brain for just this stage.</p>
 			</div>
+
+			<ChannelSelector value={data.channels} onChange={(channels) => patch({ channels })} />
 
 			{hasBookingTool ? (
 				<div className="gap-4 flex flex-col">

@@ -14,7 +14,7 @@ import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 
 import { useAgentsQuery } from "../../../lib/api";
 import type { FlowNodeData, HandoffNodeData } from "../flow-types";
-import { TitleInput, usePatch } from "./shared";
+import { ChannelSelector, TitleInput, usePatch } from "./shared";
 
 /**
  * Handoff node editor: pick the TARGET published agent the live call is handed
@@ -118,6 +118,8 @@ export function HandoffNodeEditor({
 					placeholder="3 (default)"
 				/>
 			</div>
+
+			<ChannelSelector value={data.channels} onChange={(channels) => patch({ channels })} />
 		</>
 	);
 }

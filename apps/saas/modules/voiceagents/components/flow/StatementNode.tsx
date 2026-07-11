@@ -29,6 +29,7 @@ export function StatementNode({ id, data, selected }: NodeProps<StatementRFNode>
 			handleClassName="!bg-purple-500"
 			targetHandleClassName="!bg-blue-500"
 			sourceHandles={SOURCE_HANDLES}
+			channels={data.channels}
 			{...nodeTraceProps(data)}
 		/>
 	);

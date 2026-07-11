@@ -26,6 +26,7 @@ export function HandoffNode({ id, data, selected }: NodeProps<HandoffRFNode>) {
 			handleClassName="!bg-cyan-500"
 			targetHandleClassName="!bg-teal-500"
 			sourceHandles={[]}
+			channels={data.channels}
 			{...nodeTraceProps(data)}
 		/>
 	);

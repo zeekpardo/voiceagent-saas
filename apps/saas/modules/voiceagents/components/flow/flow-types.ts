@@ -60,6 +60,47 @@ export type FlowNodeKind =
 	| "booking"
 	| "handoff";
 
+/**
+ * A delivery channel a flow (or an individual node) can run on. A node with no
+ * explicit channels runs on BOTH — the default. Voice-only machinery (transfer,
+ * simulated hold music, voice swaps) is marked `["voice"]`; a node meaningful
+ * only in a typed conversation is marked `["text"]`.
+ */
+export type FlowChannel = "voice" | "text";
+
+/** The two channels, in canonical order. */
+export const FLOW_CHANNELS: readonly FlowChannel[] = ["voice", "text"];
+
+/**
+ * Collapse a raw channels array to its canonical form: `undefined` when the node
+ * runs on BOTH channels (absent/empty, or both listed), otherwise the single
+ * channel it is restricted to. Keeping "both" as `undefined` means an unmarked
+ * node compiles byte-identically to before this field existed.
+ */
+export function normalizeChannels(raw: FlowChannel[] | undefined): FlowChannel[] | undefined {
+	if (!raw || raw.length === 0) {
+		return undefined;
+	}
+	const hasVoice = raw.includes("voice");
+	const hasText = raw.includes("text");
+	if (hasVoice && hasText) {
+		return undefined;
+	}
+	if (hasVoice) {
+		return ["voice"];
+	}
+	if (hasText) {
+		return ["text"];
+	}
+	return undefined;
+}
+
+/** Whether a node carrying these channels runs on `channel`. Absent = both = always. */
+export function channelAllows(channels: FlowChannel[] | undefined, channel: FlowChannel): boolean {
+	const normalized = normalizeChannels(channels);
+	return !normalized || normalized.includes(channel);
+}
+
 /** Palette entries: node kinds plus pre-filled presets (they map onto a kind). */
 export const FLOW_PALETTE_KINDS = [
 	"agent",
@@ -139,6 +180,8 @@ export interface AgentNodeData {
 	appointmentTitle?: string;
 	/** Optional tag applied via add_tag when booking fails on this node. */
 	failedBookingTag?: string;
+	/** Channels this node runs on; absent = both (default). See FlowChannel. */
+	channels?: FlowChannel[];
 	[key: string]: unknown;
 }
 
@@ -242,6 +285,8 @@ export interface StatementNodeData {
 	title: string;
 	/** Spoken exactly as written, then the flow continues immediately. */
 	say: string;
+	/** Channels this node runs on; absent = both (default). See FlowChannel. */
+	channels?: FlowChannel[];
 	[key: string]: unknown;
 }
 
@@ -321,6 +366,8 @@ export interface HandoffNodeData {
 	say?: string;
 	/** Hold-music duration between the source agent's announcement and the target agent picking up. Engine default 3 when unset; 0 disables music. */
 	holdSeconds?: number;
+	/** Channels this node runs on; absent = both (default). See FlowChannel. */
+	channels?: FlowChannel[];
 	[key: string]: unknown;
 }
 
@@ -527,6 +574,15 @@ export interface EngineFlowNode {
 	 * `reason` + `hints`, closing per `wrapUp` (end the call or take a named exit).
 	 */
 	conversation?: EngineFlowConversation;
+	/**
+	 * Channels this node runs on; absent = both. Emitted by the compiler so the
+	 * runtime can skip voice-only nodes on a text session. The engine's flow zod
+	 * currently STRIPS this field (harmless — a text session just receives the
+	 * full flow); adding `channels: z.array(z.enum(["voice","text"])).optional()`
+	 * to the engine's flow-node schema activates runtime channel awareness. The
+	 * SaaS also compiles a text-pruned flow via `pruneFlowForChannel`.
+	 */
+	channels?: FlowChannel[];
 }
 
 export interface EngineFlowConversation {
@@ -598,6 +654,7 @@ export const agentNodeDataSchema = z.object({
 	calendarName: z.string().optional(),
 	appointmentTitle: z.string().optional(),
 	failedBookingTag: z.string().optional(),
+	channels: z.array(z.enum(["voice", "text"])).optional(),
 });
 
 export const objectiveNodeDataSchema = z.object({
@@ -651,6 +708,7 @@ export const switchNodeDataSchema = z.object({
 export const statementNodeDataSchema = z.object({
 	title: z.string(),
 	say: z.string(),
+	channels: z.array(z.enum(["voice", "text"])).optional(),
 });
 
 export const scenarioNodeDataSchema = z.object({
@@ -674,6 +732,7 @@ export const handoffNodeDataSchema = z.object({
 	handoffAgentId: z.string().optional(),
 	say: z.string().optional(),
 	holdSeconds: z.number().optional(),
+	channels: z.array(z.enum(["voice", "text"])).optional(),
 });
 
 export const setFieldNodeDataSchema = z.object({
@@ -803,6 +862,7 @@ export const engineFlowSchema = z.object({
 					maxDurationSeconds: z.number().optional(),
 				})
 				.optional(),
+			channels: z.array(z.enum(["voice", "text"])).optional(),
 		}),
 	),
 	scenarios: z

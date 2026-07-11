@@ -26,6 +26,7 @@ export function AgentFlowNode({ id, data, selected }: NodeProps<AgentRFNode>) {
 			handleClassName="!bg-purple-500"
 			targetHandleClassName="!bg-blue-500"
 			sourceHandles={data.exits.map((exit) => ({ id: exit.id, name: exit.name }))}
+			channels={data.channels}
 			{...nodeTraceProps(data)}
 			badge={
 				data.toolIds.length > 0 ? (

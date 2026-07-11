@@ -69,3 +69,27 @@ export function isValidWidgetOrigin(value: string): boolean {
 		return false;
 	}
 }
+
+/**
+ * Normalize whatever a user pastes into the allowed-origins editor down to the
+ * ORIGIN the browser will actually send: people paste full page URLs
+ * ("https://site.com/preview/abc123") or bare domains ("site.com"), but the
+ * `Origin` header never carries a path — scheme://host[:port] is all we can
+ * (and need to) pin; it covers every page on that site. Returns null for
+ * unusable input (no host, unsupported scheme).
+ */
+export function normalizeWidgetOrigin(value: string): string | null {
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	if (trimmed === "*") return "*";
+	// Bare domains get https:// — nobody embeds a widget on plain http on purpose.
+	const candidate = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+	try {
+		const url = new URL(candidate);
+		if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+		if (!url.hostname) return null;
+		return url.origin;
+	} catch {
+		return null;
+	}
+}

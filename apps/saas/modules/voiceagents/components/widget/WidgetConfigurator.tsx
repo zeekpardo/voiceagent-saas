@@ -21,7 +21,7 @@ import { type FormEvent, useState } from "react";
 
 import {
 	composeWidgetSnippet,
-	isValidWidgetOrigin,
+	normalizeWidgetOrigin,
 	WIDGET_DEFAULTS,
 	type WidgetPosition,
 	type WidgetStyle,
@@ -68,10 +68,16 @@ export function WidgetConfigurator({ agentId }: { agentId: string }) {
 	});
 
 	const addOrigin = () => {
-		const value = originDraft.trim().replace(/\/$/, "");
-		if (!value) return;
-		if (!isValidWidgetOrigin(value)) {
-			toastError('Enter an origin like https://example.com — or "*" for any site (dev only)');
+		if (!originDraft.trim()) return;
+		// Accept anything URL-shaped — full page URLs ("https://site.com/preview/abc")
+		// or bare domains ("site.com") — and collapse it to the ORIGIN the browser
+		// will actually send; paths never reach the Origin header, and pinning the
+		// origin covers every page on that site.
+		const value = normalizeWidgetOrigin(originDraft);
+		if (!value) {
+			toastError(
+				'Enter a website like example.com or https://example.com — or "*" for any site (dev only)',
+			);
 			return;
 		}
 		if (!origins.includes(value)) {

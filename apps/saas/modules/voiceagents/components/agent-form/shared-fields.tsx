@@ -87,14 +87,16 @@ export function ChipsInput({ value, onChange, placeholder }: ChipsInputProps) {
  * prompt and serialized back to it — chips are just {{variable}} in the
  * saved config, so the engine contract is unchanged.
  */
-function InstructionsEditor({
+export function InstructionsEditor({
 	value,
 	onChange,
 	hint,
+	editorClassName = "min-h-44",
 }: {
 	value: string;
 	onChange: (next: string) => void;
 	hint?: string;
+	editorClassName?: string;
 }) {
 	// Hydrate once — the editor owns the text after mount.
 	const [initialBody] = useState<unknown>(() => textToTiptapDoc(value));
@@ -122,7 +124,7 @@ function InstructionsEditor({
 			mentionExtension={mentionExtension}
 			onBodyChange={(doc) => onChange(tiptapToText(doc))}
 			hint={hint ?? "Type @ to insert a variable — location and contact details fill in per call"}
-			editorClassName="min-h-44"
+			editorClassName={editorClassName}
 		/>
 	);
 }

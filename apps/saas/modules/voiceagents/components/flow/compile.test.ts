@@ -130,6 +130,40 @@ describe("tiptapToText", () => {
 	});
 });
 
+describe("textToTiptapDoc → tiptapToText round-trip", () => {
+	// The pill editors (FieldPickerTextarea) load node text with textToTiptapDoc
+	// and save with tiptapToText on every change — an UNTOUCHED field must save
+	// back the byte-identical string or every open/close would dirty the node.
+	const roundTrip = (text: string) => tiptapToText(textToTiptapDoc(text));
+
+	it.each([
+		["plain text", "Please hold while I connect you."],
+		["token mid-sentence", "Hi {{contact_first_name}}, this is {{location_name}}."],
+		["token-only value", "{{contact_kitchen_year}}"],
+		["adjacent tokens", "{{contact_first_name}}{{contact_last_name}}"],
+		["multi-line with tokens", "Line one {{location_city}}\n\nLine three {{customvalue_slogan}}"],
+		["unknown token preserved verbatim", "prefix {{some_unknown_var-1.x}} suffix"],
+		["trailing newline", "ends with newline\n"],
+		["empty string", ""],
+		["lone braces are not tokens", "not {{a token because spaces}} here { } {{}}"],
+	])("round-trips %s byte-identically", (_label, text) => {
+		expect(roundTrip(text)).toBe(text);
+	});
+
+	it("parses tokens into variable mention nodes with prettified labels", () => {
+		const doc = textToTiptapDoc("Hi {{contact_first_name}}!") as {
+			content: { content: { type: string; attrs?: Record<string, unknown>; text?: string }[] }[];
+		};
+		const inline = doc.content[0].content;
+		expect(inline.map((n) => n.type)).toEqual(["text", "mention", "text"]);
+		expect(inline[1].attrs).toMatchObject({
+			id: "contact_first_name",
+			label: "Contact.First Name",
+			mentionSuggestionChar: "@",
+		});
+	});
+});
+
 describe("sectionsToInstructions", () => {
 	it("adds ## headers for titled sections and skips empties", () => {
 		const sections = [

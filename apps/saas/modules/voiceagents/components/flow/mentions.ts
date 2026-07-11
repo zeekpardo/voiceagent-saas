@@ -417,6 +417,139 @@ export function createFlowMentionExtension(sources: MentionSources): AnyExtensio
 	});
 }
 
+/* ----------------------------------------------------------------------------
+ * Variables-only pill extension — the single-field editors (Objective /
+ * Statement / Conversation / Booking / Set-field / Greeter textareas).
+ * -------------------------------------------------------------------------- */
+
+/** Group + display label a pill renders with, resolved from the field catalog. */
+export interface VariablePillMeta {
+	/** Picker group name — "Contact" / "Location" / "Custom Value" / "Source". */
+	group: string;
+	/** The field's display label, e.g. "First Name". */
+	label: string;
+}
+
+export interface VariablePillSources {
+	/** The @-trigger suggestion list (same items the rail panel shows). */
+	getVariables: () => MentionItem[];
+	/**
+	 * Resolve a token name to its group + label for pill rendering. Undefined →
+	 * generic "Var." pill with the raw name (an unknown token must render, never
+	 * crash, and must serialize back to the identical `{{name}}`).
+	 */
+	getMeta: (name: string) => VariablePillMeta | undefined;
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/**
+ * Lucide icon shapes per picker group (24×24 stroke icons, path data lifted
+ * from lucide-react's user / map-pin / fingerprint / database / braces so the
+ * pills match the rail panel's group icons). Kept as plain shape specs because
+ * ProseMirror's renderHTML emits DOM specs, not React elements — the namespace
+ * prefix ("<ns> <tag>") is what makes ProseMirror create real SVG elements.
+ */
+const PILL_ICON_SHAPES: Record<string, [string, Record<string, string>][]> = {
+	Contact: [
+		["path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" }],
+		["circle", { cx: "12", cy: "7", r: "4" }],
+	],
+	Location: [
+		["path", { d: "M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" }],
+		["circle", { cx: "12", cy: "10", r: "3" }],
+	],
+	"Custom Value": [
+		["path", { d: "M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" }],
+		["path", { d: "M14 13.12c0 2.38 0 6.38-1 8.88" }],
+		["path", { d: "M17.29 21.02c.12-.6.43-2.3.5-3.02" }],
+		["path", { d: "M2 12a10 10 0 0 1 18-6" }],
+		["path", { d: "M2 16h.01" }],
+		["path", { d: "M21.8 16c.2-2 .131-5.354 0-6" }],
+		["path", { d: "M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" }],
+		["path", { d: "M8.65 22c.21-.66.45-1.32.57-2" }],
+		["path", { d: "M9 6.8a6 6 0 0 1 9 5.2v2" }],
+	],
+	Source: [
+		["ellipse", { cx: "12", cy: "5", rx: "9", ry: "3" }],
+		["path", { d: "M3 5V19A9 3 0 0 0 21 19V5" }],
+		["path", { d: "M3 12A9 3 0 0 0 21 12" }],
+	],
+	Var: [
+		["path", { d: "M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" }],
+		["path", { d: "M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" }],
+	],
+};
+
+/** DOM spec for a pill's group icon (namespaced so ProseMirror emits real SVG). */
+function pillIconSpec(group: string) {
+	const shapes = PILL_ICON_SHAPES[group] ?? PILL_ICON_SHAPES.Var;
+	return [
+		`${SVG_NS} svg`,
+		{
+			viewBox: "0 0 24 24",
+			fill: "none",
+			stroke: "currentColor",
+			"stroke-width": "2",
+			"stroke-linecap": "round",
+			"stroke-linejoin": "round",
+			class: "mr-1 inline-block size-3 align-[-1.5px] text-blue-600 dark:text-blue-400",
+			"aria-hidden": "true",
+		},
+		...shapes.map(([tag, attrs]) => [`${SVG_NS} ${tag}`, attrs] as const),
+	] as const;
+}
+
+/**
+ * A Mention extension for the single-field pill editors: ONLY the `@` variable
+ * trigger (no @@ tools / @@@ exits — those belong to the agent prompt editors),
+ * and pills render CloseBot-style: group icon + bold "Group" + "." + thin field
+ * label. Serialization is byte-identical to the shared extension: a pill IS the
+ * `{{id}}` string (tiptapToText → serializeMention), so compile/runtime never
+ * see the difference.
+ *
+ * `getMeta` resolves group/label at RENDER time from the live field catalog, so
+ * a token typed before the catalog loaded upgrades its pill once data arrives;
+ * unknown tokens render as a generic "Var." pill and round-trip untouched.
+ */
+export function createVariablePillExtension(sources: VariablePillSources): AnyExtension {
+	const suggestions: MentionSuggestion[] = [
+		{
+			char: MENTION_CHAR_VARIABLE,
+			allow: allowMention,
+			items: ({ query }) => filterItems(sources.getVariables(), query),
+			render: createDropdownRenderer("No fields found"),
+		},
+	];
+
+	return Mention.configure({
+		deleteTriggerWithBackspace: true,
+		suggestions,
+		renderText: ({ node }) => `{{${String(node.attrs.id ?? "")}}}`,
+		renderHTML: ({ node, options }) => {
+			const id = String(node.attrs.id ?? "");
+			const meta = sources.getMeta(id);
+			// Fallback: parse the stored label ("Contact.First Name" style from
+			// textToTiptapDoc/prettifyVariable) so pills degrade gracefully when the
+			// catalog has no entry for the token.
+			const fallback = String(node.attrs.label ?? "") || prettifyVariable(id);
+			const dot = fallback.indexOf(".");
+			const group = meta?.group ?? (dot > 0 ? fallback.slice(0, dot) : "Var");
+			const rest = meta?.label ?? (dot > 0 ? fallback.slice(dot + 1) : fallback || id);
+			return [
+				"span",
+				mergeAttributes(options.HTMLAttributes, {
+					class:
+						"mx-0.5 inline-block rounded-md border border-blue-500/40 bg-blue-500/10 px-2 py-0.5 font-mono text-xs align-baseline",
+				}),
+				pillIconSpec(group),
+				["span", { class: "font-bold text-blue-600 dark:text-blue-400" }, `${group}.`],
+				["span", { class: "font-light" }, rest],
+			];
+		},
+	});
+}
+
 /**
  * A unified-source field option → the runtime variable its chip interpolates
  * to: standard fields via the KEY_TO_RUNTIME_VARIABLE table, CUSTOM fields via

@@ -1,3 +1,4 @@
+import { getAgentSource } from "@repo/database";
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
@@ -5,8 +6,10 @@ import { buildContactState, parseContactTags } from "../../crm/lib/contact-state
 import { normalizePhone } from "../../crm/lib/normalize";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { requireOwnedSource } from "../../sources/lib/require-owned-source";
+import { mergeCustomVariables } from "../lib/custom-variables";
 import { gatewayFetch } from "../lib/gateway";
 import { requireOwnedAgent } from "../lib/require-owned-agent";
+import type { GatewayAgent } from "../lib/schema";
 
 /**
  * Browser test session for an agent: the gateway returns a LiveKit room URL
@@ -89,6 +92,23 @@ export const createTestSession = protectedProcedure
 		// derived from the already-fetched contact_tags variable, never a new call.
 		const contactTags = parseContactTags(crmVariables.contact_tags);
 
+		// Job Flow Variables: fold custom-variable definition defaults + this
+		// source's per-source overrides into the runtime variables map (runtime
+		// values win). Best-effort — CRM/config hiccups must not block the session.
+		const [agentConfig, mapping] = await Promise.all([
+			gatewayFetch<GatewayAgent>("GET", `/v1/agents/${input.agentId}`)
+				.then((a) => a.config)
+				.catch(() => undefined),
+			input.sourceId
+				? getAgentSource(input.agentId, input.sourceId).catch(() => null)
+				: Promise.resolve(null),
+		]);
+		const runtimeVariables = {
+			caller_name: context.user.name ?? "there",
+			...crmVariables,
+			...input.variables, // explicit values override CRM-derived ones
+		};
+
 		return gatewayFetch<{
 			call_id: string;
 			room_url: string;
@@ -97,11 +117,7 @@ export const createTestSession = protectedProcedure
 			agent_version: number;
 		}>("POST", "/v1/sessions", {
 			agent_id: input.agentId,
-			variables: {
-				caller_name: context.user.name ?? "there",
-				...crmVariables,
-				...input.variables, // explicit values override CRM-derived ones
-			},
+			variables: mergeCustomVariables(agentConfig, mapping, runtimeVariables),
 			...(contactState ? { contactState } : {}),
 			...(contactTags ? { contactTags } : {}),
 			...(input.channel ? { channel: input.channel } : {}),

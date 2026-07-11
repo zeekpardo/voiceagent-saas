@@ -400,14 +400,31 @@ export function createFlowMentionExtension(sources: MentionSources): AnyExtensio
 export function buildVariableItems(
 	extraNames: string[],
 	fields: { key: string }[] = [],
+	customVariables: { name: string; description?: string }[] = [],
 ): MentionItem[] {
 	const fromFields = fields
 		.map((f) => KEY_TO_RUNTIME_VARIABLE[f.key])
 		.filter((v): v is string => !!v);
-	const names = [...new Set([...STANDARD_VARIABLES, ...fromFields, ...extraNames])];
-	return names.map((name) => ({
-		id: name,
-		label: prettifyVariable(name),
-		sub: `{{${name}}}`,
+	// Agent-level Job Flow Variables — the user's custom {{name}} definitions.
+	// Listed first so they surface at the top of the picker, tagged "Custom." for
+	// grouping. Their names are excluded from the standard/field list below so a
+	// custom name never appears twice (it also can't collide with a runtime
+	// variable — the builder blocks that on save).
+	const customNames = new Set(customVariables.map((v) => v.name));
+	const customItems: MentionItem[] = customVariables.map((v) => ({
+		id: v.name,
+		label: `Custom.${v.name}`,
+		sub: v.description || `{{${v.name}}}`,
 	}));
+	const names = [...new Set([...STANDARD_VARIABLES, ...fromFields, ...extraNames])].filter(
+		(name) => !customNames.has(name),
+	);
+	return [
+		...customItems,
+		...names.map((name) => ({
+			id: name,
+			label: prettifyVariable(name),
+			sub: `{{${name}}}`,
+		})),
+	];
 }

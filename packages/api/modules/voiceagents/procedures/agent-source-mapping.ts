@@ -7,6 +7,7 @@ import { listContactFields, type MappingEntry } from "../../crm/lib/field-mappin
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { STANDARD_CONTACT_FIELDS } from "../../crm/lib/standard-fields";
 import { requireOwnedSource } from "../../sources/lib/require-owned-source";
+import { resolveVariableValues } from "../lib/custom-variables";
 import { gatewayFetch } from "../lib/gateway";
 import { requireOwnedAgent } from "../lib/require-owned-agent";
 
@@ -217,6 +218,7 @@ export const getAgentSourceMapping = protectedProcedure
 			tagFilters: mapping.tagFilters as z.infer<typeof tagFilter>[],
 			tagRules: mapping.tagRules as z.infer<typeof tagRule>[],
 			stageRules: mapping.stageRules as z.infer<typeof stageRule>[],
+			variableValues: (mapping.variableValues ?? {}) as Record<string, string>,
 			writeNote: mapping.writeNote,
 			bookingCalendarId: mapping.bookingCalendarId,
 			bookingCalendarName: mapping.bookingCalendarName,
@@ -243,6 +245,9 @@ export const saveAgentSourceMappingProcedure = protectedProcedure
 			// Preferences panel (postCall.writeNote). Saving a source mapping now
 			// leaves the existing value untouched instead of resetting it.
 			writeNote: z.boolean().optional(),
+			// Job Flow Variables — per-source value overrides ({ name: value }).
+			// Omit to preserve the stored map (like writeNote).
+			variableValues: z.record(z.string(), z.string()).optional(),
 			bookingCalendarId: z.string().nullable().optional(),
 			bookingCalendarName: z.string().nullable().optional(),
 		}),
@@ -254,6 +259,7 @@ export const saveAgentSourceMappingProcedure = protectedProcedure
 		await saveMappingRow({
 			...input,
 			writeNote: input.writeNote ?? existing?.writeNote ?? true,
+			variableValues: resolveVariableValues(input.variableValues, existing?.variableValues),
 		});
 		return { saved: true };
 	});

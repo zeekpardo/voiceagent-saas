@@ -35,6 +35,10 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 		goal,
 		guardrails: c.guardrails ?? "",
 		prohibitedWords: Array.isArray(c.prohibitedWords) ? c.prohibitedWords.map(String) : [],
+		// Preserved verbatim so any full-config submit (job/settings/preferences
+		// forms) round-trips the Job Flow Variable definitions without clobbering
+		// them — the Variables panel is the only editor, but every save carries them.
+		customVariables: Array.isArray(c.customVariables) ? c.customVariables : [],
 		greeting: c.greeting ?? "",
 		language: c.language ?? "en",
 		llm: c.llm,

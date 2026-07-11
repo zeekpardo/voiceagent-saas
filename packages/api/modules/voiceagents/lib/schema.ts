@@ -28,6 +28,25 @@ export const agentConfigInput = z.object({
 	guardrails: z.string().max(3000).nullish(),
 	/** Words/phrases the agent must never say — enforced globally across all flow nodes. */
 	prohibitedWords: z.array(z.string()).default([]),
+	/**
+	 * Agent-level custom variable DEFINITIONS (CloseBot "Job Flow Variables"):
+	 * a name usable as {{name}} / @-mention in the flow, an optional description,
+	 * and an optional default value. VALUES are overridden per-source
+	 * (VoiceAgentSource.variableValues) and merged into the runtime `variables`
+	 * map at dispatch (see mergeCustomVariables). Rides RAW on the config doc so
+	 * the builder round-trips it; the engine interpolates the resolved values via
+	 * the runtime variables map, never these definitions directly. Names are
+	 * lowercase snake_case identifiers (normalized in the builder UI).
+	 */
+	customVariables: z
+		.array(
+			z.object({
+				name: z.string().min(1).max(64),
+				description: z.string().max(200).optional(),
+				default: z.string().max(2000).optional(),
+			}),
+		)
+		.default([]),
 	greeting: z.string().optional(),
 	language: z.string().default("en"),
 	llm: z
@@ -102,6 +121,9 @@ export const agentConfigInput = z.object({
 });
 
 export type AgentConfigInput = z.infer<typeof agentConfigInput>;
+
+/** A single Job Flow Variable definition (name + optional description/default). */
+export type CustomVariableDef = AgentConfigInput["customVariables"][number];
 
 /**
  * The CRM live tools that perform the engine's automatic writes (contact-field

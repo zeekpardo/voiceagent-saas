@@ -21,6 +21,7 @@ import {
 	SettingsIcon,
 	SlidersHorizontalIcon,
 	SparklesIcon,
+	VariableIcon,
 	WrenchIcon,
 	XIcon,
 } from "lucide-react";
@@ -40,6 +41,7 @@ import { PersonaBadge } from "./personas/PersonaBadge";
 import { PersonasPanel } from "./personas/PersonasPanel";
 import { TestPortal } from "./TestPortal";
 import { ToolsTab } from "./ToolsTab";
+import { VariablesPanel } from "./VariablesPanel";
 import { VersionHistoryPanel } from "./VersionHistoryPanel";
 import { WidgetPanel } from "./widget/WidgetPanel";
 
@@ -49,6 +51,7 @@ type WorkspacePanel =
 	| "agent"
 	| "preferences"
 	| "personas"
+	| "variables"
 	| "tools"
 	| "sources"
 	| "widget"
@@ -74,6 +77,10 @@ const PANEL_META: Record<WorkspacePanel, { title: string; description: string }>
 	personas: {
 		title: "Personas",
 		description: "Attach a reusable identity — name, look, and tone — to this agent.",
+	},
+	variables: {
+		title: "Job Flow Variables",
+		description: "Custom variables for each source usable by this job.",
 	},
 	tools: {
 		title: "Tools",
@@ -224,6 +231,7 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							{activePanel === "agent" && <AgentForm agent={agent} variant="settings" />}
 							{activePanel === "preferences" && <AgentForm agent={agent} variant="preferences" />}
 							{activePanel === "personas" && <PersonasPanel agent={agent} />}
+							{activePanel === "variables" && <VariablesPanel agent={agent} />}
 							{activePanel === "tools" && (
 								<ToolsTab agentId={agent.id} agentConfig={agent.config} />
 							)}
@@ -273,6 +281,13 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							label="Personas"
 							isActive={activePanel === "personas"}
 							onClick={() => togglePanel("personas")}
+						/>
+						<div className="my-1 w-6 h-px bg-border" />
+						<RailButton
+							icon={VariableIcon}
+							label="Job Flow Variables"
+							isActive={activePanel === "variables"}
+							onClick={() => togglePanel("variables")}
 						/>
 						<div className="my-1 w-6 h-px bg-border" />
 						<RailButton

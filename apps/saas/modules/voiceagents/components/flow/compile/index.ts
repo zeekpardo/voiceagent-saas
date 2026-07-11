@@ -73,16 +73,20 @@ function channelsForCanvasNode(node: CanvasNodeDoc): FlowChannel[] | undefined {
 export function compileCanvas(
 	doc: CanvasDoc,
 	baseToolIds: string[],
-): { flow: EngineFlow; toolIds: string[]; greeting: string } {
+): { flow: EngineFlow; toolIds: string[]; greeting: string; greetingGenerate: boolean } {
 	// The Greeter fixture owns the connect-time greeting and points at the real
 	// flow entry. It is not an engine node: its text folds into config.greeting
 	// and its outgoing edge target becomes `entry`. Legacy canvases without a
 	// greeter (never produced once migration runs, but guard anyway) fall back
 	// to the classic Start → entry wiring.
 	const greeter = doc.nodes.find((n) => n.type === "greeter");
-	const greeting = greeter
-		? ((greeter.data as { greeting?: string } | undefined)?.greeting ?? "")
-		: "";
+	const greeterData = greeter?.data as
+		| { greeting?: string; greetingGenerate?: boolean }
+		| undefined;
+	const greeting = greeterData?.greeting ?? "";
+	// When true, config.greeting is a direction the engine generates the opener
+	// from rather than a verbatim line. Default false = current behavior.
+	const greetingGenerate = greeterData?.greetingGenerate === true;
 	const startEdge = doc.edges.find((e) => e.source === START_NODE_ID);
 	const entry = greeter
 		? (doc.edges.find((e) => e.source === greeter.id)?.target ?? "")
@@ -135,7 +139,7 @@ export function compileCanvas(
 
 	const toolIds = [...new Set([...baseToolIds, ...nodes.flatMap((n) => n.toolIds)])];
 
-	return { flow: { entry, nodes, scenarios }, toolIds, greeting };
+	return { flow: { entry, nodes, scenarios }, toolIds, greeting, greetingGenerate };
 }
 
 /**
@@ -147,10 +151,16 @@ function greeterNodeAndEdges(
 	entryId: string,
 	greeting: string,
 	position: { x: number; y: number },
+	greetingGenerate = false,
 ): { node: CanvasNodeDoc; startEdge: CanvasEdgeDoc; greeterEdge: CanvasEdgeDoc } {
 	const greeterId = makeId("greeter");
 	return {
-		node: { id: greeterId, type: "greeter", position, data: newGreeterNodeData(greeting) },
+		node: {
+			id: greeterId,
+			type: "greeter",
+			position,
+			data: newGreeterNodeData(greeting, greetingGenerate),
+		},
 		startEdge: {
 			id: makeId("edge"),
 			source: START_NODE_ID,
@@ -194,7 +204,11 @@ export function collapseManagedObjectives(doc: CanvasDoc): CanvasDoc {
 	return changed ? { ...doc, nodes } : doc;
 }
 
-export function ensureGreeter(doc: CanvasDoc, greeting: string): CanvasDoc {
+export function ensureGreeter(
+	doc: CanvasDoc,
+	greeting: string,
+	greetingGenerate = false,
+): CanvasDoc {
 	if (doc.nodes.some((n) => n.type === "greeter")) {
 		return doc;
 	}
@@ -212,7 +226,7 @@ export function ensureGreeter(doc: CanvasDoc, greeting: string): CanvasDoc {
 		node,
 		startEdge: newStartEdge,
 		greeterEdge,
-	} = greeterNodeAndEdges(entryId ?? "", greeting, position);
+	} = greeterNodeAndEdges(entryId ?? "", greeting, position, greetingGenerate);
 	const edges = doc.edges.filter((e) => e.source !== START_NODE_ID);
 	edges.push(newStartEdge);
 	if (entryId) {
@@ -230,7 +244,11 @@ export function ensureGreeter(doc: CanvasDoc, greeting: string): CanvasDoc {
  * Inserts the Greeter fixture between Start and the flow entry, carrying the
  * config's current greeting so existing flows keep their connect-time greeting.
  */
-export function canvasFromFlow(flow: EngineFlow, greeting = ""): CanvasDoc {
+export function canvasFromFlow(
+	flow: EngineFlow,
+	greeting = "",
+	greetingGenerate = false,
+): CanvasDoc {
 	// BFS from the entry node to lay columns out left → right.
 	const columnOf = new Map<string, number>();
 	const queue: { id: string; col: number }[] = [{ id: flow.entry, col: 0 }];
@@ -256,7 +274,7 @@ export function canvasFromFlow(flow: EngineFlow, greeting = ""): CanvasDoc {
 	}
 
 	const rowsInCol = new Map<number, number>();
-	const greeter = greeterNodeAndEdges(flow.entry, greeting, { x: 180, y: 120 });
+	const greeter = greeterNodeAndEdges(flow.entry, greeting, { x: 180, y: 120 }, greetingGenerate);
 	const nodes: CanvasNodeDoc[] = [
 		{ id: START_NODE_ID, type: "start", position: { x: 40, y: 120 } },
 		greeter.node,

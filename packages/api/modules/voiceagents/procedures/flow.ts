@@ -28,7 +28,9 @@ export const flowInput = z.object({
 					.enum(["agent", "router", "statement", "transfer", "set_field", "modify_tags", "handoff"])
 					.optional(),
 				router: z.object({ condition: z.string().min(1) }).optional(),
-				statement: z.object({ say: z.string().min(1) }).optional(),
+				statement: z
+					.object({ say: z.string().min(1), generate: z.boolean().optional() })
+					.optional(),
 				setField: z.object({ field: z.string().min(1), value: z.string() }).optional(),
 				modifyTags: z
 					.object({
@@ -65,6 +67,9 @@ export const flowInput = z.object({
 				handoff: z
 					.object({
 						say: z.string().optional(),
+						// When true, `say` is a direction the source agent generates the
+						// announcement from (caller's language + persona/style).
+						generate: z.boolean().optional(),
 						// Hold-music duration. Engine default 3 when unset; 0 disables music.
 						holdSeconds: z.number().min(0).max(30).optional(),
 					})
@@ -135,6 +140,9 @@ export const saveFlow = protectedProcedure
 			// The Greeter node owns the connect-time greeting on the canvas; it
 			// compiles into config.greeting so the engine speaks it at go-live.
 			greeting: z.string().optional(),
+			// When true, config.greeting is a direction the engine generates the
+			// opener from rather than a verbatim line. Default false = verbatim.
+			greetingGenerate: z.boolean().optional(),
 		}),
 	)
 	.handler(async ({ input, context }) => {
@@ -144,5 +152,6 @@ export const saveFlow = protectedProcedure
 			canvas: input.canvas,
 			toolIds: input.toolIds,
 			greeting: input.greeting ?? "",
+			greetingGenerate: input.greetingGenerate ?? false,
 		});
 	});

@@ -162,6 +162,10 @@ export interface GreeterNodeData {
 	title: string;
 	/** Spoken first, right after the AI disclosure. Empty = the caller speaks first. */
 	greeting: string;
+	/** When false/absent (default): greeting spoken VERBATIM (with {{variable}}
+	 * substitution). When true: the greeting text is a DIRECTION the model
+	 * generates a fresh opener from each call (caller's language + persona/style). */
+	greetingGenerate?: boolean;
 	[key: string]: unknown;
 }
 
@@ -285,6 +289,10 @@ export interface StatementNodeData {
 	title: string;
 	/** Spoken exactly as written, then the flow continues immediately. */
 	say: string;
+	/** When false/absent (default): `say` is delivered VERBATIM. When true: `say`
+	 * is a DIRECTION the model generates a fresh, natural message from each time
+	 * (caller's language + persona/style). */
+	generate?: boolean;
 	/** Channels this node runs on; absent = both (default). See FlowChannel. */
 	channels?: FlowChannel[];
 	[key: string]: unknown;
@@ -364,6 +372,10 @@ export interface HandoffNodeData {
 	handoffAgentId?: string;
 	/** Announcement spoken by the SOURCE agent right before the hold music. Supports {{variables}}. */
 	say?: string;
+	/** When false/absent (default): `say` is spoken VERBATIM. When true: `say` is
+	 * a DIRECTION the SOURCE agent's model speaks a fresh announcement from
+	 * (caller's language + persona/style). */
+	generate?: boolean;
 	/** Hold-music duration between the source agent's announcement and the target agent picking up. Engine default 3 when unset; 0 disables music. */
 	holdSeconds?: number;
 	/** Channels this node runs on; absent = both (default). See FlowChannel. */
@@ -534,7 +546,7 @@ export interface EngineFlowNode {
 	 */
 	kind?: "agent" | "router" | "statement" | "transfer" | "set_field" | "modify_tags" | "handoff";
 	router?: { condition: string };
-	statement?: { say: string };
+	statement?: { say: string; generate?: boolean };
 	/** `toolId` names the engine tool that writes the field (self-describing —
 	 * the engine no longer assumes an "update_contact" tool). */
 	setField?: { field: string; value: string; toolId?: string };
@@ -558,6 +570,8 @@ export interface EngineFlowNode {
 	/** handoff-only: optional announcement (source agent's voice) + hold music before the target takes over. */
 	handoff?: {
 		say?: string;
+		/** When true, `say` is a direction the source agent generates the announcement from. */
+		generate?: boolean;
 		/** Hold-music duration. Engine default 3 when unset; 0 disables music. 0..30. */
 		holdSeconds?: number;
 	};
@@ -642,6 +656,7 @@ const flowExitSchema = z.object({
 export const greeterNodeDataSchema = z.object({
 	title: z.string(),
 	greeting: z.string().default(""),
+	greetingGenerate: z.boolean().optional(),
 });
 
 export const agentNodeDataSchema = z.object({
@@ -708,6 +723,7 @@ export const switchNodeDataSchema = z.object({
 export const statementNodeDataSchema = z.object({
 	title: z.string(),
 	say: z.string(),
+	generate: z.boolean().optional(),
 	channels: z.array(z.enum(["voice", "text"])).optional(),
 });
 
@@ -731,6 +747,7 @@ export const handoffNodeDataSchema = z.object({
 	title: z.string(),
 	handoffAgentId: z.string().optional(),
 	say: z.string().optional(),
+	generate: z.boolean().optional(),
 	holdSeconds: z.number().optional(),
 	channels: z.array(z.enum(["voice", "text"])).optional(),
 });

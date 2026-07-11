@@ -48,6 +48,9 @@ export const agentConfigInput = z.object({
 		)
 		.default([]),
 	greeting: z.string().optional(),
+	/** When true, `greeting` is a direction the engine generates the opener from
+	 * (via AI) rather than a verbatim line. Default false/absent = verbatim. */
+	greetingGenerate: z.boolean().optional(),
 	language: z.string().default("en"),
 	/**
 	 * Channel preferences for this agent (engine slot already merged):

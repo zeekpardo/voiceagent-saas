@@ -81,15 +81,30 @@ export function FlowTab({
 		const publishedGreeting = typeof config.greeting === "string" ? config.greeting : "";
 		const draftGreeting =
 			typeof draftConfig?.greeting === "string" ? draftConfig.greeting : publishedGreeting;
+		// The AI-generate toggle for the greeting rides on config.greetingGenerate
+		// (draft overlay wins). Default false = verbatim, so existing agents unchanged.
+		const publishedGreetingGenerate = config.greetingGenerate === true;
+		const draftGreetingGenerate =
+			typeof draftConfig?.greetingGenerate === "boolean"
+				? draftConfig.greetingGenerate
+				: publishedGreetingGenerate;
 
 		const draftCanvas = draftConfig?.canvas;
 		const savedDraftCanvas = canvasDocSchema.safeParse(draftCanvas);
 		if (savedDraftCanvas.success) {
-			return ensureGreeter(collapseManagedObjectives(savedDraftCanvas.data), draftGreeting);
+			return ensureGreeter(
+				collapseManagedObjectives(savedDraftCanvas.data),
+				draftGreeting,
+				draftGreetingGenerate,
+			);
 		}
 		const savedCanvas = canvasDocSchema.safeParse(config.canvas);
 		if (savedCanvas.success) {
-			return ensureGreeter(collapseManagedObjectives(savedCanvas.data), publishedGreeting);
+			return ensureGreeter(
+				collapseManagedObjectives(savedCanvas.data),
+				publishedGreeting,
+				publishedGreetingGenerate,
+			);
 		}
 		const savedFlow = engineFlowSchema.safeParse(config.flow);
 		if (savedFlow.success) {
@@ -104,6 +119,7 @@ export function FlowTab({
 					scenarios: savedFlow.data.scenarios,
 				},
 				publishedGreeting,
+				publishedGreetingGenerate,
 			);
 		}
 		return newCanvas();
@@ -156,13 +172,19 @@ export function FlowTab({
 			return;
 		}
 		const baseToolIds = Array.isArray(config.toolIds) ? (config.toolIds as string[]) : [];
-		const { flow, toolIds, greeting } = compileCanvas(doc, baseToolIds);
+		const { flow, toolIds, greeting, greetingGenerate } = compileCanvas(doc, baseToolIds);
 		// Non-blocking: warn when the text-pruned flow would be unsound (e.g. the
 		// entry node is voice-only, so text sessions have nowhere to start). Voice
 		// still ships — the author just needs a text-reachable entry.
 		const textWarnings = channelPruneWarnings(flow, "text");
 		try {
-			await saveDraftMutation.mutateAsync({ flow, canvas: doc, toolIds, greeting });
+			await saveDraftMutation.mutateAsync({
+				flow,
+				canvas: doc,
+				toolIds,
+				greeting,
+				greetingGenerate,
+			});
 			if (textWarnings.length > 0) {
 				toastWarning("Saved — text channel needs attention", textWarnings.join("\n"));
 			} else {

@@ -88,8 +88,17 @@ export const agentConfigInput = z.object({
 			 * live during the call, so post-call re-extraction is redundant.
 			 */
 			summaryField: z.string().nullish(),
+			/**
+			 * Per-agent: post a CRM timeline note (summary + captured values) to the
+			 * contact after the call. Moved here from the per-source
+			 * VoiceAgentSource.writeNote so it's one agent-level toggle alongside the
+			 * other post-call outputs. syncCallToCrm reads this and falls back to the
+			 * per-source value only when it's undefined (agent never re-saved). Rides
+			 * on the config as a SaaS-side sync flag — the engine never reads it.
+			 */
+			writeNote: z.boolean().default(true),
 		})
-		.default({ summarize: true }),
+		.default({ summarize: true, writeNote: true }),
 });
 
 export type AgentConfigInput = z.infer<typeof agentConfigInput>;
@@ -138,6 +147,7 @@ export function toGatewayConfig(input: AgentConfigInput, persona?: PersonaPrompt
 		postCall: {
 			summarize: postCall.summarize,
 			summaryField: postCall.summaryField ?? undefined,
+			writeNote: postCall.writeNote,
 		},
 	};
 }

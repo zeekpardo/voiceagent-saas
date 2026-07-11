@@ -239,7 +239,10 @@ export const saveAgentSourceMappingProcedure = protectedProcedure
 			tagFilters: z.array(tagFilter).default([]),
 			tagRules: z.array(tagRule).default([]),
 			stageRules: z.array(stageRule).default([]),
-			writeNote: z.boolean().default(true),
+			// Optional: the per-source Call-notes control moved to the agent's
+			// Preferences panel (postCall.writeNote). Saving a source mapping now
+			// leaves the existing value untouched instead of resetting it.
+			writeNote: z.boolean().optional(),
 			bookingCalendarId: z.string().nullable().optional(),
 			bookingCalendarName: z.string().nullable().optional(),
 		}),
@@ -247,6 +250,10 @@ export const saveAgentSourceMappingProcedure = protectedProcedure
 	.handler(async ({ input, context }) => {
 		await requireOwnedAgent(context.session, input.agentId);
 		await requireOwnedSource(context.session, input.sourceId);
-		await saveMappingRow(input);
+		const existing = await getAgentSource(input.agentId, input.sourceId);
+		await saveMappingRow({
+			...input,
+			writeNote: input.writeNote ?? existing?.writeNote ?? true,
+		});
 		return { saved: true };
 	});

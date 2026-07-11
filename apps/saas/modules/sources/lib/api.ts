@@ -110,7 +110,9 @@ export function useSaveSourceMappingMutation(agentId: string) {
 				pipelineName?: string;
 				stageName?: string;
 			}[];
-			writeNote: boolean;
+			/** Optional: Call-notes moved to the agent Preferences panel; when
+			 *  omitted the server preserves the existing per-source value. */
+			writeNote?: boolean;
 			bookingCalendarId?: string | null;
 			bookingCalendarName?: string | null;
 		}) => orpcClient.voiceagents.sources.saveMapping({ agentId, ...input }),

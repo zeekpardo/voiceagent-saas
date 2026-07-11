@@ -8,6 +8,8 @@
 
 const GHL_API_BASE = "https://services.leadconnectorhq.com";
 const API_VERSION = "2021-07-28";
+/** The Conversations API is pinned to an older Version than the rest of v2. */
+const CONVERSATIONS_API_VERSION = "2021-04-15";
 const CALL_DELAY_MS = 350;
 const MAX_RETRIES = 3;
 
@@ -82,6 +84,50 @@ export interface GhlAppointment {
 	appointmentStatus?: string;
 }
 
+/** GHL Conversations send `type` enum. */
+export type GhlMessageType =
+	| "SMS"
+	| "Email"
+	| "WhatsApp"
+	| "IG"
+	| "FB"
+	| "Custom"
+	| "Live_Chat"
+	| "GMB";
+
+export interface GhlSendMessageInput {
+	type: GhlMessageType;
+	contactId: string;
+	message?: string;
+	/** Email fields. */
+	subject?: string;
+	html?: string;
+	emailFrom?: string;
+	threadId?: string;
+	replyMessageId?: string;
+	/** WhatsApp template (outside Meta's 24h window). */
+	templateId?: string;
+	/** SMS numbers. */
+	fromNumber?: string;
+	toNumber?: string;
+	conversationId?: string;
+}
+
+export interface GhlSendMessageResponse {
+	conversationId?: string;
+	messageId?: string;
+	status?: string;
+	emailMessageId?: string;
+}
+
+export interface GhlConversationMessage {
+	id: string;
+	direction?: "inbound" | "outbound";
+	body?: string;
+	messageType?: string;
+	dateAdded?: string;
+}
+
 export class GhlApiError extends Error {
 	constructor(
 		public status: number,
@@ -102,7 +148,12 @@ export class GhlClient {
 		readonly locationId: string,
 	) {}
 
-	private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+	private async request<T>(
+		method: string,
+		path: string,
+		body?: unknown,
+		version: string = API_VERSION,
+	): Promise<T> {
 		// Gentle per-client throttle — GHL rate limits are per location.
 		const wait = this.lastCallAt + CALL_DELAY_MS - Date.now();
 		if (wait > 0) await sleep(wait);
@@ -114,7 +165,7 @@ export class GhlClient {
 				headers: {
 					Authorization: `Bearer ${this.token}`,
 					"Content-Type": "application/json",
-					Version: API_VERSION,
+					Version: version,
 				},
 				...(body !== undefined ? { body: JSON.stringify(body) } : {}),
 			});
@@ -312,6 +363,76 @@ export class GhlClient {
 			}
 		}
 		return out;
+	}
+
+	// ------------------------------------------------------------ conversations
+
+	/**
+	 * Send a message on any channel via the single Conversations endpoint
+	 * (POST /conversations/messages). `type` selects the channel. Channel extras
+	 * (email subject/html + threading, WhatsApp templateId, SMS from/to numbers)
+	 * ride the same body. Undefined fields are dropped so we never send nulls.
+	 */
+	async sendMessage(input: GhlSendMessageInput): Promise<GhlSendMessageResponse> {
+		const body: Record<string, unknown> = { type: input.type, contactId: input.contactId };
+		const put = (key: string, value: unknown) => {
+			if (value !== undefined && value !== null && value !== "") body[key] = value;
+		};
+		put("message", input.message);
+		put("subject", input.subject);
+		put("html", input.html);
+		put("emailFrom", input.emailFrom);
+		put("threadId", input.threadId);
+		put("replyMessageId", input.replyMessageId);
+		put("templateId", input.templateId);
+		put("fromNumber", input.fromNumber);
+		put("toNumber", input.toNumber);
+		put("conversationId", input.conversationId);
+		return this.request<GhlSendMessageResponse>(
+			"POST",
+			"/conversations/messages",
+			body,
+			CONVERSATIONS_API_VERSION,
+		);
+	}
+
+	/**
+	 * Live-chat typing indicator. Best-effort — visitorId may be unavailable, so
+	 * callers should treat a throw as non-fatal.
+	 */
+	async sendLiveChatTyping(input: {
+		conversationId: string;
+		visitorId: string;
+		isTyping: boolean;
+	}): Promise<void> {
+		await this.request(
+			"POST",
+			"/conversations/providers/live-chat/typing",
+			{
+				locationId: this.locationId,
+				conversationId: input.conversationId,
+				visitorId: input.visitorId,
+				isTyping: input.isTyping,
+			},
+			CONVERSATIONS_API_VERSION,
+		);
+	}
+
+	/** Messages on a conversation (lastMessageId pagination). */
+	async getConversationMessages(
+		conversationId: string,
+		lastMessageId?: string,
+	): Promise<GhlConversationMessage[]> {
+		const params = new URLSearchParams();
+		if (lastMessageId) params.set("lastMessageId", lastMessageId);
+		const qs = params.toString();
+		const res = await this.request<{ messages?: { messages?: GhlConversationMessage[] } }>(
+			"GET",
+			`/conversations/${encodeURIComponent(conversationId)}/messages${qs ? `?${qs}` : ""}`,
+			undefined,
+			CONVERSATIONS_API_VERSION,
+		);
+		return res.messages?.messages ?? [];
 	}
 
 	/**

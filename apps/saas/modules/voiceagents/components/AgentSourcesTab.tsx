@@ -1,5 +1,6 @@
 "use client";
 
+import { type MessageChannel, MESSAGE_CHANNEL_LABELS } from "@repo/api/modules/crm/lib/channels";
 import { normalizeName } from "@repo/api/modules/crm/lib/normalize";
 import { readCustomVariableDefs } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { cn } from "@repo/ui";
@@ -64,6 +65,18 @@ interface TagFilter {
 	tag: string;
 	mode: "is" | "is_not";
 }
+
+/** Channel chips, in display order (SMS first, like the CloseBot reference). */
+const CHANNEL_CHIP_ORDER: MessageChannel[] = [
+	"sms",
+	"fb",
+	"ig",
+	"email",
+	"whatsapp",
+	"gmb",
+	"live_chat",
+	"custom",
+];
 
 function SourceAvatar({ name }: { name: string }) {
 	return (
@@ -422,6 +435,13 @@ function SourceDetail({
 	const [variableValues, setVariableValues] = useState<Record<string, string>>(
 		() => (mapping?.variableValues ?? {}) as Record<string, string>,
 	);
+	const [channels, setChannels] = useState<MessageChannel[]>(() =>
+		((mapping?.channels ?? []) as MessageChannel[]).filter((c) => CHANNEL_CHIP_ORDER.includes(c)),
+	);
+	const toggleChannel = (channel: MessageChannel) =>
+		setChannels((prev) =>
+			prev.includes(channel) ? prev.filter((c) => c !== channel) : [...prev, channel],
+		);
 	const [tagSearch, setTagSearch] = useState("");
 	const [filterOpen, setFilterOpen] = useState(false);
 
@@ -490,6 +510,7 @@ function SourceDetail({
 			await saveMutation.mutateAsync({
 				sourceId,
 				enabled,
+				channels,
 				fieldMappings: Object.entries(fieldMap)
 					.filter(([, m]) => m.contactField)
 					.map(([extractField, m]) => ({
@@ -555,6 +576,44 @@ function SourceDetail({
 			</div>
 
 			<div className="gap-4 pt-1 flex flex-col">
+				<Section
+					title="Channels"
+					hint={
+						<InfoHint>
+							Text channels this agent monitors for this source. When a contact messages on an
+							enabled channel, this agent replies on the same channel. One agent per channel per
+							source.
+						</InfoHint>
+					}
+				>
+					<div className="gap-2 flex flex-wrap items-center">
+						{CHANNEL_CHIP_ORDER.map((channel) => {
+							const active = channels.includes(channel);
+							return (
+								<button
+									key={channel}
+									type="button"
+									aria-pressed={active}
+									onClick={() => toggleChannel(channel)}
+									className={cn(
+										"gap-1.5 px-3 py-1.5 font-medium text-xs inline-flex items-center rounded-full border transition-colors",
+										active
+											? "border-violet-500/40 bg-violet-500/10 text-violet-600 dark:text-violet-400"
+											: "text-muted-foreground hover:bg-muted/60",
+									)}
+								>
+									{active ? (
+										<CheckIcon className="size-3 shrink-0" />
+									) : (
+										<PlusIcon className="size-3 shrink-0 opacity-60" />
+									)}
+									{MESSAGE_CHANNEL_LABELS[channel]}
+								</button>
+							);
+						})}
+					</div>
+				</Section>
+
 				<Section
 					title="Filters"
 					hint={

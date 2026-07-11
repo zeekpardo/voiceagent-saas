@@ -1,3 +1,5 @@
+import type { MessageChannel } from "./channels";
+
 /**
  * CRM-agnostic provider surface for the voice agent engine (pattern lifted
  * from wabridge's packages/crm). These deliberately carry no vendor naming:
@@ -121,6 +123,78 @@ export interface CrmProvider {
 		startISO: string;
 		title: string;
 	}): Promise<{ id: string; startISO: string }>;
+
+	// -------------------------------------------------------------- messaging
+	// Optional capability: a CRM that owns the contact's conversations (SMS,
+	// email, FB/IG DMs, WhatsApp, live chat, …) can send agent replies back on
+	// the SAME channel the contact wrote in on. Providers without a unified
+	// messaging surface simply omit these.
+
+	/**
+	 * Send an agent message to a contact on a specific channel. `extras` carries
+	 * channel-specific fields (email subject/html + threading refs, WhatsApp
+	 * templateId, an explicit from/to number, …). Returns the CRM's ids so the
+	 * caller can record the messageId for loop-avoidance.
+	 */
+	sendConversationMessage?(input: SendConversationMessageInput): Promise<SentMessage>;
+
+	/**
+	 * Best-effort typing indicator (Live Chat only in GHL). Never load-bearing —
+	 * callers should not await it on the reply path and must tolerate a throw.
+	 */
+	sendTypingIndicator?(input: {
+		conversationId: string;
+		visitorId?: string;
+		isTyping: boolean;
+	}): Promise<void>;
+
+	/** Fetch recent messages on a conversation (loop-avoidance / context). */
+	getConversationMessages?(
+		conversationId: string,
+		lastMessageId?: string,
+	): Promise<CrmConversationMessage[]>;
+}
+
+export interface SendConversationMessageInput {
+	contactId: string;
+	channel: MessageChannel;
+	text: string;
+	extras?: MessageChannelExtras;
+}
+
+/** Channel-specific send options, all optional. */
+export interface MessageChannelExtras {
+	/** Email: subject line (thread replies typically prefix "Re: "). */
+	subject?: string;
+	/** Email: HTML body; when omitted the CRM renders `text`. */
+	html?: string;
+	/** Email threading: the inbound message's emailMessageId to reply under. */
+	replyToEmailMessageId?: string;
+	/** Email threading: an explicit thread id when the CRM exposes one. */
+	threadId?: string;
+	/** WhatsApp: template id, required outside Meta's 24h session window. */
+	templateId?: string;
+	/** SMS: explicit sending / destination numbers when not the source default. */
+	fromNumber?: string;
+	toNumber?: string;
+	/** Pin the send to an existing conversation when the CRM needs it. */
+	conversationId?: string;
+}
+
+export interface SentMessage {
+	conversationId?: string;
+	messageId?: string;
+	status?: string;
+	/** Present for email sends — the id future replies thread against. */
+	emailMessageId?: string;
+}
+
+export interface CrmConversationMessage {
+	id: string;
+	direction?: "inbound" | "outbound";
+	body?: string;
+	messageType?: string;
+	dateAdded?: string;
 }
 
 export interface CrmCalendar {

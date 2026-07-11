@@ -32,6 +32,14 @@ const DEFAULT_SCOPES = [
 	"calendars.readonly",
 	"calendars/events.readonly",
 	"calendars/events.write",
+	// Omni-channel messaging (SMS/FB/IG/Email/WhatsApp/Live Chat/…): read the
+	// inbound conversation, send the agent's reply, and drive live-chat typing.
+	// NOTE: adding scopes requires EXISTING installs to re-authorize the app.
+	"conversations.readonly",
+	"conversations.write",
+	"conversations/message.readonly",
+	"conversations/message.write",
+	"conversations/livechat.write",
 ].join(" ");
 
 const scopes = () => process.env.GOHIGHLEVEL_SCOPES?.trim() || DEFAULT_SCOPES;

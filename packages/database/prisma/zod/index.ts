@@ -102,7 +102,7 @@ export type SourcePhoneNumberScalarFieldEnum = z.infer<typeof SourcePhoneNumberS
 
 // File: VoiceAgentSourceScalarFieldEnum.schema.ts
 
-export const VoiceAgentSourceScalarFieldEnumSchema = z.enum(['id', 'agentId', 'sourceId', 'enabled', 'fieldMappings', 'tagFilters', 'tagRules', 'stageRules', 'variableValues', 'writeNote', 'bookingCalendarId', 'bookingCalendarName', 'createdAt', 'updatedAt'])
+export const VoiceAgentSourceScalarFieldEnumSchema = z.enum(['id', 'agentId', 'sourceId', 'enabled', 'channels', 'fieldMappings', 'tagFilters', 'tagRules', 'stageRules', 'variableValues', 'writeNote', 'bookingCalendarId', 'bookingCalendarName', 'createdAt', 'updatedAt'])
 
 export type VoiceAgentSourceScalarFieldEnum = z.infer<typeof VoiceAgentSourceScalarFieldEnumSchema>;
 
@@ -428,6 +428,7 @@ export const VoiceAgentSourceSchema = z.object({
   agentId: z.string(),
   sourceId: z.string(),
   enabled: z.boolean().default(true),
+  channels: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
   fieldMappings: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
   tagFilters: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),
   tagRules: z.unknown().refine((val) => { const getDepth = (obj: unknown, depth: number = 0): number => { if (depth > 10) return depth; if (obj === null || typeof obj !== 'object') return depth; const values = Object.values(obj as Record<string, unknown>); if (values.length === 0) return depth; return Math.max(...values.map(v => getDepth(v, depth + 1))); }; return getDepth(val) <= 10; }, "JSON nesting depth exceeds maximum of 10").default("[]"),

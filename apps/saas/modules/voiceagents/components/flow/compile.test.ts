@@ -15,7 +15,7 @@ import {
 	tiptapToText,
 	validateFlowDoc,
 } from "./compile";
-import type { CanvasDoc, ObjectiveNodeData } from "./flow-types";
+import type { CanvasDoc, ObjectiveNodeData, TransferNodeData } from "./flow-types";
 import {
 	FALSE_HANDLE_ID,
 	GREETER_NEXT_HANDLE_ID,
@@ -25,6 +25,7 @@ import {
 	START_HANDLE_ID,
 	START_NODE_ID,
 	STATEMENT_NEXT_HANDLE_ID,
+	TRANSFER_NEXT_HANDLE_ID,
 	TRUE_HANDLE_ID,
 } from "./flow-types";
 
@@ -1386,6 +1387,152 @@ describe("handoff nodes", () => {
 		expect(recompiled.entry).toBe(original.entry);
 		expect(recompiled.nodes.map((n) => [n.id, n.kind, n.handoffAgentId, n.exits])).toEqual(
 			original.nodes.map((n) => [n.id, n.kind, n.handoffAgentId, n.exits]),
+		);
+	});
+});
+
+/** Start → a1 agent → t1 transfer (Next → a2 agent). */
+function makeTransferDoc(data: Partial<TransferNodeData> = {}): CanvasDoc {
+	return {
+		version: 1,
+		nodes: [
+			{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+			{
+				id: "a1",
+				type: "agent",
+				position: { x: 100, y: 0 },
+				data: {
+					title: "Intake",
+					sections: [{ id: "s1", body: sectionBody([{ type: "text", text: "Greet." }]) }],
+					entryMessage: "",
+					exits: [{ id: "x1", name: "transfer", description: "Caller wants the booking team" }],
+					toolIds: [],
+				},
+			},
+			{
+				id: "t1",
+				type: "transfer",
+				position: { x: 400, y: 0 },
+				data: {
+					title: "Transfer",
+					say: "One moment please — let me transfer you.",
+					mode: "simulated",
+					holdSeconds: 4,
+					...data,
+				},
+			},
+			{
+				id: "a2",
+				type: "agent",
+				position: { x: 700, y: 0 },
+				data: {
+					title: "Book",
+					sections: [{ id: "s2", body: sectionBody([{ type: "text", text: "Book it." }]) }],
+					entryMessage: "",
+					exits: [],
+					toolIds: [],
+				},
+			},
+		],
+		edges: [
+			{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+			{ id: "e2", source: "a1", sourceHandle: "x1", target: "t1" },
+			{ id: "e3", source: "t1", sourceHandle: TRANSFER_NEXT_HANDLE_ID, target: "a2" },
+		],
+	};
+}
+
+describe("transfer nodes", () => {
+	it("compiles a simulated transfer with holdSeconds and no target/waitSeconds", () => {
+		const { flow } = compileCanvas(makeTransferDoc(), []);
+		const t1 = flow.nodes.find((n) => n.id === "t1");
+		expect(t1?.kind).toBe("transfer");
+		expect(t1?.transfer).toEqual({
+			mode: "simulated",
+			say: "One moment please — let me transfer you.",
+			holdSeconds: 4,
+		});
+	});
+
+	it("compiles a warm transfer with mode, target, and waitSeconds", () => {
+		const { flow } = compileCanvas(
+			makeTransferDoc({ mode: "warm", target: "+1 (555) 123-4567", waitSeconds: 45 }),
+			[],
+		);
+		const t1 = flow.nodes.find((n) => n.id === "t1");
+		expect(t1?.transfer).toEqual({
+			mode: "warm",
+			say: "One moment please — let me transfer you.",
+			target: "tel:+15551234567",
+			waitSeconds: 45,
+		});
+	});
+
+	it("compiles a cold transfer with mode and target, passing a sip: URI through untouched", () => {
+		const { flow } = compileCanvas(
+			makeTransferDoc({ mode: "cold", target: "sip:sales@yourpbx.com" }),
+			[],
+		);
+		const t1 = flow.nodes.find((n) => n.id === "t1");
+		expect(t1?.transfer).toEqual({
+			mode: "cold",
+			say: "One moment please — let me transfer you.",
+			target: "sip:sales@yourpbx.com",
+			waitSeconds: 30,
+		});
+	});
+
+	it("compiles a legacy no-mode transfer node as simulated (existing behavior)", () => {
+		const doc = makeTransferDoc();
+		const t1 = doc.nodes.find((n) => n.id === "t1");
+		if (t1?.type === "transfer" && t1.data) {
+			// Simulate an old saved node that predates the mode field.
+			t1.data.mode = undefined as unknown as TransferNodeData["mode"];
+		}
+		const { flow } = compileCanvas(doc, []);
+		const compiled = flow.nodes.find((n) => n.id === "t1");
+		expect(compiled?.transfer).toEqual({
+			mode: "simulated",
+			say: "One moment please — let me transfer you.",
+			holdSeconds: 4,
+		});
+	});
+
+	it("validates a well-formed simulated transfer doc", () => {
+		expect(validateFlowDoc(withGreeter(makeTransferDoc()))).toEqual([]);
+	});
+
+	it("flags a warm transfer with no target", () => {
+		const doc = withGreeter(makeTransferDoc({ mode: "warm" }));
+		const errors = validateFlowDoc(doc);
+		expect(errors.some((e) => e.includes("needs a target phone number or SIP URI"))).toBe(true);
+	});
+
+	it("flags a cold transfer with no target", () => {
+		const doc = withGreeter(makeTransferDoc({ mode: "cold" }));
+		const errors = validateFlowDoc(doc);
+		expect(errors.some((e) => e.includes("needs a target phone number or SIP URI"))).toBe(true);
+	});
+
+	it("round-trips a warm transfer flow → canvas → flow, preserving mode and target", () => {
+		const original = compileCanvas(
+			makeTransferDoc({ mode: "warm", target: "+15551234567", waitSeconds: 60 }),
+			[],
+		).flow;
+		const rebuilt = canvasFromFlow(original);
+
+		const t1 = rebuilt.nodes.find((n) => n.id === "t1");
+		expect(t1?.type).toBe("transfer");
+		if (t1?.type === "transfer") {
+			expect(t1.data?.mode).toBe("warm");
+			expect(t1.data?.target).toBe("tel:+15551234567");
+			expect(t1.data?.waitSeconds).toBe(60);
+		}
+
+		expect(validateFlowDoc(rebuilt)).toEqual([]);
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		expect(recompiled.nodes.map((n) => [n.id, n.kind, n.transfer, n.exits])).toEqual(
+			original.nodes.map((n) => [n.id, n.kind, n.transfer, n.exits]),
 		);
 	});
 });

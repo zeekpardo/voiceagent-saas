@@ -38,8 +38,17 @@ export const flowInput = z.object({
 					.optional(),
 				transfer: z
 					.object({
+						// "simulated" (default) is the in-session hand-off — no SIP trunk
+						// required. "warm" dials `target` and merges once answered. "cold"
+						// blind-forwards the caller's SIP leg to `target`.
+						mode: z.enum(["simulated", "warm", "cold"]).optional(),
+						// Phone number or SIP URI — required for warm and cold.
+						target: z.string().optional(),
+						// How long to ring `target` before giving up — warm only.
+						waitSeconds: z.number().min(1).max(120).optional(),
 						say: z.string().optional(),
-						holdSeconds: z.number().min(0).max(30),
+						// Hold-music duration — simulated only.
+						holdSeconds: z.number().min(0).max(30).optional(),
 						voice: z
 							.object({
 								provider: z.string().min(1),

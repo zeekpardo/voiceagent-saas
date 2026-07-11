@@ -285,16 +285,31 @@ export interface ModifyTagsNodeData {
 	[key: string]: unknown;
 }
 
+/**
+ * "simulated" (default) is the in-session hand-off: announcement + hold music
+ * + voice swap, no SIP trunk required — the original transfer behavior.
+ * "warm" dials `target`, caller hears hold music while it rings for up to
+ * `waitSeconds`, then merges. "cold" blind-forwards the caller's SIP leg to
+ * `target` and the agent drops.
+ */
+export type TransferMode = "simulated" | "warm" | "cold";
+
 export interface TransferNodeData {
 	title: string;
-	/** Announcement spoken before the music, in the pre-transfer voice. */
+	/** Announcement spoken before the music/transfer, in the pre-transfer voice. */
 	say: string;
-	/** Hold-music duration between the two "people". */
+	/** Which kind of transfer this node performs. Defaults to "simulated". */
+	mode: TransferMode;
+	/** Hold-music duration between the two "people" — simulated only. */
 	holdSeconds: number;
-	/** TTS voice from here on (id from the voice catalog); empty keeps the current voice. */
+	/** TTS voice from here on (id from the voice catalog); empty keeps the current voice. Simulated only. */
 	voiceId?: string;
-	/** Provider of voiceId (needed by the engine's TTS builder). */
+	/** Provider of voiceId (needed by the engine's TTS builder). Simulated only. */
 	voiceProvider?: string;
+	/** Phone number or SIP URI to dial/forward to — required for warm and cold. */
+	target?: string;
+	/** How long to ring `target` before giving up (warm only). 1..120, default 30. */
+	waitSeconds?: number;
 	[key: string]: unknown;
 }
 
@@ -476,8 +491,15 @@ export interface EngineFlowNode {
 	 * engine no longer assumes an "add_tag" tool). */
 	modifyTags?: { add?: string[]; remove?: string[]; toolId?: string };
 	transfer?: {
+		mode?: "simulated" | "warm" | "cold";
+		/** Phone number or SIP URI — required for warm and cold. */
+		target?: string;
+		/** How long to ring `target` before giving up — warm only. 1..120, default 30. */
+		waitSeconds?: number;
 		say?: string;
-		holdSeconds: number;
+		/** Hold-music duration — simulated only. 0..30, default 4. */
+		holdSeconds?: number;
+		/** TTS voice from here on — simulated only. */
 		voice?: { provider: string; voice: string; speed?: number };
 	};
 	/** handoff-only: the target published agent id the live call is handed to. */
@@ -629,9 +651,12 @@ export const scenarioNodeDataSchema = z.object({
 export const transferNodeDataSchema = z.object({
 	title: z.string(),
 	say: z.string(),
+	mode: z.enum(["simulated", "warm", "cold"]).default("simulated"),
 	holdSeconds: z.number(),
 	voiceId: z.string().optional(),
 	voiceProvider: z.string().optional(),
+	target: z.string().optional(),
+	waitSeconds: z.number().optional(),
 });
 
 export const handoffNodeDataSchema = z.object({
@@ -702,8 +727,11 @@ export const engineFlowSchema = z.object({
 				.optional(),
 			transfer: z
 				.object({
+					mode: z.enum(["simulated", "warm", "cold"]).optional(),
+					target: z.string().optional(),
+					waitSeconds: z.number().optional(),
 					say: z.string().optional(),
-					holdSeconds: z.number(),
+					holdSeconds: z.number().optional(),
 					voice: z
 						.object({
 							provider: z.string(),

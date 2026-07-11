@@ -8,28 +8,69 @@ import type {
 import { TRANSFER_NEXT_HANDLE_ID } from "../../flow-types";
 import { makeId } from "../text";
 
+const DEFAULT_WAIT_SECONDS = 30;
+const DEFAULT_HOLD_SECONDS = 4;
+
+/**
+ * Normalize a warm/cold transfer target. Anything already shaped like
+ * `tel:` or `sip:` passes through untouched; a bare phone number (digits,
+ * spaces, dashes, parens, optional leading `+`) is collapsed into `tel:+E164`.
+ * Anything else (empty, or text we can't confidently turn into E.164) is
+ * passed through as typed so the user can see and fix it.
+ */
+export function normalizeTransferTarget(raw: string | undefined): string | undefined {
+	const trimmed = raw?.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+	if (/^(tel|sip):/i.test(trimmed)) {
+		return trimmed;
+	}
+	const digits = trimmed.replace(/[^\d+]/g, "");
+	if (!digits || !/^\+?\d+$/.test(digits)) {
+		// Not something we can confidently normalize — leave as-is.
+		return trimmed;
+	}
+	const e164 = digits.startsWith("+") ? digits : `+${digits}`;
+	return `tel:${e164}`;
+}
+
 export function compileTransferNode(
 	node: TransferCanvasNodeDoc & { data: TransferNodeData },
 	targetOf: (nodeId: string, handleId: string) => string | undefined,
 ): EngineFlowNode {
 	const say = node.data.say.trim();
-	const target = targetOf(node.id, TRANSFER_NEXT_HANDLE_ID);
+	const mode = node.data.mode ?? "simulated";
+	const nextTarget = targetOf(node.id, TRANSFER_NEXT_HANDLE_ID);
+
+	const transfer: NonNullable<EngineFlowNode["transfer"]> = { mode };
+	if (say) {
+		transfer.say = say;
+	}
+	if (mode === "simulated") {
+		transfer.holdSeconds = node.data.holdSeconds;
+		if (node.data.voiceId && node.data.voiceProvider) {
+			transfer.voice = { provider: node.data.voiceProvider, voice: node.data.voiceId };
+		}
+	} else {
+		const normalizedTarget = normalizeTransferTarget(node.data.target);
+		if (normalizedTarget) {
+			transfer.target = normalizedTarget;
+		}
+		transfer.waitSeconds = node.data.waitSeconds ?? DEFAULT_WAIT_SECONDS;
+	}
+
 	return {
 		id: node.id,
 		name: node.data.title.trim() || undefined,
 		kind: "transfer",
-		transfer: {
-			say: say || undefined,
-			holdSeconds: node.data.holdSeconds,
-			voice:
-				node.data.voiceId && node.data.voiceProvider
-					? { provider: node.data.voiceProvider, voice: node.data.voiceId }
-					: undefined,
-		},
+		transfer,
 		// The engine requires instructions min 1 on every node.
 		instructions: say || "Transferring the caller.",
 		toolIds: [],
-		exits: target ? [{ name: "Next", description: "Continue after the transfer", target }] : [],
+		exits: nextTarget
+			? [{ name: "Next", description: "Continue after the transfer", target: nextTarget }]
+			: [],
 	};
 }
 
@@ -55,9 +96,12 @@ export function decompileTransferNode(
 			data: {
 				title: flowNode.name ?? flowNode.id,
 				say: flowNode.transfer?.say ?? "",
-				holdSeconds: flowNode.transfer?.holdSeconds ?? 4,
+				mode: flowNode.transfer?.mode ?? "simulated",
+				holdSeconds: flowNode.transfer?.holdSeconds ?? DEFAULT_HOLD_SECONDS,
 				voiceId: flowNode.transfer?.voice?.voice,
 				voiceProvider: flowNode.transfer?.voice?.provider,
+				target: flowNode.transfer?.target,
+				waitSeconds: flowNode.transfer?.waitSeconds,
 			},
 		},
 		edges,
@@ -69,6 +113,7 @@ export function newTransferNodeData(): TransferNodeData {
 	return {
 		title: "Transfer",
 		say: "One moment please — let me transfer you to the right person.",
-		holdSeconds: 4,
+		mode: "simulated",
+		holdSeconds: DEFAULT_HOLD_SECONDS,
 	};
 }

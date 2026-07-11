@@ -227,13 +227,17 @@
 	}
 
 	function mountCard(cfg, query) {
-		if (!cfg.target) {
-			console.error('[voice-widget] data-target is required for data-style="card"');
-			return;
-		}
-		var host = document.querySelector(cfg.target);
+		// The inline card needs a host element on the page. When it's missing
+		// (common right after switching a saved widget to Card without editing
+		// the site), degrade to the floating bubble instead of mounting nothing.
+		var host = cfg.target ? document.querySelector(cfg.target) : null;
 		if (!host) {
-			console.error("[voice-widget] no element matches data-target " + cfg.target);
+			console.warn(
+				"[voice-widget] card style needs " +
+					(cfg.target || "a data-target element") +
+					' on the page (e.g. <div id="voice-widget"></div>); falling back to bubble',
+			);
+			mountBubble(cfg, query);
 			return;
 		}
 		var card = css(

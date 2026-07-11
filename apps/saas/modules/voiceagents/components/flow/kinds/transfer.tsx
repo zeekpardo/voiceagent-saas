@@ -38,6 +38,12 @@ export const transferKind = defineKind<TransferNodeData>({
 		if (!data.title.trim()) {
 			errors.push("A Transfer node needs a name.");
 		}
+		const mode = data.mode ?? "simulated";
+		if (mode !== "simulated" && !data.target?.trim()) {
+			errors.push(
+				`Transfer node "${label}" needs a target phone number or SIP URI for a ${mode} transfer.`,
+			);
+		}
 		if (!doc.edges.some((edge) => edge.source === node.id)) {
 			errors.push(
 				`Transfer node "${label}" must connect to the node the caller is transferred to.`,

@@ -26,6 +26,10 @@ interface WidgetSessionBody {
 	token?: string;
 	channel?: "voice" | "text";
 	visitor?: { name?: string; email?: string };
+	/** The EMBEDDING page's origin, reported by the iframe app (ancestorOrigins /
+	 * referrer). The iframe itself is served from OUR origin, so the request's
+	 * Origin header can never identify the customer site — this field can. */
+	parentOrigin?: string;
 }
 
 /**
@@ -65,14 +69,31 @@ export async function POST(req: Request): Promise<Response> {
 		return Response.json({ error: "invalid widget token" }, { status: 401 });
 	}
 
-	if (!isOriginAllowed(identity.origins, origin)) {
-		return Response.json({ error: "origin not allowed for this widget" }, { status: 403 });
+	// Which origin to check against the token's allowlist:
+	// - Cross-origin API call (Origin ≠ ours): the request Origin — a site
+	//   calling this route directly must itself be allowlisted.
+	// - Same-origin (the iframe app) or no Origin: the iframe reports the
+	//   EMBEDDING page's origin as body.parentOrigin (ancestorOrigins/referrer);
+	//   with no parent (the embed page opened top-level, e.g. dev preview) we
+	//   check our own origin. parentOrigin is client-supplied — the signed token
+	//   remains the real credential; origin pinning is defense-in-depth. True
+	//   browser-enforced pinning (dynamic frame-ancestors from the token) is a
+	//   tracked follow-up.
+	const selfOrigin = new URL(req.url).origin;
+	const parentOrigin = typeof body.parentOrigin === "string" ? body.parentOrigin : "";
+	const effectiveOrigin =
+		origin && origin !== selfOrigin ? origin : parentOrigin || origin || selfOrigin;
+	if (!isOriginAllowed(identity.origins, effectiveOrigin)) {
+		return Response.json(
+			{ error: "origin not allowed for this widget", origin: effectiveOrigin },
+			{ status: 403 },
+		);
 	}
 
 	// Once the origin is validated, all further responses may be read
 	// cross-origin, so carry CORS headers. When the token pins concrete origins
 	// we echo the request origin; "*" tokens (dev) may fall back to "*".
-	const allowOrigin = identity.origins.includes("*") ? (origin ?? "*") : origin!;
+	const allowOrigin = identity.origins.includes("*") ? (origin ?? "*") : (origin ?? selfOrigin);
 	const cors = corsHeaders(allowOrigin);
 
 	// Rate limit: per-IP first (cheapest abuse signal), then per-token.

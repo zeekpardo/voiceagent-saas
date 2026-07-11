@@ -47,10 +47,23 @@ export function WidgetApp({
 	const transcriptRef = useRef<HTMLDivElement>(null);
 
 	const getSession = useCallback(async (): Promise<AgentSessionInfo> => {
+		// The iframe is served from OUR origin, so the request's Origin header can
+		// never identify the customer site embedding it. Report the parent page's
+		// origin (ancestorOrigins on Chromium/WebKit, referrer on Firefox; empty
+		// when opened top-level) for the route's allowlist check.
+		const ancestors = window.location.ancestorOrigins;
+		let parentOrigin = ancestors && ancestors.length > 0 ? ancestors[0] : "";
+		if (!parentOrigin && document.referrer) {
+			try {
+				parentOrigin = new URL(document.referrer).origin;
+			} catch {
+				parentOrigin = "";
+			}
+		}
 		const res = await fetch("/api/widget/session", {
 			method: "POST",
 			headers: { "content-type": "application/json" },
-			body: JSON.stringify({ token, channel }),
+			body: JSON.stringify({ token, channel, parentOrigin: parentOrigin || undefined }),
 		});
 		if (!res.ok) {
 			const body = (await res.json().catch(() => null)) as { error?: string } | null;

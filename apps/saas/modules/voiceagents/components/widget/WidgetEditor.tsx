@@ -47,7 +47,7 @@ import {
 	WavesIcon,
 	XIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { composeWidgetIdSnippet, normalizeWidgetOrigin } from "../../lib/widget-snippet";
 import { InfoHint } from "../shared/InfoHint";
@@ -102,6 +102,33 @@ export function WidgetEditor({
 	const [behavior, setBehavior] = useState(widget.behavior);
 
 	const patch = (p: Partial<WidgetAppearance>) => setAppearance((a) => ({ ...a, ...p }));
+
+	// Everything above is local state that only persists on Save — losing an
+	// origins allowlist or targeting rules to a stray refresh is a real footgun,
+	// so track dirtiness against the stored row and guard unload/cancel.
+	const isDirty =
+		name !== widget.name ||
+		agentId !== widget.agentId ||
+		JSON.stringify(origins) !== JSON.stringify(widget.origins) ||
+		JSON.stringify(appearance) !== JSON.stringify(widget.appearance) ||
+		JSON.stringify(targeting) !== JSON.stringify(widget.targeting) ||
+		JSON.stringify(behavior) !== JSON.stringify(widget.behavior);
+
+	useEffect(() => {
+		if (!isDirty) return;
+		const warn = (e: BeforeUnloadEvent) => {
+			e.preventDefault();
+		};
+		window.addEventListener("beforeunload", warn);
+		return () => window.removeEventListener("beforeunload", warn);
+	}, [isDirty]);
+
+	const cancel = () => {
+		if (isDirty && !window.confirm("You have unsaved changes — discard them?")) {
+			return;
+		}
+		onClose();
+	};
 
 	const save = () => {
 		if (!appearance.voice && !appearance.chat) {
@@ -323,7 +350,12 @@ export function WidgetEditor({
 
 			{/* Sticky save footer */}
 			<div className="py-3 -mx-6 px-6 gap-2 bottom-0 sticky flex items-center justify-end border-t bg-background">
-				<Button variant="ghost" onClick={onClose} disabled={update.isPending}>
+				{isDirty && (
+					<span className="text-xs text-amber-600 dark:text-amber-400 mr-auto">
+						Unsaved changes
+					</span>
+				)}
+				<Button variant="ghost" onClick={cancel} disabled={update.isPending}>
 					Cancel
 				</Button>
 				<Button onClick={save} disabled={update.isPending}>

@@ -32,6 +32,7 @@ import { AgentSourcesTab } from "./AgentSourcesTab";
 import { ActionsPanel } from "./flow/ActionsPanel";
 import type { FlowPaletteKind } from "./flow/flow-types";
 import { FlowTab } from "./flow/FlowTab";
+import { relativeTime } from "./inbox/helpers";
 import { AttachedPersonaProvider } from "./personas/persona-flow-context";
 import { PersonaBadge } from "./personas/PersonaBadge";
 import { PersonasPanel } from "./personas/PersonasPanel";
@@ -124,7 +125,43 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 					<ArrowLeftIcon className="size-5" />
 				</Link>
 				<h1 className="font-medium text-lg truncate">{agent.name}</h1>
-				<Badge status="info">v{agent.version}</Badge>
+				<TooltipProvider delayDuration={150}>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<div className="gap-1.5 flex cursor-default items-center">
+								<Badge status="info">v{agent.version}</Badge>
+								<span className="gap-1 font-medium text-emerald-500 flex items-center text-[11px]">
+									<span className="size-1.5 animate-pulse bg-emerald-500 rounded-full" />
+									Live
+								</span>
+							</div>
+						</TooltipTrigger>
+						<TooltipContent side="bottom" className="max-w-64">
+							<p>
+								v{agent.version} is live — every new call uses it. Publishing takes effect on the
+								next call (no deploy).
+							</p>
+							{agent.updated_at && (
+								<p className="mt-1 opacity-70">Published {relativeTime(agent.updated_at)} ago</p>
+							)}
+						</TooltipContent>
+					</Tooltip>
+					{draft && (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Badge status="warning" className="cursor-default">
+									Unpublished changes
+								</Badge>
+							</TooltipTrigger>
+							<TooltipContent side="bottom" className="max-w-64">
+								<p>
+									You have draft changes on the canvas that aren't live yet. v{agent.version} keeps
+									serving every call until you publish.
+								</p>
+							</TooltipContent>
+						</Tooltip>
+					)}
+				</TooltipProvider>
 				<PersonaBadge agent={agent} onClick={() => setActivePanel("personas")} />
 			</div>
 

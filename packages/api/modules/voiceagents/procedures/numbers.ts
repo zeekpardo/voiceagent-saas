@@ -9,6 +9,9 @@ export interface GatewayNumber {
 	e164: string;
 	provider_ref: string;
 	inbound_agent_id: string | null;
+	/** Name of the routed agent, resolved server-side by the gateway. Null when
+	 * unassigned or the agent no longer exists. */
+	inbound_agent_name: string | null;
 	created_at: string;
 }
 

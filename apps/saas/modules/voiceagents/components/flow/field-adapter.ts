@@ -22,8 +22,16 @@ import type { ContactFieldOption } from "@voiceagents/lib/contact-fields-api";
 
 const norm = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
 
+/**
+ * The "Full address" standard field's key. Picking it as an objective's
+ * output field triggers the managed multi-part address collector (see
+ * `newFullAddressObjectiveData` and `ObjectiveNodeEditor`) rather than just
+ * writing a single field.
+ */
+export const FULL_ADDRESS_FIELD_KEY = "contact.address";
+
 /** Composite standard fields whose one objective fills every sub-part. */
-const COMPOSITE_KEYS = new Set(["contact.address", "contact.name"]);
+const COMPOSITE_KEYS = new Set([FULL_ADDRESS_FIELD_KEY, "contact.name"]);
 
 /** Resolve a stored field string to its catalog entry (by key, label, or slug). */
 function findField(

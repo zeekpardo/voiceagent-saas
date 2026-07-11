@@ -7,7 +7,7 @@ import {
 } from "../compile/nodes/set-field";
 import { SetFieldNodeEditor } from "../editors/set-field";
 import type { SetFieldCanvasNodeDoc, SetFieldNodeData } from "../flow-types";
-import { setFieldNodeDataSchema } from "../flow-types";
+import { SET_FIELD_NEXT_HANDLE_ID, setFieldNodeDataSchema } from "../flow-types";
 import { SetFieldNode } from "../SetFieldNode";
 import { defineKind } from "./types";
 
@@ -36,7 +36,7 @@ export const setFieldKind = defineKind<SetFieldNodeData>({
 		},
 	},
 	newData: () => newSetFieldNodeData(),
-	sourceHandles: () => new Set(),
+	sourceHandles: () => new Set([SET_FIELD_NEXT_HANDLE_ID]),
 	edgeLabel: () => undefined,
 	compile: (node, { targetOf }) => ({
 		node: compileSetFieldNode(node as SetFieldCanvasNodeDoc & { data: SetFieldNodeData }, targetOf),

@@ -4,7 +4,11 @@ import { BookingNode } from "../BookingNode";
 import { compileBookingNode, newBookingNodeData } from "../compile/nodes/booking";
 import { BookingNodeEditor } from "../editors/booking";
 import type { BookingCanvasNodeDoc, BookingNodeData } from "../flow-types";
-import { BOOKING_BOOKED_HANDLE_ID, bookingNodeDataSchema } from "../flow-types";
+import {
+	BOOKING_BOOKED_HANDLE_ID,
+	BOOKING_FAILED_HANDLE_ID,
+	bookingNodeDataSchema,
+} from "../flow-types";
 import { defineKind } from "./types";
 
 export const bookingKind = defineKind<BookingNodeData>({
@@ -33,7 +37,7 @@ export const bookingKind = defineKind<BookingNodeData>({
 	},
 	newData: (bookingToolIds) => newBookingNodeData(bookingToolIds),
 	fallbackData: () => newBookingNodeData([]),
-	sourceHandles: () => new Set(),
+	sourceHandles: () => new Set([BOOKING_BOOKED_HANDLE_ID, BOOKING_FAILED_HANDLE_ID]),
 	edgeLabel: (_data, sourceHandle) =>
 		sourceHandle === BOOKING_BOOKED_HANDLE_ID ? "Booked" : "No time worked",
 	// A Booking node compiles to an engine agent node; the engine has no booking

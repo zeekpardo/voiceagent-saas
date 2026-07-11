@@ -5,7 +5,7 @@ import {
 } from "../compile/nodes/modify-tags";
 import { ModifyTagsNodeEditor } from "../editors/modify-tags";
 import type { ModifyTagsCanvasNodeDoc, ModifyTagsNodeData } from "../flow-types";
-import { modifyTagsNodeDataSchema } from "../flow-types";
+import { MODIFY_TAGS_NEXT_HANDLE_ID, modifyTagsNodeDataSchema } from "../flow-types";
 import { ModifyTagsNode } from "../ModifyTagsNode";
 import { defineKind } from "./types";
 
@@ -22,7 +22,7 @@ export const modifyTagsKind = defineKind<ModifyTagsNodeData>({
 			"Deterministically add or remove contact tags, then continue. No conversation — the tags change silently and the flow moves on.",
 	},
 	newData: () => newModifyTagsNodeData(),
-	sourceHandles: () => new Set(),
+	sourceHandles: () => new Set([MODIFY_TAGS_NEXT_HANDLE_ID]),
 	edgeLabel: () => undefined,
 	compile: (node, { targetOf }) => ({
 		node: compileModifyTagsNode(

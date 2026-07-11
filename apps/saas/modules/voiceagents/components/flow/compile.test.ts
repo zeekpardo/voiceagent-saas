@@ -1240,3 +1240,85 @@ describe("greeter fixture", () => {
 		expect(result).toBe(doc);
 	});
 });
+
+function makeHandoffDoc(): CanvasDoc {
+	return {
+		version: 1,
+		nodes: [
+			{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+			{
+				id: "a1",
+				type: "agent",
+				position: { x: 100, y: 0 },
+				data: {
+					title: "Intake",
+					sections: [{ id: "s1", body: sectionBody([{ type: "text", text: "Greet." }]) }],
+					entryMessage: "",
+					exits: [{ id: "x1", name: "to booking", description: "Caller wants the booking team" }],
+					toolIds: [],
+				},
+			},
+			{
+				id: "h1",
+				type: "handoff",
+				position: { x: 400, y: 0 },
+				data: { title: "To booking agent", handoffAgentId: "ag_booking" },
+			},
+		],
+		edges: [
+			{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+			{ id: "e2", source: "a1", sourceHandle: "x1", target: "h1" },
+			// h1 is terminal — no outgoing edge (the target agent takes over).
+		],
+	};
+}
+
+describe("handoff nodes", () => {
+	it("compiles a handoff into kind handoff with a target agent id and no exits", () => {
+		const { flow } = compileCanvas(makeHandoffDoc(), []);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.kind).toBe("handoff");
+		expect(h1?.name).toBe("To booking agent");
+		expect(h1?.handoffAgentId).toBe("ag_booking");
+		// Terminal for this flow: the target agent takes over one-way.
+		expect(h1?.exits).toEqual([]);
+		expect(h1?.toolIds).toEqual([]);
+		// Engine requires instructions min 1 even though a handoff node never becomes an agent.
+		expect((h1?.instructions.length ?? 0) > 0).toBe(true);
+	});
+
+	it("validates a well-formed handoff doc", () => {
+		expect(validateFlowDoc(withGreeter(makeHandoffDoc()))).toEqual([]);
+	});
+
+	it("flags a handoff with no target agent", () => {
+		const doc = makeHandoffDoc();
+		const h1 = doc.nodes.find((n) => n.id === "h1");
+		if (h1?.type === "handoff" && h1.data) {
+			h1.data.handoffAgentId = undefined;
+		}
+		const errors = validateFlowDoc(withGreeter(doc));
+		expect(errors.some((e) => e.includes("must choose an agent"))).toBe(true);
+	});
+
+	it("round-trips handoff nodes flow → canvas → flow", () => {
+		const original = compileCanvas(makeHandoffDoc(), []).flow;
+		const rebuilt = canvasFromFlow(original);
+
+		const h1 = rebuilt.nodes.find((n) => n.id === "h1");
+		expect(h1?.type).toBe("handoff");
+		if (h1?.type === "handoff") {
+			expect(h1.data?.title).toBe("To booking agent");
+			expect(h1.data?.handoffAgentId).toBe("ag_booking");
+		}
+		// Terminal — no outgoing edges reconstructed.
+		expect(rebuilt.edges.some((e) => e.source === "h1")).toBe(false);
+
+		expect(validateFlowDoc(rebuilt)).toEqual([]);
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		expect(recompiled.entry).toBe(original.entry);
+		expect(recompiled.nodes.map((n) => [n.id, n.kind, n.handoffAgentId, n.exits])).toEqual(
+			original.nodes.map((n) => [n.id, n.kind, n.handoffAgentId, n.exits]),
+		);
+	});
+});

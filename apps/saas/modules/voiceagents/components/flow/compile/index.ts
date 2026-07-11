@@ -11,6 +11,7 @@ import { FLOW_KINDS, isFlowNodeKind } from "../kinds";
 import { decompileAgentNode } from "./nodes/agent";
 import { decompileConversationNode } from "./nodes/conversation";
 import { newGreeterNodeData } from "./nodes/greeter";
+import { decompileHandoffNode } from "./nodes/handoff";
 import { decompileModifyTagsNode } from "./nodes/modify-tags";
 import { decompileObjectiveNode } from "./nodes/objective";
 import { decompileRouterNode } from "./nodes/router";
@@ -35,6 +36,7 @@ export { newAgentNodeData } from "./nodes/agent";
 export { newBookingNodeData } from "./nodes/booking";
 export { newConversationNodeData } from "./nodes/conversation";
 export { newGreeterNodeData } from "./nodes/greeter";
+export { newHandoffNodeData } from "./nodes/handoff";
 export { newModifyTagsNodeData } from "./nodes/modify-tags";
 export { newFullAddressObjectiveData, newObjectiveNodeData } from "./nodes/objective";
 export { newSwitchNodeData, newTrueFalseNodeData } from "./nodes/router";
@@ -240,6 +242,13 @@ export function canvasFromFlow(flow: EngineFlow, greeting = ""): CanvasDoc {
 
 		if (flowNode.kind === "transfer") {
 			const { node, edges: nodeEdges } = decompileTransferNode(flowNode, position);
+			nodes.push(node);
+			edges.push(...nodeEdges);
+			continue;
+		}
+
+		if (flowNode.kind === "handoff") {
+			const { node, edges: nodeEdges } = decompileHandoffNode(flowNode, position);
 			nodes.push(node);
 			edges.push(...nodeEdges);
 			continue;

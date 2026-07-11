@@ -1,5 +1,6 @@
 import { getSourceById, updateSourceConfig } from "@repo/database";
 
+import { openSourceConfig, sealSourceConfig } from "../../sources/lib/config-crypto";
 import type { CrmProvider } from "./provider";
 import { getCrmRegistration } from "./registry";
 // Importing provider modules registers them (side effect) — the one line to
@@ -13,10 +14,12 @@ export async function resolveCrmProvider(sourceId: string): Promise<CrmProvider 
 	if (!source) return null;
 	const registration = getCrmRegistration(source.providerType);
 	if (!registration) return null;
-	return registration.create(source.config as Record<string, string>, {
+	// Decrypt the secret fields (accessToken/refreshToken) before handing the
+	// config to the provider; re-encrypt on persist when tokens rotate.
+	return registration.create(openSourceConfig(source.config as Record<string, string>), {
 		// Rotated OAuth tokens survive the request.
 		persist: async (config) => {
-			await updateSourceConfig(sourceId, config);
+			await updateSourceConfig(sourceId, sealSourceConfig(config));
 		},
 	});
 }

@@ -364,13 +364,17 @@ describe("branch nodes", () => {
 	});
 
 	it("rejects a branch node as the entry", () => {
-		const doc = makeBranchDoc();
-		const startEdge = doc.edges.find((e) => e.source === START_NODE_ID);
-		if (startEdge) {
-			startEdge.target = "tf1";
+		// Under the Greeter model the entry is the Greeter's target, so point the
+		// Greeter's edge at a branch node and expect the entry-kind rejection.
+		const doc = withGreeter(makeBranchDoc());
+		const greeterEdge = doc.edges.find((e) => e.source === GREETER_ID);
+		if (greeterEdge) {
+			greeterEdge.target = "tf1";
 		}
 		const errors = validateFlowDoc(doc);
-		expect(errors.some((e) => e.includes("must start on an Agent node"))).toBe(true);
+		expect(
+			errors.some((e) => e.includes("The call must start on an Agent, Objective, or Booking node")),
+		).toBe(true);
 	});
 
 	it("flags empty conditions, too few switch paths and duplicate case names", () => {
@@ -511,18 +515,21 @@ describe("statement nodes", () => {
 	});
 
 	it("flags an empty say and rejects a statement as the entry", () => {
-		const doc = makeStatementDoc();
+		const doc = withGreeter(makeStatementDoc());
 		const st1 = doc.nodes.find((n) => n.id === "st1");
 		if (st1?.type === "statement" && st1.data) {
 			st1.data.say = "   ";
 		}
-		const startEdge = doc.edges.find((e) => e.source === START_NODE_ID);
-		if (startEdge) {
-			startEdge.target = "st2";
+		// Route the Greeter's edge to a statement node so it becomes the entry.
+		const greeterEdge = doc.edges.find((e) => e.source === GREETER_ID);
+		if (greeterEdge) {
+			greeterEdge.target = "st2";
 		}
 		const errors = validateFlowDoc(doc);
 		expect(errors.some((e) => e.includes("needs something to say"))).toBe(true);
-		expect(errors.some((e) => e.includes("must connect to an agent node"))).toBe(true);
+		expect(
+			errors.some((e) => e.includes("The call must start on an Agent, Objective, or Booking node")),
+		).toBe(true);
 	});
 
 	it("round-trips statement nodes flow → canvas → flow", () => {

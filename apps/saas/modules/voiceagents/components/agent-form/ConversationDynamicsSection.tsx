@@ -17,6 +17,7 @@ import {
 	SelectValue,
 } from "@repo/ui/components/select";
 import { Switch } from "@repo/ui/components/switch";
+import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import type { UseFormReturn } from "react-hook-form";
 
 import type { AgentFormValues } from "../../lib/agent-form-mapping";
@@ -70,8 +71,13 @@ export function ConversationDynamicsSection({ form }: { form: UseFormReturn<Agen
 					name="turnDetection.endpointingMs"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Endpointing delay (ms)</FormLabel>
-							<FormDescription>Lower = snappier, higher = fewer cut-offs</FormDescription>
+							<FormLabel className="gap-1.5 flex items-center">
+								Endpointing delay (ms)
+								<InfoHint>
+									How long to wait after the caller stops before replying. Lower = snappier, higher
+									= fewer cut-offs.
+								</InfoHint>
+							</FormLabel>
 							<FormControl>
 								<Input
 									type="number"
@@ -104,8 +110,10 @@ export function ConversationDynamicsSection({ form }: { form: UseFormReturn<Agen
 					name="timeouts.silenceHangupSeconds"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Silence hang-up (seconds)</FormLabel>
-							<FormDescription>End the call after this much dead air</FormDescription>
+							<FormLabel className="gap-1.5 flex items-center">
+								Silence hang-up (seconds)
+								<InfoHint>Ends the call after this much dead air from the caller.</InfoHint>
+							</FormLabel>
 							<FormControl>
 								<Input
 									type="number"
@@ -121,8 +129,10 @@ export function ConversationDynamicsSection({ form }: { form: UseFormReturn<Agen
 					name="turnDetection.mode"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Turn detection</FormLabel>
-							<FormDescription>How the agent decides the caller is done</FormDescription>
+							<FormLabel className="gap-1.5 flex items-center">
+								Turn detection
+								<InfoHint>How the agent decides the caller has finished speaking.</InfoHint>
+							</FormLabel>
 							<Select onValueChange={field.onChange} value={field.value}>
 								<FormControl>
 									<SelectTrigger>
@@ -145,10 +155,12 @@ export function ConversationDynamicsSection({ form }: { form: UseFormReturn<Agen
 					render={({ field }) => (
 						<FormItem className="p-3 @xl:col-span-2 flex items-center justify-between rounded-lg border">
 							<div>
-								<FormLabel>AI disclosure</FormLabel>
-								<FormDescription>
-									Engine-enforced: the agent identifies itself as an AI at the start
-								</FormDescription>
+								<FormLabel className="gap-1.5 flex items-center">
+									AI disclosure
+									<InfoHint>
+										Engine-enforced: the agent identifies itself as an AI at the start of the call.
+									</InfoHint>
+								</FormLabel>
 							</div>
 							<FormControl>
 								<Switch checked={field.value} onCheckedChange={field.onChange} />

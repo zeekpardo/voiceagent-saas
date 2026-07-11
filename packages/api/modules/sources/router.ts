@@ -20,6 +20,7 @@ import {
 import { sourceOauthUrl } from "./procedures/oauth";
 import { sourceProviders } from "./procedures/providers";
 import { sourceUsage, usageSummary } from "./procedures/usage";
+import { createWidget, listWidgets, removeWidget, updateWidget } from "./procedures/widgets";
 
 export const sourcesRouter = {
 	list: listSourcesProcedure,
@@ -47,5 +48,11 @@ export const sourcesRouter = {
 	limits: {
 		list: listLimits,
 		set: setLimit,
+	},
+	widgets: {
+		list: listWidgets,
+		create: createWidget,
+		update: updateWidget,
+		remove: removeWidget,
 	},
 };

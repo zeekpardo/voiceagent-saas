@@ -3,6 +3,7 @@ export * from "./notifications";
 export * from "./organizations";
 export * from "./personas";
 export * from "./purchases";
+export * from "./source-widgets";
 export * from "./sources";
 export * from "./users";
 export * from "./voice-engine-webhook";

@@ -1,8 +1,14 @@
 "use client";
 
-import type { AgentConfigInput } from "@repo/api/modules/voiceagents/lib/schema";
+import type {
+	AgentConfigInput,
+	CustomVariableDef,
+	GatewayAgent,
+} from "@repo/api/modules/voiceagents/lib/schema";
 import { orpcClient } from "@shared/lib/orpc-client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { toFormValues } from "./agent-form-mapping";
 
 export const voiceAgentsQueryKey = ["voiceagents", "agents"] as const;
 export const agentQueryKey = (id: string) => ["voiceagents", "agents", id] as const;
@@ -35,6 +41,33 @@ export function useUpdateAgentMutation(id: string) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (config: AgentConfigInput) => orpcClient.voiceagents.agents.update({ id, config }),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey });
+			void queryClient.invalidateQueries({ queryKey: agentQueryKey(id) });
+		},
+	});
+}
+
+/**
+ * Persist the agent's Job Flow Variable DEFINITIONS. Rides the existing agent
+ * update path (rebuild the full config with toFormValues + swap customVariables)
+ * so it round-trips every other field untouched, exactly like the persona attach
+ * mutation. Publishes a new agent version immediately.
+ */
+export function useSaveCustomVariablesMutation(id: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			agent,
+			customVariables,
+		}: {
+			agent: GatewayAgent;
+			customVariables: CustomVariableDef[];
+		}) =>
+			orpcClient.voiceagents.agents.update({
+				id,
+				config: { ...toFormValues(agent), customVariables },
+			}),
 		onSuccess: () => {
 			void queryClient.invalidateQueries({ queryKey: voiceAgentsQueryKey });
 			void queryClient.invalidateQueries({ queryKey: agentQueryKey(id) });

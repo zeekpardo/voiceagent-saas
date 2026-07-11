@@ -32,6 +32,7 @@ export const listAgentSourcesProcedure = protectedProcedure
 			tagFilters: row.tagFilters,
 			tagRules: row.tagRules,
 			stageRules: row.stageRules,
+			variableValues: (row.variableValues ?? {}) as Record<string, string>,
 			writeNote: row.writeNote,
 			bookingCalendarId: row.bookingCalendarId,
 			bookingCalendarName: row.bookingCalendarName,

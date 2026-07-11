@@ -128,17 +128,20 @@ export async function saveAgentSourceMapping(data: {
 	tagFilters?: unknown;
 	tagRules: unknown;
 	stageRules: unknown;
+	/** Job Flow Variables per-source value overrides. Omit to leave untouched. */
+	variableValues?: unknown;
 	writeNote: boolean;
 	/** Omit (undefined) to leave untouched; null clears. */
 	bookingCalendarId?: string | null;
 	bookingCalendarName?: string | null;
 }) {
-	const { agentId, sourceId, tagFilters, ...rest } = data;
+	const { agentId, sourceId, tagFilters, variableValues, ...rest } = data;
 	const jsonFields = {
 		fieldMappings: rest.fieldMappings as object[],
 		tagRules: rest.tagRules as object[],
 		stageRules: rest.stageRules as object[],
 		...(tagFilters !== undefined ? { tagFilters: tagFilters as object[] } : {}),
+		...(variableValues !== undefined ? { variableValues: variableValues as object } : {}),
 	};
 	return db.voiceAgentSource.upsert({
 		where: { agentId_sourceId: { agentId, sourceId } },

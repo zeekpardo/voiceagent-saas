@@ -337,6 +337,10 @@ model VoiceAgentSource {
   tagRules      Json @default("[]")
   /// [{ extractField, equals, pipelineId, stageId, pipelineName?, stageName? }]
   stageRules    Json @default("[]")
+  /// Job Flow Variables — per-source VALUE overrides for the agent's custom
+  /// variable definitions: { <variableName>: <value> }. Merged into the runtime
+  /// variables map at dispatch (see mergeCustomVariables).
+  variableValues Json @default("{}")
   writeNote     Boolean @default(true)
   /// default calendar for the check_availability / book_appointment live tools
   bookingCalendarId   String?

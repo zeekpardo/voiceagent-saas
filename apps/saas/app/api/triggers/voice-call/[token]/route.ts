@@ -2,7 +2,9 @@ import { buildContactState, parseContactTags } from "@repo/api/modules/crm/lib/c
 import { normalizePhone } from "@repo/api/modules/crm/lib/normalize";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
 import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
+import { mergeCustomVariables } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
+import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { getAgentSource } from "@repo/database";
 
 /**
@@ -171,6 +173,15 @@ export async function POST(
 	// caller's current CRM tags. Derived from the already-fetched contact_tags
 	// variable, so it adds no CRM call and can't block the dispatch.
 	const contactTags = parseContactTags(variables.contact_tags);
+
+	// Job Flow Variables: fold the agent's custom variable definitions (defaults)
+	// and this source's per-source value overrides into the runtime variables map
+	// (runtime values from CRM/customData win). Best-effort — a gateway hiccup
+	// fetching the config must never block the call.
+	const agentConfig = await gatewayFetch<GatewayAgent>("GET", `/v1/agents/${identity.agentId}`)
+		.then((a) => a.config)
+		.catch(() => undefined);
+	variables = mergeCustomVariables(agentConfig, mapping, variables);
 
 	try {
 		const call = await gatewayFetch<{ id: string; status: string }>("POST", "/v1/calls", {

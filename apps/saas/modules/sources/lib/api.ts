@@ -125,6 +125,9 @@ export function useSaveSourceMappingMutation(agentId: string) {
 			/** Optional: Call-notes moved to the agent Preferences panel; when
 			 *  omitted the server preserves the existing per-source value. */
 			writeNote?: boolean;
+			/** Job Flow Variables — per-source value overrides ({ name: value }).
+			 *  Omit to preserve the stored map. */
+			variableValues?: Record<string, string>;
 			bookingCalendarId?: string | null;
 			bookingCalendarName?: string | null;
 		}) => orpcClient.voiceagents.sources.saveMapping({ agentId, ...input }),

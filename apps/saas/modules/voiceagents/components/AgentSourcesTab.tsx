@@ -1,6 +1,7 @@
 "use client";
 
 import { normalizeName } from "@repo/api/modules/crm/lib/normalize";
+import { readCustomVariableDefs } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { cn } from "@repo/ui";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
@@ -384,6 +385,8 @@ function SourceDetail({
 	const extractFields = Object.keys(
 		(agentConfig.postCall as { extract?: Record<string, string> } | undefined)?.extract ?? {},
 	);
+	// Agent-level Job Flow Variable definitions — each gets a per-source value input.
+	const customVariables = useMemo(() => readCustomVariableDefs(agentConfig), [agentConfig]);
 
 	// Hydrate once per mount — the component is keyed by sourceId.
 	const [enabled, setEnabled] = useState(() => mapping?.enabled ?? true);
@@ -414,6 +417,10 @@ function SourceDetail({
 	);
 	const [tagFilters, setTagFilters] = useState<TagFilter[]>(() =>
 		((mapping?.tagFilters ?? []) as unknown as TagFilter[]).filter((f) => f?.tag),
+	);
+	// Per-source variable value overrides, keyed by variable name. Hydrated once.
+	const [variableValues, setVariableValues] = useState<Record<string, string>>(
+		() => (mapping?.variableValues ?? {}) as Record<string, string>,
 	);
 	const [tagSearch, setTagSearch] = useState("");
 	const [filterOpen, setFilterOpen] = useState(false);
@@ -506,6 +513,13 @@ function SourceDetail({
 					pipelineName?: string;
 					stageName?: string;
 				}[],
+				// Keep only values for still-defined variables, dropping empties so
+				// they fall back to the definition default at dispatch.
+				variableValues: Object.fromEntries(
+					customVariables
+						.map((v) => [v.name, (variableValues[v.name] ?? "").trim()] as const)
+						.filter(([, value]) => value.length > 0),
+				),
 			});
 			toastSuccess("Source settings saved");
 		} catch (err) {
@@ -697,6 +711,39 @@ function SourceDetail({
 						)}
 					</div>
 				</Section>
+
+				{customVariables.length > 0 && (
+					<Section
+						title="Variables"
+						hint={
+							<InfoHint>
+								Per-source values for this job's custom variables. Leave blank to use the variable's
+								default; a value here overrides the default for {sourceName} only.
+							</InfoHint>
+						}
+					>
+						<div className="gap-3 flex flex-col">
+							{customVariables.map((v) => (
+								<div key={v.name} className="gap-2 flex items-center">
+									<span
+										className="w-40 font-mono text-xs shrink-0 truncate"
+										title={v.description || v.name}
+									>
+										{v.name}
+									</span>
+									<Input
+										value={variableValues[v.name] ?? ""}
+										onChange={(e) =>
+											setVariableValues((prev) => ({ ...prev, [v.name]: e.target.value }))
+										}
+										placeholder={v.default ? `Default: ${v.default}` : "Use default"}
+										className="h-8 text-sm flex-1"
+									/>
+								</div>
+							))}
+						</div>
+					</Section>
+				)}
 
 				<Section
 					title="Trigger URL"

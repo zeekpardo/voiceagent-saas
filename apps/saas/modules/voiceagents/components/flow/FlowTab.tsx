@@ -1,5 +1,6 @@
 "use client";
 
+import { readCustomVariableDefs } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
@@ -133,6 +134,7 @@ export function FlowTab({
 	);
 
 	const { data: contactFields } = useContactFieldsQuery(agent.id);
+	const customVariables = useMemo(() => readCustomVariableDefs(config), [config]);
 	const variableItems = useMemo(
 		() =>
 			buildVariableItems(
@@ -141,8 +143,9 @@ export function FlowTab({
 					typeof config.greeting === "string" ? config.greeting : undefined,
 				),
 				contactFields?.fields ?? [],
+				customVariables,
 			),
-		[config.instructions, config.greeting, contactFields],
+		[config.instructions, config.greeting, contactFields, customVariables],
 	);
 
 	const handleSaveDraft = async (doc: CanvasDoc) => {

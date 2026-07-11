@@ -51,6 +51,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { composeWidgetIdSnippet, normalizeWidgetOrigin } from "../../lib/widget-snippet";
 import { InfoHint } from "../shared/InfoHint";
+import { WidgetLiveTest } from "./WidgetLiveTest";
 import { WidgetPreview } from "./WidgetPreview";
 
 const STYLE_OPTIONS: { value: WidgetStyle; label: string; icon: LucideIcon }[] = [
@@ -100,6 +101,9 @@ export function WidgetEditor({
 	const [appearance, setAppearance] = useState<WidgetAppearance>(widget.appearance);
 	const [targeting, setTargeting] = useState(widget.targeting);
 	const [behavior, setBehavior] = useState(widget.behavior);
+	// Preview pane mode: static appearance mock (instant feedback while editing)
+	// vs. the real embed iframe for end-to-end conversation testing.
+	const [previewMode, setPreviewMode] = useState<"preview" | "live">("preview");
 
 	const patch = (p: Partial<WidgetAppearance>) => setAppearance((a) => ({ ...a, ...p }));
 
@@ -339,10 +343,30 @@ export function WidgetEditor({
 					</Tabs>
 				</div>
 
-				{/* RIGHT — live preview */}
+				{/* RIGHT — preview pane: static mock or the real embed for live testing */}
 				<div className="flex-1">
 					<div className="lg:sticky lg:top-4">
-						<WidgetPreview appearance={appearance} />
+						<div className="mb-2 flex items-center justify-between">
+							<Segmented
+								value={previewMode}
+								options={[
+									{ value: "preview", label: "Preview" },
+									{ value: "live", label: "Live test" },
+								]}
+								onChange={setPreviewMode}
+							/>
+						</div>
+						{previewMode === "live" ? (
+							widget.id ? (
+								<WidgetLiveTest widgetId={widget.id} style={appearance.style} isDirty={isDirty} />
+							) : (
+								<p className="p-6 text-sm rounded-xl border text-center text-muted-foreground">
+									Save the widget first — live testing runs the saved version.
+								</p>
+							)
+						) : (
+							<WidgetPreview appearance={appearance} />
+						)}
 						<InstallSnippet widgetId={widget.id} />
 					</div>
 				</div>

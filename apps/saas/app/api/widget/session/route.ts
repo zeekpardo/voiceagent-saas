@@ -7,6 +7,8 @@ import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import { createRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { isOriginAllowed, verifyWidgetToken } from "@repo/api/modules/voiceagents/lib/widget-token";
+import { auth } from "@repo/auth";
+import { getOrganizationMembership } from "@repo/database";
 
 /**
  * Public, token-gated session starter for the embeddable widget. An anonymous
@@ -14,6 +16,14 @@ import { isOriginAllowed, verifyWidgetToken } from "@repo/api/modules/voiceagent
  * embed snippet) and gets back only the LiveKit join info — never the gateway
  * key. Gating is layered: a valid HMAC token, an Origin that the token pins,
  * and per-IP + per-token rate limits.
+ *
+ * One deliberate exception to origin pinning: the Studio's "Live test" pane
+ * embeds the widget on OUR OWN origin, which is typically not on a widget's
+ * allowlist. A same-origin request that carries a valid authenticated app
+ * session belonging to a member of the widget's organization is allowed
+ * regardless of the origins list (and skips the per-IP limiter so repeated
+ * testing isn't throttled — the per-token limiter still applies). Anonymous
+ * same-origin requests get no such bypass.
  *
  * This static route wins over the /api/[[...rest]] oRPC catch-all.
  */
@@ -44,6 +54,24 @@ function corsHeaders(allowOrigin: string): Record<string, string> {
 		"Access-Control-Allow-Headers": "content-type",
 		Vary: "Origin",
 	};
+}
+
+/**
+ * Whether the request carries a valid app session for a member of the
+ * organization that owns the widget token. Same-origin fetches from the
+ * Studio send auth cookies automatically; anonymous requests (no/invalid
+ * cookies) resolve to false. Best-effort: any auth error means "not an owner".
+ */
+async function isAuthenticatedOwner(req: Request, organizationId: string): Promise<boolean> {
+	if (!req.headers.get("cookie")) return false;
+	try {
+		const session = await auth.api.getSession({ headers: req.headers });
+		if (!session?.user) return false;
+		const membership = await getOrganizationMembership(organizationId, session.user.id);
+		return membership !== null;
+	} catch {
+		return false;
+	}
 }
 
 function clientIp(req: Request): string {
@@ -83,7 +111,17 @@ export async function POST(req: Request): Promise<Response> {
 	const parentOrigin = typeof body.parentOrigin === "string" ? body.parentOrigin : "";
 	const effectiveOrigin =
 		origin && origin !== selfOrigin ? origin : parentOrigin || origin || selfOrigin;
-	if (!isOriginAllowed(identity.origins, effectiveOrigin)) {
+
+	// Studio live-test bypass: when the effective origin is our own app (the
+	// editor's iframe reports OUR origin as its parent), an authenticated member
+	// of the widget's organization may test it regardless of the origins list.
+	// Only consulted for same-origin requests, so third-party sites can never
+	// reach this path — and anonymous same-origin requests still need the
+	// origin to be allowlisted.
+	const studioOwner =
+		effectiveOrigin === selfOrigin && (await isAuthenticatedOwner(req, identity.organizationId));
+
+	if (!studioOwner && !isOriginAllowed(identity.origins, effectiveOrigin)) {
 		return Response.json(
 			{ error: "origin not allowed for this widget", origin: effectiveOrigin },
 			{ status: 403 },
@@ -97,8 +135,12 @@ export async function POST(req: Request): Promise<Response> {
 	const cors = corsHeaders(allowOrigin);
 
 	// Rate limit: per-IP first (cheapest abuse signal), then per-token.
+	// Authenticated studio testers skip the per-IP limiter (5/10min would make
+	// iterating on a widget miserable) but stay subject to the per-token one.
 	const ip = clientIp(req);
-	const ipLimit = perIpLimiter.check(`ip:${ip}`);
+	const ipLimit = studioOwner
+		? { allowed: true as const, retryAfterSeconds: 0 }
+		: perIpLimiter.check(`ip:${ip}`);
 	const tokenLimit = ipLimit.allowed ? perTokenLimiter.check(`token:${token}`) : ipLimit;
 	if (!ipLimit.allowed || !tokenLimit.allowed) {
 		const retryAfter = Math.max(ipLimit.retryAfterSeconds, tokenLimit.retryAfterSeconds);

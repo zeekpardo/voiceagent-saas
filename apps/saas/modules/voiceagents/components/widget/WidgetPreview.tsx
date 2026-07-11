@@ -100,7 +100,7 @@ export function WidgetPreview({ appearance }: { appearance: WidgetAppearance }) 
 	);
 
 	return (
-		<div className="p-4 relative flex min-h-[480px] overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_1px_1px,var(--color-border)_1px,transparent_0)] [background-size:16px_16px]">
+		<div className="p-4 relative flex min-h-[480px] overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_1px_1px,var(--border)_1px,transparent_0)] [background-size:16px_16px]">
 			<div className={cn("flex flex-1", positionClass(appearance))}>{panel}</div>
 			{/* Corner launcher hint for bubble/panel/bar styles. */}
 			{appearance.style === "bubble" && (

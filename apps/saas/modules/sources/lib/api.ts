@@ -8,9 +8,20 @@ export const sourcesQueryKey = ["sources"] as const;
 export const sourceProvidersQueryKey = ["sources", "providers"] as const;
 export const agentSourcesQueryKey = (agentId: string) =>
 	["voiceagents", "agents", agentId, "sources"] as const;
+export const sourceAgentIdsQueryKey = (sourceId: string) =>
+	["sources", sourceId, "agents"] as const;
 
 export function useSourcesQuery() {
 	return useQuery({ queryKey: sourcesQueryKey, queryFn: () => orpcClient.sources.list() });
+}
+
+/** Ids of the agents already attached to this source — powers the "attached"
+ * hint on the Website Widget tab's agent picker. */
+export function useSourceAgentIdsQuery(sourceId: string) {
+	return useQuery({
+		queryKey: sourceAgentIdsQueryKey(sourceId),
+		queryFn: () => orpcClient.sources.agents({ sourceId }),
+	});
 }
 
 /**

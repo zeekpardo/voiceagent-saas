@@ -20,10 +20,12 @@ import {
 	CardTitle,
 } from "@repo/ui/components/card";
 import { Skeleton } from "@repo/ui/components/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/tabs";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { avatarClasses, initials } from "@shared/lib/avatar";
 import { SourcePhoneNumbers } from "@sources/components/SourcePhoneNumbers";
 import { SourceUsageCard } from "@sources/components/SourceUsageCard";
+import { SourceWidgetTab } from "@sources/components/SourceWidgetTab";
 import { useDisconnectSourceMutation, useSourceQuery } from "@sources/lib/api";
 import { ArrowLeftIcon, Unlink2Icon } from "lucide-react";
 import Link from "next/link";
@@ -92,70 +94,98 @@ export function SourceDetail({ sourceId }: { sourceId: string }) {
 				</div>
 			</div>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Source details</CardTitle>
-					<CardDescription>Basic information about this connected CRM sub-account.</CardDescription>
-				</CardHeader>
-				<CardContent className="gap-4 sm:grid-cols-2 grid grid-cols-1">
-					{/* TODO: no update/rename procedure exists for sources yet — fields are read-only until one lands. */}
-					<Field label="Source name" value={source.name} />
-					<Field label="Provider" value={source.providerType} />
-					<Field label="Subaccount / location" value={source.accountName ?? "—"} />
-					<Field label="Address" value={source.address ?? "—"} />
-					<Field label="Connected agents" value={String(source.connectedAgentsCount)} />
-					<Field label="Connected on" value={new Date(source.createdAt).toLocaleDateString()} />
-				</CardContent>
-			</Card>
+			<Tabs defaultValue="overview">
+				<TabsList className="mb-4">
+					<TabsTrigger value="overview">Overview</TabsTrigger>
+					<TabsTrigger value="widget">Website Widget</TabsTrigger>
+				</TabsList>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Connection</CardTitle>
-					<CardDescription>
-						{isConnected
-							? "This source is connected and syncing with its CRM."
-							: "This source has been disconnected and is no longer syncing."}
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					{isConnected ? (
-						<Button
-							variant="destructive"
-							onClick={() => setConfirmDisconnect(true)}
-							disabled={disconnectMutation.isPending}
-						>
-							<Unlink2Icon className="size-4" /> Disconnect
-						</Button>
-					) : (
-						// TODO: wire up a reconnect action once a per-source reconnect procedure exists
-						// (today's oauthUrl/connect flow creates a new source rather than re-authing this one).
-						<p className="text-sm opacity-60">
-							Reconnecting isn't available yet — disconnect and add this source again from the
-							Sources page.
-						</p>
-					)}
-				</CardContent>
-			</Card>
+				<TabsContent value="overview">
+					<div className="gap-6 flex flex-col">
+						<Card>
+							<CardHeader>
+								<CardTitle>Source details</CardTitle>
+								<CardDescription>
+									Basic information about this connected CRM sub-account.
+								</CardDescription>
+							</CardHeader>
+							<CardContent className="gap-4 sm:grid-cols-2 grid grid-cols-1">
+								{/* TODO: no update/rename procedure exists for sources yet — fields are read-only until one lands. */}
+								<Field label="Source name" value={source.name} />
+								<Field label="Provider" value={source.providerType} />
+								<Field label="Subaccount / location" value={source.accountName ?? "—"} />
+								<Field label="Address" value={source.address ?? "—"} />
+								<Field label="Connected agents" value={String(source.connectedAgentsCount)} />
+								<Field
+									label="Connected on"
+									value={new Date(source.createdAt).toLocaleDateString()}
+								/>
+							</CardContent>
+						</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Usage</CardTitle>
-					<CardDescription>Call volume routed through this source.</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<SourceUsageCard sourceId={sourceId} />
-				</CardContent>
-			</Card>
+						<Card>
+							<CardHeader>
+								<CardTitle>Connection</CardTitle>
+								<CardDescription>
+									{isConnected
+										? "This source is connected and syncing with its CRM."
+										: "This source has been disconnected and is no longer syncing."}
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								{isConnected ? (
+									<Button
+										variant="destructive"
+										onClick={() => setConfirmDisconnect(true)}
+										disabled={disconnectMutation.isPending}
+									>
+										<Unlink2Icon className="size-4" /> Disconnect
+									</Button>
+								) : (
+									// TODO: wire up a reconnect action once a per-source reconnect procedure exists
+									// (today's oauthUrl/connect flow creates a new source rather than re-authing this one).
+									<p className="text-sm opacity-60">
+										Reconnecting isn't available yet — disconnect and add this source again from the
+										Sources page.
+									</p>
+								)}
+							</CardContent>
+						</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Phone numbers</CardTitle>
-					<CardDescription>Buy and manage numbers for this subaccount.</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<SourcePhoneNumbers sourceId={sourceId} />
-				</CardContent>
-			</Card>
+						<Card>
+							<CardHeader>
+								<CardTitle>Usage</CardTitle>
+								<CardDescription>Call volume routed through this source.</CardDescription>
+							</CardHeader>
+							<CardContent>
+								<SourceUsageCard sourceId={sourceId} />
+							</CardContent>
+						</Card>
+
+						<Card>
+							<CardHeader>
+								<CardTitle>Phone numbers</CardTitle>
+								<CardDescription>Buy and manage numbers for this subaccount.</CardDescription>
+							</CardHeader>
+							<CardContent>
+								<SourcePhoneNumbers sourceId={sourceId} />
+							</CardContent>
+						</Card>
+					</div>
+				</TabsContent>
+
+				<TabsContent value="widget">
+					<Card>
+						<CardHeader>
+							<CardTitle>Website Widget</CardTitle>
+							<CardDescription>Embed a voice widget on this source's website.</CardDescription>
+						</CardHeader>
+						<CardContent>
+							<SourceWidgetTab sourceId={sourceId} />
+						</CardContent>
+					</Card>
+				</TabsContent>
+			</Tabs>
 
 			<AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
 				<AlertDialogContent>

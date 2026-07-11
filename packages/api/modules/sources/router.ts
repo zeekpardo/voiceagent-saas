@@ -1,3 +1,4 @@
+import { listSourceAgents } from "./procedures/agents";
 import { connectSource } from "./procedures/connect";
 import { matchContact } from "./procedures/contact-match";
 import {
@@ -26,6 +27,7 @@ export const sourcesRouter = {
 	connect: connectSource,
 	oauthUrl: sourceOauthUrl,
 	disconnect: disconnectSourceProcedure,
+	agents: listSourceAgents,
 	tags: { list: listSourceTags },
 	pipelines: { list: listSourcePipelines },
 	calendars: { list: listSourceCalendars },

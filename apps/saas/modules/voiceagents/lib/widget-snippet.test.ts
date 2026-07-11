@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { composeWidgetSnippet, isValidWidgetOrigin } from "./widget-snippet";
+import { composeWidgetSnippet, isValidWidgetOrigin, normalizeWidgetOrigin } from "./widget-snippet";
 
 describe("composeWidgetSnippet", () => {
 	it("emits the minimal snippet when everything is default", () => {
@@ -97,5 +97,32 @@ describe("isValidWidgetOrigin", () => {
 		expect(isValidWidgetOrigin("example.com")).toBe(false);
 		expect(isValidWidgetOrigin("ftp://example.com")).toBe(false);
 		expect(isValidWidgetOrigin("")).toBe(false);
+	});
+});
+
+describe("normalizeWidgetOrigin", () => {
+	it("collapses full page URLs to their origin", () => {
+		expect(normalizeWidgetOrigin("https://link.minflow.co/preview/eZIeK31dLc8nA4KxExgs")).toBe(
+			"https://link.minflow.co",
+		);
+		expect(normalizeWidgetOrigin("https://example.com/a/b?c=d#e")).toBe("https://example.com");
+	});
+
+	it("prepends https:// to bare domains", () => {
+		expect(normalizeWidgetOrigin("example.com")).toBe("https://example.com");
+		expect(normalizeWidgetOrigin("sub.example.com/some/path")).toBe("https://sub.example.com");
+	});
+
+	it("preserves explicit http and ports, passes the wildcard, trims whitespace", () => {
+		expect(normalizeWidgetOrigin("http://localhost:3000/page")).toBe("http://localhost:3000");
+		expect(normalizeWidgetOrigin("  https://example.com/  ")).toBe("https://example.com");
+		expect(normalizeWidgetOrigin("*")).toBe("*");
+	});
+
+	it("rejects unusable input", () => {
+		expect(normalizeWidgetOrigin("")).toBeNull();
+		expect(normalizeWidgetOrigin("   ")).toBeNull();
+		expect(normalizeWidgetOrigin("ftp://example.com")).toBeNull();
+		expect(normalizeWidgetOrigin("not a url at all !!")).toBeNull();
 	});
 });

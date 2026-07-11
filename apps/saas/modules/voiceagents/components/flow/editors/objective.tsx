@@ -111,23 +111,26 @@ export function ObjectiveNodeEditor({
 								<ContactWriteFieldCombobox
 									agentId={agentId}
 									value={fieldToKey(objective.field, fields)}
-									onChange={(key) =>
-										patchObjective(objective.id, { field: keyToStored(key, fields) })
-									}
+									onChange={(key) => {
+										const stored = keyToStored(key, fields);
+										// Magical, no-config answer options: if the chosen CRM field is a
+										// picklist, auto-scope the answer to its options so the caller's
+										// free speech maps to an allowed value; clears them for free-form
+										// fields. Users never hand-enter option lists.
+										patchObjective(objective.id, {
+											field: stored,
+											options: fieldOptionsFor(stored, fields),
+										});
+									}}
 									allowEmpty
 									allowCustomKey
 									placeholder="Leave Empty (gather only)"
 								/>
 								{pickOptions && (
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										className="mt-1 self-start"
-										onClick={() => patchObjective(objective.id, { options: pickOptions })}
-									>
-										Use field's options
-									</Button>
+									<p className="text-xs opacity-50">
+										The agent will match the caller's answer to one of this field's{" "}
+										{pickOptions.length} options.
+									</p>
 								)}
 								{isComposite && (
 									<p className="text-xs opacity-50">
@@ -135,57 +138,6 @@ export function ObjectiveNodeEditor({
 										name) from what the caller says.
 									</p>
 								)}
-							</div>
-
-							<div className="gap-1.5 flex flex-col">
-								<Label className="text-xs">Answer options</Label>
-								<p className="-mt-1 text-xs opacity-50">
-									Restrict the answer to these choices (the agent will match the caller's words to
-									one). Leave empty for a free-form answer.
-								</p>
-								{(objective.options ?? []).map((option, optionIndex) => (
-									<div key={optionIndex} className="gap-2 flex items-center">
-										<Input
-											className="h-9"
-											value={option}
-											onChange={(e) =>
-												patchObjective(objective.id, {
-													options: (objective.options ?? []).map((o, i) =>
-														i === optionIndex ? e.target.value : o,
-													),
-												})
-											}
-											placeholder="Yes"
-										/>
-										<Button
-											type="button"
-											variant="ghost"
-											size="icon"
-											className="shrink-0"
-											onClick={() => {
-												const next = (objective.options ?? []).filter((_, i) => i !== optionIndex);
-												patchObjective(objective.id, {
-													options: next.length ? next : undefined,
-												});
-											}}
-										>
-											<Trash2Icon className="size-4" />
-										</Button>
-									</div>
-								))}
-								<Button
-									type="button"
-									variant="outline"
-									size="sm"
-									className="self-start"
-									onClick={() =>
-										patchObjective(objective.id, {
-											options: [...(objective.options ?? []), ""],
-										})
-									}
-								>
-									<PlusIcon className="size-4" /> Add option
-								</Button>
 							</div>
 
 							<div className="gap-1.5 flex flex-col">

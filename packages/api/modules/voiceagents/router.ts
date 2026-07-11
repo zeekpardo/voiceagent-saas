@@ -35,6 +35,7 @@ import {
 import { createTestSession } from "./procedures/sessions";
 import { createTool, deleteTool, listTools, setAgentTools } from "./procedures/tools";
 import { getTriggerUrl } from "./procedures/trigger";
+import { createToken as createWidgetTokenProcedure } from "./procedures/widget";
 
 export const voiceagentsRouter = {
 	agents: {
@@ -98,4 +99,7 @@ export const voiceagentsRouter = {
 	liveTools: listAgentLiveTools,
 	calendars: listAgentCalendars,
 	triggerUrl: getTriggerUrl,
+	widget: {
+		createToken: createWidgetTokenProcedure,
+	},
 };

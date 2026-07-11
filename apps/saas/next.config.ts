@@ -21,6 +21,25 @@ const nextConfig: NextConfig = {
 			},
 		],
 	},
+	async headers() {
+		return [
+			{
+				// The embeddable widget iframe (page W2a will add at /widget/embed)
+				// must be embeddable on ANY customer website, so we override the
+				// app's default frame-ancestors restriction for this path only.
+				// Real access control is the widget token + Origin check on
+				// /api/widget/session — not the frame-ancestors header. Scoped to
+				// /widget/* so no other route's framing policy is affected.
+				source: "/widget/:path*",
+				headers: [
+					{
+						key: "Content-Security-Policy",
+						value: "frame-ancestors *",
+					},
+				],
+			},
+		];
+	},
 	async redirects() {
 		return [
 			{

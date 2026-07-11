@@ -243,6 +243,7 @@ export function WidgetApp({ token, appearance }: { token: string; appearance: Wi
 						/>
 						<Button
 							type="submit"
+							variant="primary"
 							size="icon"
 							className="size-9 shrink-0"
 							aria-label="Send message"
@@ -259,8 +260,10 @@ export function WidgetApp({ token, appearance }: { token: string; appearance: Wi
 					</Button>
 				) : (
 					<div className="gap-2 flex flex-col">
+						{/* Explicit primary variants — the Button default is "secondary",
+						    which would render the CTAs gray instead of the widget's accent. */}
 						{canVoice && (
-							<Button type="button" onClick={() => pickMode("voice")}>
+							<Button type="button" variant="primary" onClick={() => pickMode("voice")}>
 								<MicIcon className="size-4" /> Start voice chat
 							</Button>
 						)}
@@ -268,6 +271,9 @@ export function WidgetApp({ token, appearance }: { token: string; appearance: Wi
 							<Button
 								type="button"
 								variant={canVoice ? "outline" : "primary"}
+								// The outline variant's text-secondary is unreadable on the
+								// widget's plain background — use the foreground color instead.
+								className={cn(canVoice && "text-foreground")}
 								onClick={() => pickMode("text")}
 							>
 								<MessageSquareIcon className="size-4" /> Start text chat

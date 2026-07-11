@@ -49,7 +49,16 @@
 	}
 }
 
-@theme {
+/*
+ * `inline` matters: utilities must reference the base tokens (var(--primary),
+ * var(--background), …) DIRECTLY so they resolve per element. Without it,
+ * Tailwind emits `--color-primary: var(--primary)` on :root, where the var()
+ * is substituted once against the ROOT's values — so scoped overrides (the
+ * embeddable widget's accent vars, a nested `dark` class) never reach
+ * bg-primary & friends. Side effect: no `--color-*` variables are emitted, so
+ * always consume the base tokens (var(--border)), never var(--color-border).
+ */
+@theme inline {
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);

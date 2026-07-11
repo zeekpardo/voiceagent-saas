@@ -7,7 +7,7 @@ export function ClientProviders({ children }: PropsWithChildren) {
 	return (
 		<ProgressProvider
 			height="4px"
-			color="var(--color-primary)"
+			color="var(--primary)"
 			options={{ showSpinner: false }}
 			shallowRouting
 			delay={250}

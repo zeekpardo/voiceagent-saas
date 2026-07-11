@@ -54,7 +54,7 @@ export interface FlowDecompileResult {
 	edges: CanvasEdgeDoc[];
 }
 
-/** Agent-only: the mini icon-rail sub-panels (settings / tools / exits). */
+/** A mini icon-rail sub-panel (e.g. agent settings/tools/exits, or a kind's "Fields & variables" picker). */
 export interface FlowKindSubPanel {
 	title: string;
 	description: string;
@@ -80,7 +80,7 @@ export interface FlowKindDefinition<TData extends FlowNodeData = FlowNodeData> {
 	editor: FlowNodeEditorComponent;
 	/** Sheet header copy for this kind. */
 	sheetMeta: { title: string; description: string };
-	/** Agent-only secondary aside definitions (keyed, insertion-ordered). */
+	/** Secondary aside definitions for this kind's rail (keyed, insertion-ordered). */
 	subPanels?: Record<string, FlowKindSubPanel>;
 	/** Fresh data for a palette-dropped node of this kind. */
 	newData: (bookingToolIds: string[]) => TData;

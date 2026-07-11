@@ -2,12 +2,14 @@
 
 import { cn } from "@repo/ui";
 import { Badge } from "@repo/ui/components/badge";
+import { Button } from "@repo/ui/components/button";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { useContactMatchQuery } from "@sources/lib/api";
-import { ChevronDownIcon, ExternalLinkIcon, MessageSquareIcon } from "lucide-react";
+import { ChevronDownIcon, ExternalLinkIcon, MessageSquareIcon, ScrollTextIcon } from "lucide-react";
 import { Fragment, useState } from "react";
 
 import { useCallEventsQuery, useTranscriptQuery } from "../../lib/api";
+import { CallLogsDrawer } from "./CallLogsDrawer";
 import {
 	avatarClasses,
 	type Call,
@@ -44,7 +46,8 @@ export function ConversationDetail({
 
 function ConversationDetailInner({ call, agentName }: { call: Call; agentName: string | null }) {
 	const { data: transcript, isLoading } = useTranscriptQuery(call.id);
-	const { data: events } = useCallEventsQuery(call.id);
+	const { data: events, isLoading: isLoadingEvents } = useCallEventsQuery(call.id);
+	const [isLogsOpen, setIsLogsOpen] = useState(false);
 	const { data: contactMatch } = useContactMatchQuery(call);
 	const contact = contactMatch?.contact ?? null;
 	// Prefer the real CRM name as the conversation title when we have one.
@@ -61,7 +64,7 @@ function ConversationDetailInner({ call, agentName }: { call: Call; agentName: s
 			: usableExtractedEntries(transcript?.extracted ?? call.extracted);
 
 	return (
-		<div className="min-h-0 flex h-full flex-col">
+		<div className="min-h-0 relative flex h-full flex-col overflow-hidden">
 			<div className="h-14 gap-3 px-4 flex shrink-0 items-center border-b">
 				<span
 					className={cn(
@@ -89,8 +92,26 @@ function ConversationDetailInner({ call, agentName }: { call: Call; agentName: s
 							</span>
 						)
 					)}
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-8"
+						onClick={() => setIsLogsOpen((open) => !open)}
+						aria-label="AI logs"
+						title="AI logs"
+					>
+						<ScrollTextIcon className="size-4" />
+					</Button>
 				</div>
 			</div>
+
+			{isLogsOpen && (
+				<CallLogsDrawer
+					events={events}
+					isLoading={isLoadingEvents}
+					onClose={() => setIsLogsOpen(false)}
+				/>
+			)}
 
 			<div className="min-h-0 flex-1 overflow-y-auto">
 				<SummaryCard call={call} summary={summary ?? null} extracted={extracted} />

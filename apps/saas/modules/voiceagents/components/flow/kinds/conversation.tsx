@@ -1,3 +1,5 @@
+import { VariableIcon } from "lucide-react";
+
 import {
 	compileConversationNode,
 	decompileConversationNode,
@@ -26,6 +28,13 @@ export const conversationKind = defineKind<ConversationNodeData>({
 		title: "Edit Conversation",
 		description:
 			"An open-ended discovery loop — no objectives, no tools. The AI probes from the conversation reason, then wraps up explicitly (end the call or take an exit).",
+	},
+	subPanels: {
+		fields: {
+			title: "Fields & variables",
+			description: "Insert contact and source fields into this stage.",
+			icon: VariableIcon,
+		},
 	},
 	newData: () => newConversationNodeData(),
 	sourceHandles: (data) => new Set(data.exits.map((exit) => exit.id)),

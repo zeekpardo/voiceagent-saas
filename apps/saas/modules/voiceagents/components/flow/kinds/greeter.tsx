@@ -1,3 +1,5 @@
+import { VariableIcon } from "lucide-react";
+
 import { newGreeterNodeData } from "../compile/nodes/greeter";
 import { GreeterNodeEditor } from "../editors/greeter";
 import type { GreeterNodeData } from "../flow-types";
@@ -17,12 +19,24 @@ export const greeterKind = defineKind<GreeterNodeData>({
 	kind: "greeter",
 	schema: greeterNodeDataSchema,
 	canvasNode: GreeterNode,
-	editor: ({ nodeId, data, onChange }) => (
-		<GreeterNodeEditor nodeId={nodeId} data={data as GreeterNodeData} onChange={onChange} />
+	editor: ({ agentId, nodeId, data, onChange }) => (
+		<GreeterNodeEditor
+			agentId={agentId}
+			nodeId={nodeId}
+			data={data as GreeterNodeData}
+			onChange={onChange}
+		/>
 	),
 	sheetMeta: {
 		title: "Edit Greeter",
 		description: "What the agent says the moment the call connects.",
+	},
+	subPanels: {
+		fields: {
+			title: "Fields & variables",
+			description: "Insert contact and source fields into this stage.",
+			icon: VariableIcon,
+		},
 	},
 	newData: () => newGreeterNodeData(),
 	sourceHandles: () => new Set([GREETER_NEXT_HANDLE_ID]),

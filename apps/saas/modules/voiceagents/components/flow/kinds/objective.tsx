@@ -1,3 +1,5 @@
+import { VariableIcon } from "lucide-react";
+
 import {
 	compileObjectiveNode,
 	decompileObjectiveNode,
@@ -60,6 +62,13 @@ export const objectiveKind = defineKind<ObjectiveNodeData>({
 		title: "Edit Objective",
 		description:
 			"Gather information from the caller, one question at a time. The system verifies each objective as they answer, saves it to the chosen field, and moves on automatically once every objective is met.",
+	},
+	subPanels: {
+		fields: {
+			title: "Fields & variables",
+			description: "Insert contact and source fields into this stage.",
+			icon: VariableIcon,
+		},
 	},
 	newData: () => newObjectiveNodeData(),
 	sourceHandles: () => new Set(),

@@ -11,9 +11,11 @@ import {
 	executeUpdateContact,
 	resolveContactId,
 } from "@repo/api/modules/crm/lib/contact-tools";
+import { type HttpTraceEntry, withHttpTrace } from "@repo/api/modules/crm/lib/http-trace";
 import { GhlApiError } from "@repo/api/modules/crm/lib/providers/ghl-client";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
 import { resolveSourceIdForAgent } from "@repo/api/modules/crm/lib/resolve-source";
+import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import { getCrmLiveToolByName } from "@repo/database";
 
 /**
@@ -102,6 +104,45 @@ export async function POST(req: Request): Promise<Response> {
 		return Response.json({ error: "invalid signature" }, { status: 401 });
 	}
 
+	// Trace every outbound CRM HTTP exchange this invocation makes and attach
+	// it to the call's event log (fire-and-forget — never delays the tool reply).
+	const { result: response, entries } = await withHttpTrace(() => dispatchTool(invocation));
+	if (entries.length > 0 && invocation.call_id) {
+		void flushHttpTrace(invocation.call_id, invocation.tool, entries);
+	}
+	return response;
+}
+
+/** Post collected CRM HTTP traces to the gateway as http.request call events. */
+async function flushHttpTrace(
+	callId: string,
+	tool: string,
+	entries: HttpTraceEntry[],
+): Promise<void> {
+	try {
+		await gatewayFetch("POST", `/v1/calls/${encodeURIComponent(callId)}/events`, {
+			// The gateway accepts at most 20 events per append.
+			events: entries.slice(0, 20).map((e) => ({
+				type: "http.request",
+				payload: {
+					tool,
+					method: e.method,
+					url: e.url,
+					status: e.status,
+					ok: e.ok,
+					duration_ms: e.durationMs,
+					request: e.request,
+					response: e.response,
+				},
+			})),
+		});
+	} catch (err) {
+		console.warn(`[crm-live-tools] http trace flush failed (call ${callId}):`, err);
+	}
+}
+
+async function dispatchTool(invocation: ToolInvocation): Promise<Response> {
+	const toolName = invocation.tool;
 	const sourceId = await resolveSourceId(invocation);
 	const provider = sourceId ? await resolveCrmProvider(sourceId) : null;
 	if (!sourceId || !provider) {

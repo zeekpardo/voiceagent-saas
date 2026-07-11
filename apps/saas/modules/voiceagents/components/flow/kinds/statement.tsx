@@ -1,3 +1,5 @@
+import { VariableIcon } from "lucide-react";
+
 import {
 	compileStatementNode,
 	decompileStatementNode,
@@ -25,6 +27,13 @@ export const statementKind = defineKind<StatementNodeData>({
 		title: "Edit Statement",
 		description:
 			"This node speaks its text exactly as written, then the flow continues immediately.",
+	},
+	subPanels: {
+		fields: {
+			title: "Fields & variables",
+			description: "Insert contact and source fields into this stage.",
+			icon: VariableIcon,
+		},
 	},
 	newData: () => newStatementNodeData(),
 	sourceHandles: () => new Set([STATEMENT_NEXT_HANDLE_ID]),

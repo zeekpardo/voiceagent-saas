@@ -6,6 +6,8 @@
  * this ships to the GHL marketplace.
  */
 
+import { capTraceValue, recordHttpTrace } from "../http-trace";
+
 const GHL_API_BASE = "https://services.leadconnectorhq.com";
 const API_VERSION = "2021-07-28";
 /** The Conversations API is pinned to an older Version than the rest of v2. */
@@ -158,9 +160,11 @@ export class GhlClient {
 		const wait = this.lastCallAt + CALL_DELAY_MS - Date.now();
 		if (wait > 0) await sleep(wait);
 
+		const url = `${GHL_API_BASE}${path}`;
 		for (let attempt = 0; ; attempt++) {
 			this.lastCallAt = Date.now();
-			const res = await fetch(`${GHL_API_BASE}${path}`, {
+			const startedAt = Date.now();
+			const res = await fetch(url, {
 				method,
 				headers: {
 					Authorization: `Bearer ${this.token}`,
@@ -174,15 +178,33 @@ export class GhlClient {
 				await sleep(1500 * 2 ** attempt);
 				continue;
 			}
+			// AI-logs trace (no-op outside a withHttpTrace scope, e.g. sync jobs).
+			// Never captures headers — method/url/status/bodies only, capped.
+			const trace = (status: number, ok: boolean, response: unknown) =>
+				recordHttpTrace({
+					method,
+					url,
+					status,
+					ok,
+					durationMs: Date.now() - startedAt,
+					request: capTraceValue(body ?? null),
+					response: capTraceValue(response),
+				});
 			if (!res.ok) {
 				const detail = await res.text().catch(() => "");
+				trace(res.status, false, detail.slice(0, 2000));
 				throw new GhlApiError(
 					res.status,
 					`GHL ${method} ${path} failed (${res.status}): ${detail.slice(0, 300)}`,
 				);
 			}
-			if (res.status === 204) return undefined as T;
-			return (await res.json()) as T;
+			if (res.status === 204) {
+				trace(res.status, true, null);
+				return undefined as T;
+			}
+			const data = (await res.json()) as T;
+			trace(res.status, true, data);
+			return data;
 		}
 	}
 

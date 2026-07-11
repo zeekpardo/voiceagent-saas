@@ -27,12 +27,12 @@ import {
 	useSourceTriggerUrlQuery,
 	useSourcesQuery,
 } from "@sources/lib/api";
+import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import {
 	ArrowLeftIcon,
 	CheckIcon,
 	ChevronDownIcon,
 	CopyIcon,
-	InfoIcon,
 	PlugIcon,
 	PlusIcon,
 	SearchIcon,
@@ -309,28 +309,36 @@ export function AgentSourcesTab({
 
 function Section({
 	title,
+	hint,
 	children,
 	defaultOpen = true,
 }: {
 	title: string;
+	hint?: React.ReactNode;
 	children: React.ReactNode;
 	defaultOpen?: boolean;
 }) {
 	const [open, setOpen] = useState(defaultOpen);
 	return (
 		<div>
-			<button
-				type="button"
-				onClick={() => setOpen((o) => !o)}
-				className="group gap-1.5 pb-2 flex w-full items-center border-b"
-			>
-				<ChevronDownIcon
-					className={cn("size-3 text-muted-foreground transition-transform", !open && "-rotate-90")}
-				/>
-				<h4 className="font-semibold tracking-wide text-[11px] text-muted-foreground uppercase transition-colors group-hover:text-foreground">
-					{title}
-				</h4>
-			</button>
+			<div className="gap-1.5 pb-2 flex w-full items-center border-b">
+				<button
+					type="button"
+					onClick={() => setOpen((o) => !o)}
+					className="group gap-1.5 flex flex-1 items-center"
+				>
+					<ChevronDownIcon
+						className={cn(
+							"size-3 text-muted-foreground transition-transform",
+							!open && "-rotate-90",
+						)}
+					/>
+					<h4 className="font-semibold tracking-wide text-[11px] text-muted-foreground uppercase transition-colors group-hover:text-foreground">
+						{title}
+					</h4>
+				</button>
+				{hint}
+			</div>
 			{open && <div className="px-1 pt-4">{children}</div>}
 		</div>
 	);
@@ -530,7 +538,15 @@ function SourceDetail({
 			</div>
 
 			<div className="gap-4 pt-1 flex flex-col">
-				<Section title="Filters">
+				<Section
+					title="Filters"
+					hint={
+						<InfoHint>
+							Every condition must match for the agent to call a contact from this source — e.g. add
+							tag is not "ai off" to respect opt-outs.
+						</InfoHint>
+					}
+				>
 					<div className="gap-2 flex flex-wrap items-center">
 						{tagFilters.map((filter, i) => (
 							<span
@@ -611,19 +627,19 @@ function SourceDetail({
 							</PopoverContent>
 						</Popover>
 					</div>
-					<p className="mt-2 text-xs text-muted-foreground">
-						Every condition must match for the agent to call a contact from this source — e.g. add{" "}
-						<span className="font-medium">tag is not "ai off"</span> to respect opt-outs.
-					</p>
 				</Section>
 
-				<Section title="Field sync">
+				<Section
+					title="Field sync"
+					hint={
+						<InfoHint>
+							After every call, each captured value is written to the mapped CRM custom field —
+							"unknown" values never overwrite existing data.
+						</InfoHint>
+					}
+				>
 					<div className="gap-3 flex flex-col">
-						<div className="gap-3 flex items-start justify-between">
-							<p className="text-xs text-muted-foreground">
-								After every call, each captured value is written to the mapped CRM custom field
-								("unknown" values never overwrite existing data).
-							</p>
+						<div className="flex justify-end">
 							<Button
 								variant="outline"
 								size="sm"
@@ -679,13 +695,19 @@ function SourceDetail({
 					</div>
 				</Section>
 
-				<Section title="Trigger URL" defaultOpen={false}>
-					<div className="gap-3 flex flex-col">
-						<p className="text-xs text-muted-foreground">
+				<Section
+					title="Trigger URL"
+					defaultOpen={false}
+					hint={
+						<InfoHint side="left">
 							Point a {sourceName} workflow webhook at this URL to place an outbound call from this
-							agent — the contact's CRM details become {"{{variables}}"}.
-						</p>
-
+							agent — the contact's CRM details become {"{{variables}}"}. In {sourceName}: Workflow
+							→ trigger "Contact Tag Added" → action "Wait" (e.g. 10 min) → action "Webhook" (POST
+							this URL). Keep the URL secret — anyone who has it can place calls with this agent.
+						</InfoHint>
+					}
+				>
+					<div className="gap-3 flex flex-col">
 						<div className="gap-1.5 flex flex-col">
 							<span className="font-medium text-xs text-muted-foreground">
 								From number (caller ID)
@@ -730,19 +752,6 @@ function SourceDetail({
 								<CopyIcon className="size-4" />
 							</Button>
 						</div>
-
-						<div className="gap-1.5 border-blue-500/30 bg-blue-500/10 px-3 py-2 text-blue-700 text-xs dark:text-blue-400 flex items-start rounded-lg border">
-							<InfoIcon className="mt-0.5 size-3.5 shrink-0" />
-							<span>
-								In {sourceName}: Workflow → trigger "Contact Tag Added" → action "Wait" (e.g. 10
-								min) → action "Webhook" (POST this URL). The call uses this agent and the
-								from-number selected above.
-							</span>
-						</div>
-
-						<p className="text-xs text-muted-foreground opacity-70">
-							Keep this URL secret — anyone who has it can place calls with this agent.
-						</p>
 					</div>
 				</Section>
 			</div>

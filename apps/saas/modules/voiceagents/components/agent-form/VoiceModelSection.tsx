@@ -1,13 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
-import {
-	FormControl,
-	FormDescription,
-	FormField,
-	FormItem,
-	FormLabel,
-} from "@repo/ui/components/form";
+import { FormControl, FormField, FormItem, FormLabel } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import {
 	Select,
@@ -18,6 +12,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@repo/ui/components/select";
+import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import type { UseFormReturn } from "react-hook-form";
 
 import type { AgentFormValues } from "../../lib/agent-form-mapping";
@@ -127,12 +122,16 @@ export function VoiceModelSection({ form }: { form: UseFormReturn<AgentFormValue
 							!sttModel || sttModel === "default" || sttModel.startsWith("xai");
 						return (
 							<FormItem>
-								<FormLabel className={sttAutoDetects ? "opacity-50" : ""}>Language</FormLabel>
-								<FormDescription>
-									{sttAutoDetects
-										? "xAI STT auto-detects the spoken language, including mid-call switches"
-										: "Pins speech recognition to this language"}
-								</FormDescription>
+								<FormLabel
+									className={`gap-1.5 flex items-center ${sttAutoDetects ? "opacity-50" : ""}`}
+								>
+									Language
+									<InfoHint>
+										{sttAutoDetects
+											? "xAI STT auto-detects the spoken language, including mid-call switches."
+											: "Pins speech recognition to this language."}
+									</InfoHint>
+								</FormLabel>
 								<Select onValueChange={field.onChange} value={field.value}>
 									<FormControl>
 										<SelectTrigger disabled={sttAutoDetects}>
@@ -207,14 +206,16 @@ export function VoiceModelSection({ form }: { form: UseFormReturn<AgentFormValue
 						const providerLabel = TTS_PROVIDERS.find((p) => p.id === provider)?.label ?? provider;
 						return (
 							<FormItem>
-								<FormLabel className={supportsSpeed ? "" : "opacity-50"}>
+								<FormLabel
+									className={`gap-1.5 flex items-center ${supportsSpeed ? "" : "opacity-50"}`}
+								>
 									Speaking speed ({field.value}×)
+									<InfoHint>
+										{supportsSpeed
+											? "0.7× slower — 1.5× faster."
+											: `${providerLabel} voices don't support speed — Cartesia, ElevenLabs, Rime & Inworld do.`}
+									</InfoHint>
 								</FormLabel>
-								<FormDescription>
-									{supportsSpeed
-										? "0.7× slower — 1.5× faster"
-										: `${providerLabel} voices don't support speed — Cartesia, ElevenLabs, Rime & Inworld do`}
-								</FormDescription>
 								<FormControl>
 									<Input
 										type="number"
@@ -235,8 +236,12 @@ export function VoiceModelSection({ form }: { form: UseFormReturn<AgentFormValue
 					name="llm.maxTokens"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Max reply tokens</FormLabel>
-							<FormDescription>Lower keeps spoken turns short</FormDescription>
+							<FormLabel className="gap-1.5 flex items-center">
+								Max reply tokens
+								<InfoHint>
+									Caps how long a single reply can be. Lower keeps spoken turns short.
+								</InfoHint>
+							</FormLabel>
 							<FormControl>
 								<Input
 									type="number"

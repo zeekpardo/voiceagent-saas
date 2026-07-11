@@ -24,10 +24,9 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@repo/ui/components/tooltip";
-import { UserAvatar } from "@shared/components/UserAvatar";
 import { useRouter } from "@shared/hooks/router";
 import { clearCache } from "@shared/lib/cache";
-import { ChevronsUpDownIcon, PlusIcon } from "lucide-react";
+import { ChevronsUpDownIcon, PlusIcon, UserRoundIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -119,11 +118,13 @@ export function OrganzationSelect({
 					</>
 				) : (
 					<>
-						<UserAvatar
-							className={cn("size-10 shrink-0 rounded-md")}
-							name={user.name ?? ""}
-							avatarUrl={user.image}
-						/>
+						<div
+							className={cn(
+								"size-10 flex shrink-0 items-center justify-center rounded-md bg-primary/10",
+							)}
+						>
+							<UserRoundIcon className="size-5 text-primary" />
+						</div>
 						{!collapsed && (
 							<div className="min-w-0 flex flex-1 flex-col">
 								<span className="text-sm font-semibold truncate text-foreground">
@@ -179,11 +180,9 @@ export function OrganzationSelect({
 							className="gap-2 pl-3 flex cursor-pointer items-center justify-center"
 						>
 							<div className="gap-2 flex flex-1 items-center justify-start">
-								<UserAvatar
-									className="size-8 rounded-md"
-									name={user.name ?? ""}
-									avatarUrl={user.image}
-								/>
+								<div className="size-8 flex shrink-0 items-center justify-center rounded-md bg-primary/10">
+									<UserRoundIcon className="size-4 text-primary" />
+								</div>
 								{user.name}
 							</div>
 						</DropdownMenuRadioItem>

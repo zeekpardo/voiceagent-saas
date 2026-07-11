@@ -14,7 +14,6 @@ import {
 import {
 	Form,
 	FormControl,
-	FormDescription,
 	FormField,
 	FormItem,
 	FormLabel,
@@ -23,6 +22,7 @@ import {
 import { Input } from "@repo/ui/components/input";
 import { Textarea } from "@repo/ui/components/textarea";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
+import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -150,7 +150,7 @@ export function PersonaEditorDialog({
 				<DialogHeader>
 					<DialogTitle>{isEditing ? "Edit persona" : "New persona"}</DialogTitle>
 					<DialogDescription>
-						A persona is a reusable identity — name, look, and tone — you can attach to any agent.
+						A reusable identity — name, look, and tone — you can attach to any agent.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -201,13 +201,13 @@ export function PersonaEditorDialog({
 							name="name"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Name</FormLabel>
+									<FormLabel className="gap-1.5 flex items-center">
+										Name
+										<InfoHint>The agent will use this as its name in conversation.</InfoHint>
+									</FormLabel>
 									<FormControl>
-										<Input placeholder="Ava" {...field} />
+										<Input placeholder="e.g. Ava" {...field} />
 									</FormControl>
-									<FormDescription>
-										The agent will use this as its name in conversation.
-									</FormDescription>
 									<FormMessage />
 								</FormItem>
 							)}
@@ -218,13 +218,13 @@ export function PersonaEditorDialog({
 							name="internalDescription"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Internal description</FormLabel>
+									<FormLabel className="gap-1.5 flex items-center">
+										Internal description
+										<InfoHint>For your team only — never referenced by the agent.</InfoHint>
+									</FormLabel>
 									<FormControl>
-										<Input placeholder="Friendly front-desk voice for clinics" {...field} />
+										<Input placeholder="e.g. Friendly front-desk voice for clinics" {...field} />
 									</FormControl>
-									<FormDescription>
-										For your team only — never referenced by the agent.
-									</FormDescription>
 									<FormMessage />
 								</FormItem>
 							)}
@@ -235,13 +235,15 @@ export function PersonaEditorDialog({
 							name="avatarUrl"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Avatar image URL</FormLabel>
+									<FormLabel className="gap-1.5 flex items-center">
+										Avatar image URL
+										<InfoHint>
+											Optional. Falls back to initials on the theme color. Uploads coming later.
+										</InfoHint>
+									</FormLabel>
 									<FormControl>
 										<Input placeholder="https://…/avatar.png" {...field} />
 									</FormControl>
-									<FormDescription>
-										Optional. Falls back to initials on the theme color. Uploads coming later.
-									</FormDescription>
 									<FormMessage />
 								</FormItem>
 							)}
@@ -249,11 +251,12 @@ export function PersonaEditorDialog({
 
 						{/* Tone styles */}
 						<FormItem>
-							<FormLabel>
+							<FormLabel className="gap-1.5 flex items-center">
 								Tone styles{" "}
 								<span className="font-normal text-muted-foreground">
 									({styles.length}/{MAX_PERSONA_STYLES})
 								</span>
+								<InfoHint>Up to three tone words. Add your own or tap a suggestion.</InfoHint>
 							</FormLabel>
 							{styles.length > 0 && (
 								<div className="gap-1.5 flex flex-wrap">
@@ -290,9 +293,6 @@ export function PersonaEditorDialog({
 									))}
 								</div>
 							)}
-							<FormDescription>
-								Up to three tone words. Add your own or tap a suggestion.
-							</FormDescription>
 						</FormItem>
 
 						<FormField
@@ -301,7 +301,13 @@ export function PersonaEditorDialog({
 							render={({ field }) => (
 								<FormItem>
 									<div className="flex items-center justify-between">
-										<FormLabel>How to respond</FormLabel>
+										<FormLabel className="gap-1.5 flex items-center">
+											How to respond
+											<InfoHint>
+												Guidance the agent applies whenever it speaks — phrasing, pacing, and do's
+												and don'ts.
+											</InfoHint>
+										</FormLabel>
 										<span
 											className={cn(
 												"text-xs text-muted-foreground tabular-nums",
@@ -319,10 +325,6 @@ export function PersonaEditorDialog({
 											{...field}
 										/>
 									</FormControl>
-									<FormDescription>
-										Guidance the agent applies whenever it speaks — phrasing, pacing, and do's and
-										don'ts.
-									</FormDescription>
 									<FormMessage />
 								</FormItem>
 							)}

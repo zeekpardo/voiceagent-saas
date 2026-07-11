@@ -22,6 +22,7 @@ import {
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { Switch } from "@repo/ui/components/switch";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
+import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import { CopyIcon, PlusIcon, Trash2Icon, WrenchIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -105,17 +106,17 @@ export function ToolsTab({
 				<CardHeader>
 					<CardTitle className="gap-2 flex items-center">
 						<WrenchIcon className="size-5" /> Tools this agent can call
+						<InfoHint>
+							A tool is an HTTP endpoint in your own app (booking, lookups, CRM writes…). The agent
+							calls it mid-conversation; your endpoint returns JSON the agent speaks from.
+							Invocations are HMAC-signed with the tool's secret.
+						</InfoHint>
 						<Button size="sm" className="ml-auto" onClick={() => setCreateOpen(true)}>
 							<PlusIcon className="size-4" /> Register tool
 						</Button>
 					</CardTitle>
 				</CardHeader>
 				<CardContent className="gap-3 flex flex-col">
-					<p className="text-sm -mt-2 opacity-60">
-						A tool is an HTTP endpoint in your own app (booking, lookups, CRM writes…). The agent
-						calls it mid-conversation; your endpoint returns JSON the agent speaks from. Invocations
-						are HMAC-signed with the tool's secret.
-					</p>
 					{!tools?.length ? (
 						<p className="text-sm py-6 text-center opacity-50">
 							No tools registered yet — create one to give your agents live abilities.
@@ -200,8 +201,7 @@ export function ToolsTab({
 							<DialogHeader>
 								<DialogTitle>Register a tool</DialogTitle>
 								<DialogDescription>
-									The name and description tell the AI when to use it; parameters define what it
-									must collect from the caller first.
+									Register an HTTP endpoint in your app for the agent to call mid-conversation.
 								</DialogDescription>
 							</DialogHeader>
 							<div className="gap-3 flex flex-col">
@@ -241,7 +241,13 @@ export function ToolsTab({
 									/>
 								</div>
 								<div>
-									<Label>Parameters</Label>
+									<Label className="gap-1.5 flex items-center">
+										Parameters
+										<InfoHint>
+											Values the agent must collect from the caller before calling this tool. Each
+											name should match the key your endpoint expects.
+										</InfoHint>
+									</Label>
 									<div className="gap-2 mt-1 flex flex-col">
 										{params.map((p, i) => (
 											<div key={`param-${i}-${p.name}`} className="gap-2 flex items-center">

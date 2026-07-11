@@ -1,8 +1,13 @@
 import { ORPCError } from "@orpc/server";
-import { getAgentSource, saveAgentSourceMapping as saveMappingRow } from "@repo/database";
+import {
+	getAgentSource,
+	listSourceAgentSources,
+	saveAgentSourceMapping as saveMappingRow,
+} from "@repo/database";
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
+import { MESSAGE_CHANNELS } from "../../crm/lib/channels";
 import { listContactFields, type MappingEntry } from "../../crm/lib/field-mapping";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { STANDARD_CONTACT_FIELDS } from "../../crm/lib/standard-fields";
@@ -214,6 +219,7 @@ export const getAgentSourceMapping = protectedProcedure
 			agentId: mapping.agentId,
 			sourceId: mapping.sourceId,
 			enabled: mapping.enabled,
+			channels: (mapping.channels ?? []) as string[],
 			fieldMappings: mapping.fieldMappings as z.infer<typeof fieldMapping>[],
 			tagFilters: mapping.tagFilters as z.infer<typeof tagFilter>[],
 			tagRules: mapping.tagRules as z.infer<typeof tagRule>[],
@@ -239,6 +245,9 @@ export const saveAgentSourceMappingProcedure = protectedProcedure
 			enabled: z.boolean().default(true),
 			fieldMappings: z.array(fieldMapping).default([]),
 			tagFilters: z.array(tagFilter).default([]),
+			// Omni-channel: text channels this agent monitors for this source.
+			// Omit to leave the stored set untouched (the chips save on their own).
+			channels: z.array(z.enum(MESSAGE_CHANNELS)).optional(),
 			tagRules: z.array(tagRule).default([]),
 			stageRules: z.array(stageRule).default([]),
 			// Optional: the per-source Call-notes control moved to the agent's
@@ -256,6 +265,19 @@ export const saveAgentSourceMappingProcedure = protectedProcedure
 		await requireOwnedAgent(context.session, input.agentId);
 		await requireOwnedSource(context.session, input.sourceId);
 		const existing = await getAgentSource(input.agentId, input.sourceId);
+
+		// One agent per channel per source: reject enabling a channel another
+		// agent already monitors on this source (a contact writing on that channel
+		// must route to exactly one agent, or replies would collide).
+		if (input.channels !== undefined && input.channels.length > 0) {
+			const conflict = await findChannelConflict(input.agentId, input.sourceId, input.channels);
+			if (conflict) {
+				throw new ORPCError("CONFLICT", {
+					message: `The "${conflict.channel}" channel is already monitored by another agent (${conflict.agentLabel}) on this source. Remove it there first, or pick a different channel.`,
+				});
+			}
+		}
+
 		await saveMappingRow({
 			...input,
 			writeNote: input.writeNote ?? existing?.writeNote ?? true,
@@ -263,3 +285,29 @@ export const saveAgentSourceMappingProcedure = protectedProcedure
 		});
 		return { saved: true };
 	});
+
+/**
+ * Find the first requested channel that ANOTHER enabled agent already monitors
+ * on this source. Returns the conflicting channel + a human label for the other
+ * agent (its gateway name when resolvable, else its id). Null when clear.
+ */
+async function findChannelConflict(
+	agentId: string,
+	sourceId: string,
+	channels: string[],
+): Promise<{ channel: string; agentLabel: string } | null> {
+	const rows = await listSourceAgentSources(sourceId);
+	const want = new Set(channels);
+	for (const row of rows) {
+		if (row.agentId === agentId || !row.enabled) continue;
+		const theirs = Array.isArray(row.channels) ? (row.channels as string[]) : [];
+		const clash = theirs.find((c) => want.has(c));
+		if (clash) {
+			const agentLabel = await gatewayFetch<{ name?: string }>("GET", `/v1/agents/${row.agentId}`)
+				.then((a) => a.name?.trim() || row.agentId)
+				.catch(() => row.agentId);
+			return { channel: clash, agentLabel };
+		}
+	}
+	return null;
+}

@@ -1,10 +1,14 @@
+import { CHANNEL_TO_GHL_SEND_TYPE } from "../channels";
 import { normalizeName } from "../normalize";
 import type {
 	CrmCalendar,
+	CrmConversationMessage,
 	CrmCustomFieldDef,
 	CrmFieldWrite,
 	CrmPipeline,
 	CrmProvider,
+	SendConversationMessageInput,
+	SentMessage,
 } from "../provider";
 import { type CrmProviderContext, registerCrmProvider } from "../registry";
 import { GhlClient } from "./ghl-client";
@@ -300,6 +304,66 @@ export class GoHighLevelProvider implements CrmProvider {
 			title: input.title,
 		});
 		return { id: appointment.id, startISO: appointment.startTime ?? input.startISO };
+	}
+
+	async sendConversationMessage(input: SendConversationMessageInput): Promise<SentMessage> {
+		await this.ensureFreshToken();
+		const type = CHANNEL_TO_GHL_SEND_TYPE[input.channel];
+		const extras = input.extras ?? {};
+		const res = await this.client.sendMessage({
+			type,
+			contactId: input.contactId,
+			message: input.text,
+			// Email: GHL needs html (and/or message) + subject; thread the reply
+			// under the inbound emailMessageId when we have one.
+			...(type === "Email"
+				? {
+						subject: extras.subject,
+						html: extras.html ?? input.text,
+						threadId: extras.threadId,
+						replyMessageId: extras.replyToEmailMessageId,
+					}
+				: {}),
+			...(type === "WhatsApp" && extras.templateId ? { templateId: extras.templateId } : {}),
+			...(type === "SMS" ? { fromNumber: extras.fromNumber, toNumber: extras.toNumber } : {}),
+			...(extras.conversationId ? { conversationId: extras.conversationId } : {}),
+		});
+		return {
+			conversationId: res.conversationId,
+			messageId: res.messageId,
+			status: res.status,
+			emailMessageId: res.emailMessageId,
+		};
+	}
+
+	async sendTypingIndicator(input: {
+		conversationId: string;
+		visitorId?: string;
+		isTyping: boolean;
+	}): Promise<void> {
+		await this.ensureFreshToken();
+		// visitorId is required by GHL; skip silently when we don't have one.
+		if (!input.visitorId) return;
+		await this.client.sendLiveChatTyping({
+			conversationId: input.conversationId,
+			visitorId: input.visitorId,
+			isTyping: input.isTyping,
+		});
+	}
+
+	async getConversationMessages(
+		conversationId: string,
+		lastMessageId?: string,
+	): Promise<CrmConversationMessage[]> {
+		await this.ensureFreshToken();
+		const messages = await this.client.getConversationMessages(conversationId, lastMessageId);
+		return messages.map((m) => ({
+			id: m.id,
+			direction: m.direction,
+			body: m.body,
+			messageType: m.messageType,
+			dateAdded: m.dateAdded,
+		}));
 	}
 
 	async getAccountContext(): Promise<Record<string, string>> {

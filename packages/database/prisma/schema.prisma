@@ -328,6 +328,10 @@ model VoiceAgentSource {
   source   Source  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   enabled  Boolean @default(true)
 
+  /// Text channels (omni-channel messaging) this agent monitors for this
+  /// source — array of neutral channel keys ("sms","fb","ig","email",…).
+  /// One agent per channel per source (enforced in saveMapping).
+  channels      Json @default("[]")
   /// [{ extractField, crmFieldId, crmFieldKey, crmFieldName }]
   fieldMappings Json @default("[]")
   /// [{ tag, mode: "is" | "is_not" }] — contact-tag conditions gating whether

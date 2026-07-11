@@ -28,6 +28,7 @@ export const listAgentSourcesProcedure = protectedProcedure
 				accountName: row.source.accountName,
 				status: row.source.status,
 			},
+			channels: (row.channels ?? []) as string[],
 			fieldMappings: row.fieldMappings,
 			tagFilters: row.tagFilters,
 			tagRules: row.tagRules,

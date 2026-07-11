@@ -26,6 +26,20 @@ export async function findSourceByLocation(organizationId: string, locationId: s
 	);
 }
 
+/**
+ * Unscoped locationId → Source lookup for the app-level GHL webhook, which
+ * fires for ALL installed locations and carries only a locationId (no org
+ * context). locationId is stored in the config blob as plaintext (only tokens
+ * are sealed), so this filters in memory. Returns the first match (a locationId
+ * maps to one connected sub-account) or null.
+ */
+export async function findSourceByLocationId(locationId: string) {
+	const sources = await db.source.findMany();
+	return (
+		sources.find((s) => (s.config as Record<string, unknown>)?.locationId === locationId) ?? null
+	);
+}
+
 export async function createSource(data: {
 	organizationId: string;
 	name: string;
@@ -86,6 +100,15 @@ export async function listSourceAgentIds(sourceId: string) {
 	return db.voiceAgentSource.findMany({ where: { sourceId }, select: { agentId: true } });
 }
 
+/** All (agent, source) mapping rows for a source — used to resolve which agent
+ * monitors an inbound message's channel on this sub-account. */
+export async function listSourceAgentSources(sourceId: string) {
+	return db.voiceAgentSource.findMany({
+		where: { sourceId },
+		orderBy: { createdAt: "asc" },
+	});
+}
+
 export async function getAgentSource(agentId: string, sourceId: string) {
 	return db.voiceAgentSource.findUnique({
 		where: { agentId_sourceId: { agentId, sourceId } },
@@ -126,6 +149,8 @@ export async function saveAgentSourceMapping(data: {
 	enabled?: boolean;
 	fieldMappings: unknown;
 	tagFilters?: unknown;
+	/** Omit (undefined) to leave untouched — the channels chips save separately. */
+	channels?: unknown;
 	tagRules: unknown;
 	stageRules: unknown;
 	/** Job Flow Variables per-source value overrides. Omit to leave untouched. */
@@ -135,12 +160,13 @@ export async function saveAgentSourceMapping(data: {
 	bookingCalendarId?: string | null;
 	bookingCalendarName?: string | null;
 }) {
-	const { agentId, sourceId, tagFilters, variableValues, ...rest } = data;
+	const { agentId, sourceId, tagFilters, channels, variableValues, ...rest } = data;
 	const jsonFields = {
 		fieldMappings: rest.fieldMappings as object[],
 		tagRules: rest.tagRules as object[],
 		stageRules: rest.stageRules as object[],
 		...(tagFilters !== undefined ? { tagFilters: tagFilters as object[] } : {}),
+		...(channels !== undefined ? { channels: channels as string[] } : {}),
 		...(variableValues !== undefined ? { variableValues: variableValues as object } : {}),
 	};
 	return db.voiceAgentSource.upsert({

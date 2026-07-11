@@ -113,6 +113,8 @@ export function useSaveSourceMappingMutation(agentId: string) {
 				standardField?: string;
 			}[];
 			tagFilters?: { tag: string; mode: "is" | "is_not" }[];
+			/** Omni-channel text channels this agent monitors for this source. */
+			channels?: ("sms" | "email" | "whatsapp" | "ig" | "fb" | "live_chat" | "gmb" | "custom")[];
 			tagRules: { extractField: string; equals: string; tag: string }[];
 			stageRules: {
 				extractField: string;

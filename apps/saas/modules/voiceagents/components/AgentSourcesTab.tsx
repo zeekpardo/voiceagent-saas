@@ -5,6 +5,13 @@ import { cn } from "@repo/ui";
 import { Button } from "@repo/ui/components/button";
 import { Input } from "@repo/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui/components/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@repo/ui/components/select";
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { Switch } from "@repo/ui/components/switch";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
@@ -25,6 +32,7 @@ import {
 	CheckIcon,
 	ChevronDownIcon,
 	CopyIcon,
+	InfoIcon,
 	PlugIcon,
 	PlusIcon,
 	SearchIcon,
@@ -37,7 +45,19 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { useNumbersQuery } from "../lib/api";
 import { ContactFieldPicker } from "./ContactFieldPicker";
+
+/** Sentinel for "use the gateway/trunk default" — Radix Select forbids "" values. */
+const DEFAULT_FROM = "__default__";
+/** Sentinel that switches the from-number field to free-text E.164 entry. */
+const CUSTOM_FROM = "__custom__";
+
+function formatE164(e164: string): string {
+	const match = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164);
+	if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+	return e164;
+}
 
 interface TagFilter {
 	tag: string;
@@ -336,6 +356,19 @@ function SourceDetail({
 	const createFieldMutation = useCreateSourceFieldMutation(sourceId);
 	const autoMapMutation = useAutoMapSourceMutation(agentId);
 	const { data: triggerUrl } = useSourceTriggerUrlQuery(agentId, sourceId);
+	const { data: numbers } = useNumbersQuery();
+
+	// Caller ID appended to the copied trigger URL as `?from=`. Defaults to the
+	// gateway/trunk default (no param) so existing copy/paste habits don't
+	// suddenly require picking a number.
+	const [fromSelect, setFromSelect] = useState<string>(DEFAULT_FROM);
+	const [customFrom, setCustomFrom] = useState("");
+	const selectedFrom = fromSelect === CUSTOM_FROM ? customFrom.trim() : fromSelect;
+	const triggerUrlWithFrom = useMemo(() => {
+		if (!triggerUrl?.url) return "";
+		if (fromSelect === DEFAULT_FROM || !selectedFrom) return triggerUrl.url;
+		return `${triggerUrl.url}?from=${encodeURIComponent(selectedFrom)}`;
+	}, [triggerUrl?.url, fromSelect, selectedFrom]);
 
 	const extractFields = Object.keys(
 		(agentConfig.postCall as { extract?: Record<string, string> } | undefined)?.extract ?? {},
@@ -403,9 +436,13 @@ function SourceDetail({
 	};
 
 	const copyTriggerUrl = async () => {
-		if (!triggerUrl?.url) return;
-		await navigator.clipboard.writeText(triggerUrl.url);
-		toastSuccess("Trigger URL copied");
+		if (!triggerUrlWithFrom) return;
+		await navigator.clipboard.writeText(triggerUrlWithFrom);
+		toastSuccess(
+			fromSelect === DEFAULT_FROM || !selectedFrom
+				? "Trigger URL copied"
+				: "Trigger URL copied — calls will use this from-number",
+		);
 	};
 
 	const createAndBind = async (extractField: string) => {
@@ -645,13 +682,46 @@ function SourceDetail({
 				</Section>
 
 				<Section title="Trigger URL" defaultOpen={false}>
-					<div className="gap-2 flex flex-col">
+					<div className="gap-3 flex flex-col">
 						<p className="text-xs text-muted-foreground">
 							Point a {sourceName} workflow webhook at this URL to place an outbound call from this
 							agent — the contact's CRM details become {"{{variables}}"}.
 						</p>
+
+						<div className="gap-1.5 flex flex-col">
+							<span className="font-medium text-xs text-muted-foreground">
+								From number (caller ID)
+							</span>
+							<div className="gap-2 flex items-center">
+								<Select value={fromSelect} onValueChange={setFromSelect}>
+									<SelectTrigger className="h-8 text-xs flex-1" aria-label="From number">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value={DEFAULT_FROM}>
+											<span className="text-muted-foreground">Gateway default</span>
+										</SelectItem>
+										{numbers?.map((n) => (
+											<SelectItem key={n.id} value={n.e164}>
+												{formatE164(n.e164)}
+											</SelectItem>
+										))}
+										<SelectItem value={CUSTOM_FROM}>Custom number…</SelectItem>
+									</SelectContent>
+								</Select>
+								{fromSelect === CUSTOM_FROM && (
+									<Input
+										value={customFrom}
+										onChange={(e) => setCustomFrom(e.target.value)}
+										placeholder="+16505550123"
+										className="h-8 w-40 font-mono text-xs"
+									/>
+								)}
+							</div>
+						</div>
+
 						<div className="gap-2 flex items-center">
-							<Input readOnly value={triggerUrl?.url ?? ""} className="h-8 font-mono text-xs" />
+							<Input readOnly value={triggerUrlWithFrom} className="h-8 font-mono text-xs" />
 							<Button
 								variant="outline"
 								size="icon"
@@ -662,6 +732,16 @@ function SourceDetail({
 								<CopyIcon className="size-4" />
 							</Button>
 						</div>
+
+						<div className="gap-1.5 border-blue-500/30 bg-blue-500/10 px-3 py-2 text-blue-700 text-xs dark:text-blue-400 flex items-start rounded-lg border">
+							<InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+							<span>
+								In {sourceName}: Workflow → trigger "Contact Tag Added" → action "Wait" (e.g. 10
+								min) → action "Webhook" (POST this URL). The call uses this agent and the
+								from-number selected above.
+							</span>
+						</div>
+
 						<p className="text-xs text-muted-foreground opacity-70">
 							Keep this URL secret — anyone who has it can place calls with this agent.
 						</p>

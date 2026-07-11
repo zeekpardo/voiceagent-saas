@@ -3,7 +3,11 @@ import { getAgentSource } from "@repo/database";
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
-import { buildContactState, parseContactTags } from "../../crm/lib/contact-state";
+import {
+	buildContactState,
+	customFieldVariables,
+	parseContactTags,
+} from "../../crm/lib/contact-state";
 import { normalizePhone } from "../../crm/lib/normalize";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { requireOwnedSource } from "../../sources/lib/require-owned-source";
@@ -115,6 +119,10 @@ export const createTestSession = protectedProcedure
 		}
 
 		const runtimeVariables = {
+			// Custom contact-field values first (LOWEST priority) so the builder's
+			// {{contact_<custom>}} tokens interpolate without ever shadowing a
+			// standard/runtime variable of the same name.
+			...customFieldVariables(contactState),
 			caller_name: context.user.name ?? "there",
 			...crmVariables,
 			...input.variables, // explicit values override CRM-derived ones

@@ -1,11 +1,11 @@
 "use client";
 
 import { Label } from "@repo/ui/components/label";
-import { Textarea } from "@repo/ui/components/textarea";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 
 import { ContactWriteFieldCombobox } from "../ContactWriteFieldCombobox";
 import { fieldToKey, keyToStored } from "../field-adapter";
+import { FieldPickerTextarea } from "../FieldPicker";
 import type { FlowNodeData, SetFieldNodeData } from "../flow-types";
 import { TitleInput, usePatch } from "./shared";
 
@@ -45,10 +45,11 @@ export function SetFieldNodeEditor({
 
 			<div className="gap-1.5 flex flex-col">
 				<Label>Value</Label>
-				<Textarea
+				<FieldPickerTextarea
+					agentId={agentId}
 					rows={2}
 					value={data.value}
-					onChange={(e) => patch({ value: e.target.value })}
+					onValueChange={(value) => patch({ value })}
 					placeholder="Seller"
 				/>
 				<p className="text-xs opacity-50">

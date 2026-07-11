@@ -1,3 +1,4 @@
+import { customFieldVariableName } from "@repo/api/modules/crm/lib/field-mapping";
 import type { AnyExtension } from "@tiptap/core";
 import { mergeAttributes } from "@tiptap/core";
 import { Mention, type MentionNodeAttrs } from "@tiptap/extension-mention";
@@ -48,9 +49,10 @@ export interface MentionSources {
  *
  * Names MUST stay byte-identical to that provider code — a mismatch yields a
  * mention chip that silently resolves to nothing at call time. Custom CRM
- * fields are deliberately absent: getContactContext emits only standard slots,
- * so no {{contact_<custom>}} variable exists at runtime (custom values reach
- * the prompt via the engine's KNOWN CONTACT INFO block, not interpolation).
+ * fields are NOT listed here: their variables ({{contact_<custom slug>}}) are
+ * derived per-source via customFieldVariableName and merged into the dispatch
+ * variables from the contact state (contact-state.ts customFieldVariables), so
+ * they are appended dynamically in buildVariableItems instead.
  */
 export const RUNTIME_CONTACT_VARIABLES = [
 	"contact_first_name",
@@ -93,15 +95,16 @@ export const STANDARD_VARIABLES = [
  * Unified-field-source key → the runtime variable it interpolates to, for keys
  * the dispatch merge actually emits. This is how the contact-fields source is
  * wired into the mention list: a catalog field becomes a chip only if its key
- * maps to a real runtime variable. Custom keys (contact.<slug>) and standard
- * keys with no runtime variable (contact.country / contact.website;
- * location.country / location.email / location.id) are absent here, so they are
- * skipped. Note the non-1:1 spots vs a naive `key.replace(".","_")`:
+ * maps to a real runtime variable. Standard keys with no runtime variable
+ * (contact.country / contact.website; location.country / location.email /
+ * location.id) are absent here, so they are skipped; CUSTOM keys are handled
+ * separately in fieldRuntimeVariable. Note the non-1:1 spots vs a naive
+ * `key.replace(".","_")`:
  *   contact.name    → contact_full_name   (runtime has no contact_name)
  *   contact.address → contact_full_address (catalog "Full Address" is composite)
  *   contact.address1→ contact_address      (runtime contact_address is the street)
  */
-const KEY_TO_RUNTIME_VARIABLE: Record<string, string> = {
+export const KEY_TO_RUNTIME_VARIABLE: Record<string, string> = {
 	"contact.first_name": "contact_first_name",
 	"contact.last_name": "contact_last_name",
 	"contact.name": "contact_full_name",
@@ -388,23 +391,34 @@ export function createFlowMentionExtension(sources: MentionSources): AnyExtensio
 }
 
 /**
+ * A unified-source field option → the runtime variable its chip interpolates
+ * to: standard fields via the KEY_TO_RUNTIME_VARIABLE table, CUSTOM fields via
+ * the shared per-source derivation (dispatch merges their values under the same
+ * names — see contact-state.ts customFieldVariables). Undefined = no runtime
+ * variable exists for that field, so no chip is offered.
+ */
+export function fieldRuntimeVariable(field: { key: string; kind?: string }): string | undefined {
+	if (field.kind === "custom") {
+		return customFieldVariableName(field.key);
+	}
+	return KEY_TO_RUNTIME_VARIABLE[field.key];
+}
+
+/**
  * Build the variable mention list: the runtime dynamic-variable catalog, plus
- * any unified-source contact/location fields whose key maps to a real runtime
- * variable, plus names already referenced in the config text. Deduped; searchable
+ * any unified-source contact/location fields that map to a real runtime
+ * variable (standard via the table above, custom via fieldRuntimeVariable),
+ * plus names already referenced in the config text. Deduped; searchable
  * by label or key (filterItems matches id/label/sub).
  *
  * `fields` comes from the unified contact-fields source (useContactFieldsQuery).
- * Only fields that map to an emitted runtime variable are added — custom fields
- * resolve to `undefined` here and are skipped, so no dead {{}} chips are offered.
  */
 export function buildVariableItems(
 	extraNames: string[],
-	fields: { key: string }[] = [],
+	fields: { key: string; kind?: string }[] = [],
 	customVariables: { name: string; description?: string }[] = [],
 ): MentionItem[] {
-	const fromFields = fields
-		.map((f) => KEY_TO_RUNTIME_VARIABLE[f.key])
-		.filter((v): v is string => !!v);
+	const fromFields = fields.map(fieldRuntimeVariable).filter((v): v is string => !!v);
 	// Agent-level Job Flow Variables — the user's custom {{name}} definitions.
 	// Listed first so they surface at the top of the picker, tagged "Custom." for
 	// grouping. Their names are excluded from the standard/field list below so a

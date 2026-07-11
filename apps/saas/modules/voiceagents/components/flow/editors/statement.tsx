@@ -1,16 +1,18 @@
 "use client";
 
 import { Label } from "@repo/ui/components/label";
-import { Textarea } from "@repo/ui/components/textarea";
 
+import { FieldPickerTextarea } from "../FieldPicker";
 import type { FlowNodeData, StatementNodeData } from "../flow-types";
 import { ChannelSelector, TitleInput, usePatch } from "./shared";
 
 export function StatementNodeEditor({
+	agentId,
 	nodeId,
 	data,
 	onChange,
 }: {
+	agentId: string;
 	nodeId: string;
 	data: StatementNodeData;
 	onChange: (nodeId: string, data: FlowNodeData) => void;
@@ -27,10 +29,11 @@ export function StatementNodeEditor({
 
 			<div className="gap-1.5 flex flex-col">
 				<Label>What to say</Label>
-				<Textarea
+				<FieldPickerTextarea
+					agentId={agentId}
 					rows={4}
 					value={data.say}
-					onChange={(e) => patch({ say: e.target.value })}
+					onValueChange={(say) => patch({ say })}
 					placeholder="Please hold while I connect you to our booking team."
 				/>
 				<p className="text-xs opacity-50">

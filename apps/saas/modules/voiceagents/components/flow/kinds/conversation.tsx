@@ -14,8 +14,9 @@ export const conversationKind = defineKind<ConversationNodeData>({
 	kind: "conversation",
 	schema: conversationNodeDataSchema,
 	canvasNode: ConversationNode,
-	editor: ({ nodeId, data, onChange }) => (
+	editor: ({ agentId, nodeId, data, onChange }) => (
 		<ConversationNodeEditor
+			agentId={agentId}
 			nodeId={nodeId}
 			data={data as ConversationNodeData}
 			onChange={onChange}

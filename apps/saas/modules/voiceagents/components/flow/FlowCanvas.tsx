@@ -27,11 +27,12 @@ import type { AgentRFNode } from "./AgentFlowNode";
 import type { BookingRFNode } from "./BookingNode";
 import { makeId, newAggressionScenarioData } from "./compile";
 import type { ConversationRFNode } from "./ConversationNode";
+import { FlowNodesProvider } from "./flow-nodes-context";
 import type { CanvasDoc, CanvasNodeDoc, FlowNodeData, FlowPaletteKind } from "./flow-types";
 import { FLOW_NODE_DRAG_TYPE, FLOW_PALETTE_KINDS, START_NODE_ID } from "./flow-types";
 import type { GreeterRFNode } from "./GreeterNode";
 import { FLOW_KIND_META, isFlowNodeKind } from "./kind-meta";
-import type { MentionItem } from "./mentions";
+import { buildNodeResultItems, type FlowNodeRef, type MentionItem } from "./mentions";
 import type { ModifyTagsRFNode } from "./ModifyTagsNode";
 import { NodeEditorPanel, type FlowToolOption } from "./NodeEditorPanel";
 import type { ObjectiveRFNode } from "./ObjectiveNode";
@@ -391,6 +392,31 @@ function FlowCanvasInner({
 		(node): node is Exclude<CanvasRFNode, StartRFNode> =>
 			node.id === selectedNodeId && node.type !== "start",
 	);
+
+	// Nodes group (CloseBot "Nodes" Tier 1): the live canvas nodes, exposed to the
+	// field pickers so a node can insert a prior node's runtime outcome. Derived
+	// from live state so renaming/adding a node updates the picker immediately.
+	const flowNodeRefs = useMemo<FlowNodeRef[]>(
+		() =>
+			nodes
+				.filter((node): node is Exclude<CanvasRFNode, StartRFNode> => node.type !== "start")
+				.map((node) => ({
+					id: node.id,
+					kind: node.type,
+					title:
+						typeof (node.data as { title?: unknown }).title === "string"
+							? ((node.data as { title?: string }).title ?? "")
+							: "",
+				})),
+		[nodes],
+	);
+	// Agent-prompt editors read the @-mention list from this prop; merge the
+	// node-result items in (the single-field pill editors read the FlowNodesProvider
+	// context directly via useFieldPickerGroups).
+	const mergedVariableItems = useMemo(
+		() => [...variableItems, ...buildNodeResultItems(flowNodeRefs, selectedNodeId)],
+		[variableItems, flowNodeRefs, selectedNodeId],
+	);
 	const startEdge = edges.find((edge) => edge.source === START_NODE_ID);
 	// The real flow entry is the Greeter's outgoing edge target (Start now wires
 	// into the Greeter fixture). Used to gray out the ignored entry-message field
@@ -518,19 +544,21 @@ function FlowCanvasInner({
 				</Panel>
 			</ReactFlow>
 
-			<NodeEditorPanel
-				agentId={agentId}
-				nodeId={selectedNode?.id ?? null}
-				nodeType={selectedNode?.type ?? null}
-				data={selectedNode?.data ?? null}
-				isEntry={!!selectedNode && entryNodeId === selectedNode.id}
-				tools={tools}
-				bookingToolIds={bookingToolIds}
-				variableItems={variableItems}
-				onChange={updateNodeData}
-				onDelete={deleteNode}
-				onClose={() => setSelectedNodeId(null)}
-			/>
+			<FlowNodesProvider value={{ nodes: flowNodeRefs, currentNodeId: selectedNodeId }}>
+				<NodeEditorPanel
+					agentId={agentId}
+					nodeId={selectedNode?.id ?? null}
+					nodeType={selectedNode?.type ?? null}
+					data={selectedNode?.data ?? null}
+					isEntry={!!selectedNode && entryNodeId === selectedNode.id}
+					tools={tools}
+					bookingToolIds={bookingToolIds}
+					variableItems={mergedVariableItems}
+					onChange={updateNodeData}
+					onDelete={deleteNode}
+					onClose={() => setSelectedNodeId(null)}
+				/>
+			</FlowNodesProvider>
 		</div>
 	);
 }

@@ -16,6 +16,7 @@ import {
 	PlusIcon,
 	SearchIcon,
 	UserIcon,
+	WorkflowIcon,
 } from "lucide-react";
 import {
 	type ComponentProps,
@@ -30,10 +31,12 @@ import {
 import { useAgentQuery } from "../../lib/api";
 import { MENTION_CHAR_VARIABLE, prettifyVariable, textToTiptapDoc, tiptapToText } from "./compile";
 import { useFieldFocus } from "./field-focus-context";
+import { useFlowNodes } from "./flow-nodes-context";
 import {
 	createVariablePillExtension,
 	fieldRuntimeVariable,
 	type MentionItem,
+	nodeResultEntries,
 	type VariablePillMeta,
 } from "./mentions";
 
@@ -96,6 +99,8 @@ function useFieldPickerGroups(agentId: string) {
 	// track the agent's connected source.
 	const { data: fieldsData, isLoading } = useContactFieldsQuery(agentId);
 	const { data: agent } = useAgentQuery(agentId);
+	// Live canvas nodes (Nodes group) — empty outside a FlowNodesProvider.
+	const { nodes: flowNodes, currentNodeId } = useFlowNodes();
 
 	const groups = useMemo<FieldPickerGroupDef[]>(() => {
 		const byNamespace: Record<"contact" | "location" | "customValue", FieldPickerEntry[]> = {
@@ -138,8 +143,20 @@ function useFieldPickerGroups(agentId: string) {
 		if (source.length > 0) {
 			defs.push({ label: "Source", icon: DatabaseIcon, entries: source });
 		}
+		// Nodes — each prior flow node's runtime outcome (CloseBot "Nodes" Tier 1).
+		// The picker shows `<NodeTitle>.Result` but inserts the ID-based token so a
+		// title rename never breaks references. Listed last (they resolve at call
+		// time, unlike the always-known contact/location fields).
+		const nodeEntries = nodeResultEntries(flowNodes, currentNodeId).map((entry) => ({
+			name: entry.name,
+			label: `${entry.nodeTitle}.${entry.suffixLabel}`,
+			sub: `{{${entry.name}}}`,
+		}));
+		if (nodeEntries.length > 0) {
+			defs.push({ label: "Nodes", icon: WorkflowIcon, entries: nodeEntries });
+		}
 		return defs;
-	}, [fieldsData, agent]);
+	}, [fieldsData, agent, flowNodes, currentNodeId]);
 
 	return { groups, isLoading };
 }

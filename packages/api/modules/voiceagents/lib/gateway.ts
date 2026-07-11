@@ -27,7 +27,14 @@ export async function gatewayFetch<T>(method: string, path: string, body?: unkno
 		error?: { code?: string; message?: string };
 	};
 	if (!res.ok) {
-		const code = res.status === 404 ? "NOT_FOUND" : res.status === 409 ? "CONFLICT" : "BAD_REQUEST";
+		const code =
+			res.status === 404
+				? "NOT_FOUND"
+				: res.status === 409
+					? "CONFLICT"
+					: res.status === 503
+						? "SERVICE_UNAVAILABLE"
+						: "BAD_REQUEST";
 		throw new ORPCError(code, {
 			message: data.error?.message ?? `Voice gateway request failed (${res.status})`,
 		});

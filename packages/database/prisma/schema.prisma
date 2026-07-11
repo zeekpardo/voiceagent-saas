@@ -289,9 +289,32 @@ model Source {
   updatedAt      DateTime     @updatedAt
 
   agentSources VoiceAgentSource[]
+  phoneNumbers SourcePhoneNumber[]
 
   @@index([organizationId])
   @@map("source")
+}
+
+/// A phone number provisioned on the engine and mapped to a specific Source.
+/// The engine stays CRM-neutral and only knows the number exists; the SaaS owns
+/// which Source a number belongs to. `providerRef` is the engine/LiveKit id used
+/// to release or re-route the number; `e164` is the dialable number.
+model SourcePhoneNumber {
+  id       String @id @default(cuid())
+  sourceId String
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  /// dialable E.164 number, e.g. "+16615551234"
+  e164     String @unique
+  /// engine phone-number id / LiveKit provider ref, used for release & re-route
+  providerRef    String?
+  /// optional operator label shown in the UI
+  label          String?
+  /// gateway agent id (agt_…) this number routes inbound calls to, if any
+  inboundAgentId String?
+  createdAt      DateTime @default(now())
+
+  @@index([sourceId])
+  @@map("source_phone_number")
 }
 
 /// Many-to-many join between a gateway agent and a Source, carrying the

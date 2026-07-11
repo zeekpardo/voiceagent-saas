@@ -94,6 +94,12 @@ export const SourceScalarFieldEnumSchema = z.enum(['id', 'organizationId', 'name
 
 export type SourceScalarFieldEnum = z.infer<typeof SourceScalarFieldEnumSchema>;
 
+// File: SourcePhoneNumberScalarFieldEnum.schema.ts
+
+export const SourcePhoneNumberScalarFieldEnumSchema = z.enum(['id', 'sourceId', 'e164', 'providerRef', 'label', 'inboundAgentId', 'createdAt'])
+
+export type SourcePhoneNumberScalarFieldEnum = z.infer<typeof SourcePhoneNumberScalarFieldEnumSchema>;
+
 // File: VoiceAgentSourceScalarFieldEnum.schema.ts
 
 export const VoiceAgentSourceScalarFieldEnumSchema = z.enum(['id', 'agentId', 'sourceId', 'enabled', 'fieldMappings', 'tagFilters', 'tagRules', 'stageRules', 'writeNote', 'bookingCalendarId', 'bookingCalendarName', 'createdAt', 'updatedAt'])
@@ -398,6 +404,21 @@ export const SourceSchema = z.object({
 });
 
 export type SourceType = z.infer<typeof SourceSchema>;
+
+
+// File: SourcePhoneNumber.schema.ts
+
+export const SourcePhoneNumberSchema = z.object({
+  id: z.string(),
+  sourceId: z.string(),
+  e164: z.string(),
+  providerRef: z.string().nullish(),
+  label: z.string().nullish(),
+  inboundAgentId: z.string().nullish(),
+  createdAt: z.date(),
+});
+
+export type SourcePhoneNumberType = z.infer<typeof SourcePhoneNumberSchema>;
 
 
 // File: VoiceAgentSource.schema.ts

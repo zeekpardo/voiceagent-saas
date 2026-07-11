@@ -41,13 +41,16 @@ const STYLE_OPTIONS: { style: WidgetStyle; label: string; hint: string; icon: Lu
 ];
 
 /**
- * "Website Widget" workspace aside: pick how the embed should look, choose
+ * "Website Widget" configurator: pick how the embed should look, choose
  * which website origins may use it, mint the signed widget token, and copy the
  * ready-to-paste <script> snippet. The snippet is recomposed client-side
  * (composeWidgetSnippet) so appearance tweaks after minting update it without
  * another server round-trip — only the origins live inside the signed token.
+ *
+ * Lives on the Source detail page's "Website Widget" tab (the widget is
+ * installed on the source's website; the agent is just what answers it).
  */
-export function WidgetPanel({ agentId }: { agentId: string }) {
+export function WidgetConfigurator({ agentId }: { agentId: string }) {
 	const [style, setStyle] = useState<WidgetStyle>(WIDGET_DEFAULTS.style);
 	const [position, setPosition] = useState<WidgetPosition>(WIDGET_DEFAULTS.position);
 	const [accent, setAccent] = useState(WIDGET_DEFAULTS.accent);

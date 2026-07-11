@@ -14,7 +14,6 @@ import {
 	ArrowLeftIcon,
 	BookOpenIcon,
 	CirclePlusIcon,
-	CodeIcon,
 	DatabaseIcon,
 	HistoryIcon,
 	type LucideIcon,
@@ -43,7 +42,6 @@ import { TestPortal } from "./TestPortal";
 import { ToolsTab } from "./ToolsTab";
 import { VariablesPanel } from "./VariablesPanel";
 import { VersionHistoryPanel } from "./VersionHistoryPanel";
-import { WidgetPanel } from "./widget/WidgetPanel";
 
 type WorkspacePanel =
 	| "actions"
@@ -54,7 +52,6 @@ type WorkspacePanel =
 	| "variables"
 	| "tools"
 	| "sources"
-	| "widget"
 	| "history";
 
 const PANEL_META: Record<WorkspacePanel, { title: string; description: string }> = {
@@ -89,10 +86,6 @@ const PANEL_META: Record<WorkspacePanel, { title: string; description: string }>
 	sources: {
 		title: "Sources",
 		description: "Attach CRM sub-accounts and map extracted call data onto their contacts.",
-	},
-	widget: {
-		title: "Website Widget",
-		description: "Embed this agent on any website.",
 	},
 	history: {
 		title: "Version history",
@@ -238,7 +231,6 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							{activePanel === "sources" && (
 								<AgentSourcesTab agentId={agent.id} agentConfig={agent.config} />
 							)}
-							{activePanel === "widget" && <WidgetPanel agentId={agent.id} />}
 							{activePanel === "history" && (
 								<VersionHistoryPanel agentId={agent.id} currentVersion={agent.version} />
 							)}
@@ -302,13 +294,6 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 							label="Sources"
 							isActive={activePanel === "sources"}
 							onClick={() => togglePanel("sources")}
-						/>
-						<div className="my-1 w-6 h-px bg-border" />
-						<RailButton
-							icon={CodeIcon}
-							label="Website Widget"
-							isActive={activePanel === "widget"}
-							onClick={() => togglePanel("widget")}
 						/>
 						<div className="my-1 w-6 h-px bg-border" />
 						<RailButton

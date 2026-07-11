@@ -4,6 +4,7 @@ import z from "zod";
 import { protectedProcedure } from "../../../orpc/procedures";
 import {
 	type ContactFieldOption,
+	customValueFieldOptions,
 	dedupeFieldOptions,
 	listContactFields,
 	locationFieldOptions,
@@ -40,6 +41,19 @@ async function contactFieldsForSource(sourceId: string | null): Promise<ContactF
 	}
 }
 
+/** This source's location-level Custom Values, failure-isolated to none. */
+async function customValueFieldsForSource(sourceId: string | null): Promise<ContactFieldOption[]> {
+	if (!sourceId) return [];
+	try {
+		const provider = await resolveCrmProvider(sourceId);
+		if (!provider) return [];
+		return await customValueFieldOptions(provider);
+	} catch (err) {
+		console.warn("[contact-fields] CRM custom values unavailable:", err);
+		return [];
+	}
+}
+
 export const listContactFieldOptionsProcedure = protectedProcedure
 	.route({
 		method: "GET",
@@ -59,7 +73,10 @@ export const listContactFieldOptionsProcedure = protectedProcedure
 			sourceId = sources[0]?.id ?? null;
 		}
 
-		const contact = await contactFieldsForSource(sourceId);
-		const fields = dedupeFieldOptions([...contact, ...locationFieldOptions()]);
+		const [contact, customValues] = await Promise.all([
+			contactFieldsForSource(sourceId),
+			customValueFieldsForSource(sourceId),
+		]);
+		const fields = dedupeFieldOptions([...contact, ...locationFieldOptions(), ...customValues]);
 		return { fields };
 	});

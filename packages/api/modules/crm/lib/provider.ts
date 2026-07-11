@@ -25,6 +25,17 @@ export interface CrmFieldWrite {
 	value: string;
 }
 
+/**
+ * A location-level Custom Value — a key/value setting on the CRM account
+ * itself (GHL: Settings → Custom Values), NOT tied to any contact. Distinct
+ * from CrmCustomFieldDef, which is a per-contact field definition.
+ */
+export interface CrmCustomValueDef {
+	id: string;
+	name: string;
+	value?: string;
+}
+
 export interface CrmProvider {
 	/** Stable provider discriminator, e.g. "gohighlevel". */
 	readonly type: string;
@@ -37,6 +48,13 @@ export interface CrmProvider {
 
 	/** Create a text custom field on contacts. */
 	createCustomField(name: string): Promise<CrmCustomFieldDef>;
+
+	/**
+	 * Location-level Custom Values (GHL: Settings → Custom Values) — key/value
+	 * settings, not per-contact. Optional: most CRMs have no equivalent concept,
+	 * so callers must treat a missing method the same as an empty list.
+	 */
+	listCustomValues?(): Promise<CrmCustomValueDef[]>;
 
 	/** Write custom field values onto a contact. */
 	updateContactFields(contactId: string, fields: CrmFieldWrite[]): Promise<void>;

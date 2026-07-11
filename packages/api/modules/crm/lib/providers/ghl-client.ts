@@ -56,9 +56,22 @@ export interface GhlOpportunity {
 	contactId?: string;
 }
 
+/** The location's "Business Profile" — a distinct sub-object from the location's own address. */
+export interface GhlLocationBusiness {
+	name?: string;
+	address?: string;
+	city?: string;
+	state?: string;
+	country?: string;
+	postalCode?: string;
+	website?: string;
+	timezone?: string;
+}
+
 export interface GhlLocation {
 	id: string;
 	name?: string;
+	email?: string;
 	address?: string;
 	city?: string;
 	state?: string;
@@ -67,6 +80,14 @@ export interface GhlLocation {
 	phone?: string;
 	website?: string;
 	timezone?: string;
+	business?: GhlLocationBusiness;
+}
+
+/** A location-level Custom Value (Settings → Custom Values) — key/value, not tied to a contact. */
+export interface GhlCustomValue {
+	id: string;
+	name: string;
+	value?: string;
 }
 
 export interface GhlCalendar {
@@ -292,6 +313,15 @@ export class GhlClient {
 			{ name, dataType: "TEXT", model: "contact" },
 		);
 		return res.customField;
+	}
+
+	/** Location-level Custom Values (Settings → Custom Values) — distinct from contact custom fields. */
+	async getCustomValues(): Promise<GhlCustomValue[]> {
+		const res = await this.request<{ customValues?: GhlCustomValue[] }>(
+			"GET",
+			`/locations/${this.locationId}/customValues`,
+		);
+		return res.customValues ?? [];
 	}
 
 	async getLocationDetails(): Promise<GhlLocation> {

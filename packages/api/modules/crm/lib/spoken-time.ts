@@ -38,3 +38,19 @@ export function formatSpokenTime(iso: string, timeZone: string): string {
 		minute: "2-digit",
 	}).format(new Date(iso));
 }
+
+/**
+ * The current moment in `timeZone`, speech-friendly — for the location's
+ * {{location_current_date_time}} variable. Computed fresh at dispatch (not
+ * cached) so it's always "now" in the account's local time.
+ */
+export function formatCurrentDateTime(timeZone: string): string {
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone,
+		weekday: "long",
+		month: "long",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(new Date());
+}

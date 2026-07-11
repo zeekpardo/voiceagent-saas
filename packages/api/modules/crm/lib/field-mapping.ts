@@ -23,8 +23,10 @@ export interface ContactFieldOption {
 	/**
 	 * Which record the field belongs to. Defaults to "contact" when omitted (kept
 	 * optional so existing consumers of the contact-only list are unaffected).
+	 * "customValue" = a GHL location-level Custom Value (Settings → Custom
+	 * Values) — a key/value setting, not tied to any contact.
 	 */
-	namespace?: "contact" | "location";
+	namespace?: "contact" | "location" | "customValue";
 	/** The CRM's data type for a custom field (e.g. "TEXT", "SINGLE_OPTIONS"), when known. */
 	dataType?: string;
 	/** Picklist values when the CRM exposes them (single/multi-select fields). */
@@ -50,6 +52,15 @@ export const LOCATION_FIELDS: { key: string; label: string }[] = [
 	{ key: "location.website", label: "Location Website" },
 	{ key: "location.timezone", label: "Location Timezone" },
 	{ key: "location.id", label: "Location ID" },
+	{ key: "location.business_name", label: "Business Name" },
+	{ key: "location.business_address", label: "Business Address" },
+	{ key: "location.business_city", label: "Business City" },
+	{ key: "location.business_state", label: "Business State" },
+	{ key: "location.business_country", label: "Business Country" },
+	{ key: "location.business_postal_code", label: "Business Postal Code" },
+	{ key: "location.business_website", label: "Business Website" },
+	{ key: "location.business_timezone", label: "Business Timezone" },
+	{ key: "location.current_date_time", label: "Current Date Time" },
 ];
 
 /** The standard contact catalog as picker options (no CRM call — always available). */
@@ -94,11 +105,26 @@ export function dedupeFieldOptions(options: ContactFieldOption[]): ContactFieldO
  * pulling server-only dependencies.)
  */
 export function customFieldVariableName(key: string): string | undefined {
-	const slug = (key.split(".").pop() ?? "")
+	const slug = slugifyLastSegment(key);
+	return slug ? `contact_${slug}` : undefined;
+}
+
+/**
+ * GHL Custom Value (Settings → Custom Values, location-level key/value) name →
+ * the `{{variable}}` name its value is exposed under at dispatch, e.g.
+ * "customValue.Company Slogan" → "customvalue_company_slogan". Distinct
+ * namespace/prefix from contact custom fields so the two never collide.
+ */
+export function customValueVariableName(key: string): string | undefined {
+	const slug = slugifyLastSegment(key);
+	return slug ? `customvalue_${slug}` : undefined;
+}
+
+function slugifyLastSegment(key: string): string {
+	return (key.split(".").pop() ?? "")
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "_")
 		.replace(/^_+|_+$/g, "");
-	return slug ? `contact_${slug}` : undefined;
 }
 
 /** "callback_number" / "contact.callback_number" → "Callback Number". */
@@ -130,6 +156,27 @@ export async function listContactFields(provider: CrmProvider): Promise<ContactF
 		});
 	}
 	return [...standard, ...customOptions];
+}
+
+/**
+ * This subaccount's location-level Custom Values, ready for the picker.
+ * `listCustomValues` is optional on the provider interface (a GHL-specific
+ * concept) — providers that don't implement it simply contribute none.
+ */
+export async function customValueFieldOptions(
+	provider: CrmProvider,
+): Promise<ContactFieldOption[]> {
+	if (!provider.listCustomValues) return [];
+	const values = await provider.listCustomValues();
+	const seen = new Set<string>();
+	const options: ContactFieldOption[] = [];
+	for (const v of values) {
+		const key = `customValue.${v.name}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		options.push({ key, label: v.name, kind: "custom", namespace: "customValue" });
+	}
+	return options;
 }
 
 export interface MappingEntry {

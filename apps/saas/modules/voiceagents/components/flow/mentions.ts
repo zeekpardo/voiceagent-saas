@@ -1,4 +1,7 @@
-import { customFieldVariableName } from "@repo/api/modules/crm/lib/field-mapping";
+import {
+	customFieldVariableName,
+	customValueVariableName,
+} from "@repo/api/modules/crm/lib/field-mapping";
 import type { AnyExtension } from "@tiptap/core";
 import { mergeAttributes } from "@tiptap/core";
 import { Mention, type MentionNodeAttrs } from "@tiptap/extension-mention";
@@ -72,15 +75,27 @@ export const RUNTIME_CONTACT_VARIABLES = [
 ];
 
 export const RUNTIME_LOCATION_VARIABLES = [
+	"location_id",
 	"location_name",
+	"location_email",
 	"location_address",
 	"location_city",
 	"location_state",
+	"location_country",
 	"location_postal_code",
 	"location_full_address",
 	"location_phone",
 	"location_website",
 	"location_timezone",
+	"location_current_date_time",
+	"location_business_name",
+	"location_business_address",
+	"location_business_city",
+	"location_business_state",
+	"location_business_country",
+	"location_business_postal_code",
+	"location_business_website",
+	"location_business_timezone",
 ];
 
 export const RUNTIME_CALLER_VARIABLES = ["caller_name", "caller_number"];
@@ -115,14 +130,26 @@ export const KEY_TO_RUNTIME_VARIABLE: Record<string, string> = {
 	"contact.city": "contact_city",
 	"contact.state": "contact_state",
 	"contact.postal_code": "contact_postal_code",
+	"location.id": "location_id",
 	"location.name": "location_name",
+	"location.email": "location_email",
 	"location.address": "location_address",
 	"location.city": "location_city",
 	"location.state": "location_state",
+	"location.country": "location_country",
 	"location.postal_code": "location_postal_code",
 	"location.phone": "location_phone",
 	"location.website": "location_website",
 	"location.timezone": "location_timezone",
+	"location.current_date_time": "location_current_date_time",
+	"location.business_name": "location_business_name",
+	"location.business_address": "location_business_address",
+	"location.business_city": "location_business_city",
+	"location.business_state": "location_business_state",
+	"location.business_country": "location_business_country",
+	"location.business_postal_code": "location_business_postal_code",
+	"location.business_website": "location_business_website",
+	"location.business_timezone": "location_business_timezone",
 };
 
 interface ChipStyle {
@@ -397,7 +424,14 @@ export function createFlowMentionExtension(sources: MentionSources): AnyExtensio
  * names — see contact-state.ts customFieldVariables). Undefined = no runtime
  * variable exists for that field, so no chip is offered.
  */
-export function fieldRuntimeVariable(field: { key: string; kind?: string }): string | undefined {
+export function fieldRuntimeVariable(field: {
+	key: string;
+	kind?: string;
+	namespace?: string;
+}): string | undefined {
+	if (field.namespace === "customValue") {
+		return customValueVariableName(field.key);
+	}
 	if (field.kind === "custom") {
 		return customFieldVariableName(field.key);
 	}
@@ -415,7 +449,7 @@ export function fieldRuntimeVariable(field: { key: string; kind?: string }): str
  */
 export function buildVariableItems(
 	extraNames: string[],
-	fields: { key: string; kind?: string }[] = [],
+	fields: { key: string; kind?: string; namespace?: string }[] = [],
 	customVariables: { name: string; description?: string }[] = [],
 ): MentionItem[] {
 	const fromFields = fields.map(fieldRuntimeVariable).filter((v): v is string => !!v);

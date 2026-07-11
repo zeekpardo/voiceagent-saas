@@ -19,6 +19,12 @@ export async function getSourceById(id: string) {
 	return db.source.findUnique({ where: { id } });
 }
 
+/** Unscoped batch lookup — for platform-admin flows (e.g. concurrency limits)
+ * that need to resolve source names across organizations. */
+export async function getSourcesByIds(ids: string[]) {
+	return db.source.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+}
+
 export async function findSourceByLocation(organizationId: string, locationId: string) {
 	const sources = await db.source.findMany({ where: { organizationId } });
 	return (

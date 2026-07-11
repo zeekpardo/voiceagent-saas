@@ -34,6 +34,9 @@ const draftBodyInput = z.object({
 	// The Greeter node's text — folded into config.greeting on the draft so a
 	// publish carries it into the new version (the engine speaks it at go-live).
 	greeting: z.string().optional(),
+	// When true, config.greeting is a direction the engine generates the opener
+	// from rather than a verbatim line. Default false = verbatim (unchanged).
+	greetingGenerate: z.boolean().optional(),
 });
 
 export const saveDraft = protectedProcedure
@@ -54,6 +57,7 @@ export const saveDraft = protectedProcedure
 				canvas: input.canvas,
 				toolIds: input.toolIds,
 				greeting: input.greeting ?? "",
+				greetingGenerate: input.greetingGenerate ?? false,
 			},
 		);
 	});

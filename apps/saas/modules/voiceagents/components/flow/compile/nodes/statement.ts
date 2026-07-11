@@ -18,7 +18,9 @@ export function compileStatementNode(
 		id: node.id,
 		name: node.data.title.trim() || undefined,
 		kind: "statement",
-		statement: { say },
+		// `generate` only emitted when true so verbatim statements stay byte-identical
+		// to their pre-feature compiled form (default OFF, no round-trip churn).
+		statement: node.data.generate ? { say, generate: true } : { say },
 		// The engine requires instructions min 1 on every node — mirror the say text.
 		instructions: say,
 		toolIds: [],
@@ -49,6 +51,7 @@ export function decompileStatementNode(
 			data: {
 				title: flowNode.name ?? flowNode.id,
 				say: flowNode.statement?.say ?? flowNode.instructions,
+				...(flowNode.statement?.generate ? { generate: true } : {}),
 			},
 		},
 		edges,

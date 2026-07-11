@@ -16,6 +16,7 @@ export function compileHandoffNode(
 ): EngineFlowNode {
 	const say = node.data.say?.trim();
 	const holdSeconds = node.data.holdSeconds;
+	const generate = node.data.generate === true;
 
 	const flowNode: EngineFlowNode = {
 		id: node.id,
@@ -31,10 +32,15 @@ export function compileHandoffNode(
 
 	// Only emit `handoff` when say or holdSeconds is actually set — omit the key
 	// entirely otherwise so the engine falls back to its own defaults.
+	// `generate` only matters alongside a say, and is emitted only when true so
+	// verbatim announcements stay byte-identical to their pre-feature form.
 	if (say || holdSeconds !== undefined) {
 		const handoff: NonNullable<EngineFlowNode["handoff"]> = {};
 		if (say) {
 			handoff.say = say;
+			if (generate) {
+				handoff.generate = true;
+			}
 		}
 		if (holdSeconds !== undefined) {
 			handoff.holdSeconds = holdSeconds;
@@ -58,6 +64,7 @@ export function decompileHandoffNode(
 				title: flowNode.name ?? flowNode.id,
 				handoffAgentId: flowNode.handoffAgentId,
 				say: flowNode.handoff?.say,
+				...(flowNode.handoff?.generate ? { generate: true } : {}),
 				holdSeconds: flowNode.handoff?.holdSeconds,
 			},
 		},

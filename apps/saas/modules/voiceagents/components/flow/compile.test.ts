@@ -629,6 +629,40 @@ describe("statement nodes", () => {
 			expect(st1.data?.say).toBe("Spoken from instructions.");
 		}
 	});
+
+	it("omits statement.generate for a verbatim statement (default, unchanged shape)", () => {
+		const { flow } = compileCanvas(makeStatementDoc(), []);
+		const st1 = flow.nodes.find((n) => n.id === "st1");
+		// No `generate` key at all — existing statements compile byte-identically.
+		expect(st1?.statement).toEqual({ say: "Please hold while I connect you." });
+		expect(st1?.statement && "generate" in st1.statement).toBe(false);
+	});
+
+	it("compiles statement.generate=true and round-trips the AI-generate flag", () => {
+		const doc = makeStatementDoc();
+		const st1 = doc.nodes.find((n) => n.id === "st1");
+		if (st1?.type === "statement" && st1.data) {
+			st1.data.generate = true;
+		}
+		const { flow } = compileCanvas(doc, []);
+		const compiled = flow.nodes.find((n) => n.id === "st1");
+		expect(compiled?.statement).toEqual({
+			say: "Please hold while I connect you.",
+			generate: true,
+		});
+
+		// flow → canvas → flow keeps the flag.
+		const rebuilt = canvasFromFlow(flow);
+		const rebuiltSt1 = rebuilt.nodes.find((n) => n.id === "st1");
+		if (rebuiltSt1?.type === "statement") {
+			expect(rebuiltSt1.data?.generate).toBe(true);
+		}
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		expect(recompiled.nodes.find((n) => n.id === "st1")?.statement).toEqual({
+			say: "Please hold while I connect you.",
+			generate: true,
+		});
+	});
 });
 
 /** makeDoc plus two scenario nodes: sc1 wired to n1, sc2 wired to n2. */
@@ -1353,6 +1387,31 @@ describe("greeter fixture", () => {
 		const result = ensureGreeter(doc, "Should be ignored");
 		expect(result).toBe(doc);
 	});
+
+	it("defaults greetingGenerate to false (verbatim greeting)", () => {
+		const doc = withGreeter(makeDoc(), "Hi there!");
+		const { greetingGenerate } = compileCanvas(doc, []);
+		expect(greetingGenerate).toBe(false);
+	});
+
+	it("compiles greetingGenerate=true and round-trips the AI-generate greeting flag", () => {
+		const doc = withGreeter(makeDoc(), "Hi there!");
+		const greeter = doc.nodes.find((n) => n.id === GREETER_ID);
+		if (greeter?.type === "greeter" && greeter.data) {
+			(greeter.data as { greetingGenerate?: boolean }).greetingGenerate = true;
+		}
+		const compiled = compileCanvas(doc, []);
+		expect(compiled.greeting).toBe("Hi there!");
+		expect(compiled.greetingGenerate).toBe(true);
+
+		// flow + greeting + flag → canvas → flow keeps the flag on the greeter.
+		const rebuilt = canvasFromFlow(compiled.flow, compiled.greeting, compiled.greetingGenerate);
+		const rebuiltGreeter = rebuilt.nodes.find((n) => n.type === "greeter");
+		expect(
+			(rebuiltGreeter?.data as { greetingGenerate?: boolean } | undefined)?.greetingGenerate,
+		).toBe(true);
+		expect(compileCanvas(rebuilt, []).greetingGenerate).toBe(true);
+	});
 });
 
 function makeHandoffDoc(data: Partial<HandoffNodeData> = {}): CanvasDoc {
@@ -1471,6 +1530,39 @@ describe("handoff nodes", () => {
 		const recompiled = compileCanvas(rebuilt, []).flow;
 		const recompiledH1 = recompiled.nodes.find((n) => n.id === "h1");
 		expect(recompiledH1?.handoff).toEqual({ say: "Hang tight.", holdSeconds: 0 });
+	});
+
+	it("emits handoff.generate=true alongside a say and round-trips it", () => {
+		const { flow } = compileCanvas(
+			makeHandoffDoc({ say: "Connecting you now.", generate: true, holdSeconds: 3 }),
+			[],
+		);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toEqual({ say: "Connecting you now.", generate: true, holdSeconds: 3 });
+
+		const rebuilt = canvasFromFlow(flow);
+		const rebuiltH1 = rebuilt.nodes.find((n) => n.id === "h1");
+		if (rebuiltH1?.type === "handoff") {
+			expect(rebuiltH1.data?.generate).toBe(true);
+		}
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		expect(recompiled.nodes.find((n) => n.id === "h1")?.handoff).toEqual({
+			say: "Connecting you now.",
+			generate: true,
+			holdSeconds: 3,
+		});
+	});
+
+	it("does not emit handoff.generate when there is no say (nothing to generate from)", () => {
+		const { flow } = compileCanvas(makeHandoffDoc({ generate: true, holdSeconds: 4 }), []);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toEqual({ holdSeconds: 4 });
+	});
+
+	it("omits handoff.generate for a verbatim say (default, unchanged shape)", () => {
+		const { flow } = compileCanvas(makeHandoffDoc({ say: "One moment." }), []);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toEqual({ say: "One moment." });
 	});
 });
 

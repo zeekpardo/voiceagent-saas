@@ -9,6 +9,8 @@ import type { GreeterNodeData } from "../../flow-types";
  */
 
 /** Fresh Greeter data (the fixture is created empty and edited on the canvas). */
-export function newGreeterNodeData(greeting = ""): GreeterNodeData {
-	return { title: "Greeter", greeting };
+export function newGreeterNodeData(greeting = "", greetingGenerate = false): GreeterNodeData {
+	return greetingGenerate
+		? { title: "Greeter", greeting, greetingGenerate: true }
+		: { title: "Greeter", greeting };
 }

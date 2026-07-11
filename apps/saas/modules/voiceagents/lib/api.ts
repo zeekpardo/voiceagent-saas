@@ -186,7 +186,7 @@ type DraftBody = Parameters<typeof orpcClient.voiceagents.flow.save>[0] extends 
 	canvas: infer C;
 	toolIds: infer T;
 }
-	? { flow: F; canvas: C; toolIds: T; greeting?: string }
+	? { flow: F; canvas: C; toolIds: T; greeting?: string; greetingGenerate?: boolean }
 	: never;
 
 export function useSaveDraftMutation(agentId: string) {

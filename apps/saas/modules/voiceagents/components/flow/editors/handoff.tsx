@@ -9,6 +9,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@repo/ui/components/select";
+import { Switch } from "@repo/ui/components/switch";
 import { Textarea } from "@repo/ui/components/textarea";
 import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 
@@ -91,6 +92,20 @@ export function HandoffNodeEditor({
 					onChange={(e) => patch({ say: e.target.value })}
 					placeholder="One moment — connecting you with our valuation specialist."
 				/>
+				<div className="gap-3 mt-1 p-2.5 flex items-center rounded-lg border">
+					<Switch
+						id={`handoff-generate-${nodeId}`}
+						checked={!!data.generate}
+						onCheckedChange={(on) => patch({ generate: on })}
+					/>
+					<label htmlFor={`handoff-generate-${nodeId}`} className="min-w-0 cursor-pointer">
+						<span className="text-sm block">Use AI to generate a response</span>
+						<span className="text-xs block opacity-60">
+							Off: spoken exactly as written. On: the announcement above guides an AI-generated line
+							that varies each time, in the caller's language.
+						</span>
+					</label>
+				</div>
 			</div>
 
 			<div className="gap-1.5 flex flex-col">

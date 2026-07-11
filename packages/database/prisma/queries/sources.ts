@@ -45,6 +45,33 @@ export async function disconnectSource(id: string, organizationId: string) {
 	return db.source.deleteMany({ where: { id, organizationId } });
 }
 
+// ---------------------------------------------------------------- source phone numbers (SaaS-owned number↔source mapping)
+
+export async function listSourcePhoneNumbers(sourceId: string) {
+	return db.sourcePhoneNumber.findMany({
+		where: { sourceId },
+		orderBy: { createdAt: "desc" },
+	});
+}
+
+export async function getSourcePhoneNumber(id: string, sourceId: string) {
+	return db.sourcePhoneNumber.findFirst({ where: { id, sourceId } });
+}
+
+export async function createSourcePhoneNumber(data: {
+	sourceId: string;
+	e164: string;
+	providerRef?: string | null;
+	label?: string | null;
+	inboundAgentId?: string | null;
+}) {
+	return db.sourcePhoneNumber.create({ data });
+}
+
+export async function deleteSourcePhoneNumber(id: string, sourceId: string) {
+	return db.sourcePhoneNumber.deleteMany({ where: { id, sourceId } });
+}
+
 // ---------------------------------------------------------------- agent <-> source attachments
 
 export async function listAgentSources(agentId: string) {

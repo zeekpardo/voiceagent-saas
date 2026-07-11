@@ -9,6 +9,12 @@ import {
 } from "./procedures/directory";
 import { disconnectSourceProcedure } from "./procedures/disconnect";
 import { listSourcesProcedure } from "./procedures/list";
+import {
+	listNumbersForSource,
+	purchaseNumberForSource,
+	releaseNumberForSource,
+	searchAvailableNumbers,
+} from "./procedures/numbers";
 import { sourceOauthUrl } from "./procedures/oauth";
 import { sourceProviders } from "./procedures/providers";
 
@@ -26,4 +32,10 @@ export const sourcesRouter = {
 		create: createSourceCustomField,
 	},
 	matchContact,
+	numbers: {
+		available: searchAvailableNumbers,
+		purchase: purchaseNumberForSource,
+		list: listNumbersForSource,
+		release: releaseNumberForSource,
+	},
 };

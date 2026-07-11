@@ -203,6 +203,53 @@ export function useSourceCalendarsQuery(sourceId: string | null) {
 	});
 }
 
+// ---------------------------------------------------------------- source phone numbers
+
+export const sourceNumbersQueryKey = (sourceId: string) =>
+	["sources", sourceId, "numbers"] as const;
+
+/** The phone numbers mapped to a source, enriched with engine routing data. */
+export function useSourceNumbersQuery(sourceId: string) {
+	return useQuery({
+		queryKey: sourceNumbersQueryKey(sourceId),
+		queryFn: () => orpcClient.sources.numbers.list({ sourceId }),
+	});
+}
+
+export interface SearchNumbersInput {
+	sourceId: string;
+	country?: string;
+	areaCode?: string;
+	contains?: string;
+	limit?: number;
+}
+
+/** Imperative search for purchasable numbers — driven by the buy dialog. */
+export function useSearchNumbersMutation() {
+	return useMutation({
+		mutationFn: (input: SearchNumbersInput) => orpcClient.sources.numbers.available(input),
+	});
+}
+
+export function usePurchaseNumberMutation(sourceId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: { number: string; inboundAgentId?: string | null; label?: string }) =>
+			orpcClient.sources.numbers.purchase({ sourceId, ...input }),
+		onSuccess: () =>
+			void queryClient.invalidateQueries({ queryKey: sourceNumbersQueryKey(sourceId) }),
+	});
+}
+
+export function useReleaseNumberMutation(sourceId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (id: string) => orpcClient.sources.numbers.release({ sourceId, id }),
+		onSuccess: () =>
+			void queryClient.invalidateQueries({ queryKey: sourceNumbersQueryKey(sourceId) }),
+	});
+}
+
 /**
  * Match the selected call to a CRM contact (by stored contact id, else by
  * the human's phone number). Resolves which Source via the call's

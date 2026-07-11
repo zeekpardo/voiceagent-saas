@@ -22,8 +22,9 @@ import {
 import { Skeleton } from "@repo/ui/components/skeleton";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { avatarClasses, initials } from "@shared/lib/avatar";
+import { SourcePhoneNumbers } from "@sources/components/SourcePhoneNumbers";
 import { useDisconnectSourceMutation, useSourceQuery } from "@sources/lib/api";
-import { ArrowLeftIcon, PhoneIcon, Unlink2Icon } from "lucide-react";
+import { ArrowLeftIcon, Unlink2Icon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -141,9 +142,7 @@ export function SourceDetail({ sourceId }: { sourceId: string }) {
 					<CardDescription>Buy and manage numbers for this subaccount.</CardDescription>
 				</CardHeader>
 				<CardContent>
-					<Button variant="secondary" disabled className="gap-2">
-						<PhoneIcon className="size-4" /> Coming soon
-					</Button>
+					<SourcePhoneNumbers sourceId={sourceId} />
 				</CardContent>
 			</Card>
 

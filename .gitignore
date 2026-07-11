@@ -43,3 +43,8 @@ dist/
 .react-email/
 .content-collections/
 .prisma-zod-generator-manifest.json.claude/settings.local.json
+
+# Secret backups (never commit env copies)
+*.bak-preengine
+*.bak-*
+.env.local.bak*

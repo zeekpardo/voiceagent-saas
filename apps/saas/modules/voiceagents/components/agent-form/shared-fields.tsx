@@ -2,16 +2,10 @@
 
 import { GUARDRAILS_MAX_CHARS } from "@repo/api/modules/voiceagents/lib/persona-prompt";
 import { cn } from "@repo/ui";
-import {
-	FormControl,
-	FormDescription,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@repo/ui/components/form";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
 import { Textarea } from "@repo/ui/components/textarea";
+import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import { InfoIcon, XIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
@@ -141,19 +135,17 @@ interface AgentFormFieldProps {
 interface InstructionsFieldProps extends AgentFormFieldProps {
 	/** Label + helper override; defaults teach the LEAN Goal doctrine. */
 	label?: string;
+	/** Info-hint text next to the label (the "why" + what to avoid). */
 	description?: string;
 	/** Helper line under the editor (e.g. an example objective). */
 	hint?: string;
-	/** Muted warning line under the editor. */
-	warning?: string;
 }
 
 export function InstructionsField({
 	form,
 	label = "Goal",
-	description = "Sent with every message — keep it to what a day-one employee would memorize: who the agent works for, what the business is, and why this conversation is happening (2–4 sentences).",
+	description = "Sent with every message — keep it to who the agent works for, what the business is, and why this conversation is happening (2–4 sentences). Don't put booking steps, service catalogs, or stage-by-stage instructions here — the flow's nodes handle those.",
 	hint = "For example: You work for Empire Cleaning in Austin TX — a family-run residential cleaning company known for move-out and pet-mess jobs. The contact reached out to learn more about our services.",
-	warning = "Don't put booking steps, service catalogs, or stage-by-stage instructions here — the flow's nodes handle those.",
 }: InstructionsFieldProps) {
 	return (
 		<FormField
@@ -161,12 +153,13 @@ export function InstructionsField({
 			name="goal"
 			render={({ field }) => (
 				<FormItem>
-					<FormLabel>{label}</FormLabel>
-					<FormDescription>{description}</FormDescription>
+					<FormLabel className="gap-1.5 flex items-center">
+						{label}
+						<InfoHint>{description}</InfoHint>
+					</FormLabel>
 					<FormControl>
 						<InstructionsEditor value={field.value ?? ""} onChange={field.onChange} hint={hint} />
 					</FormControl>
-					{warning ? <p className="text-xs text-muted-foreground">{warning}</p> : null}
 					<FormMessage />
 				</FormItem>
 			)}
@@ -187,7 +180,13 @@ export function GuardrailsField({ form }: AgentFormFieldProps) {
 			render={({ field }) => (
 				<FormItem>
 					<div className="flex items-center justify-between">
-						<FormLabel>Guardrails</FormLabel>
+						<FormLabel className="gap-1.5 flex items-center">
+							Guardrails
+							<InfoHint>
+								Limits on what the agent will discuss or do. Baseline safety guardrails are always
+								applied — add rules specific to this job.
+							</InfoHint>
+						</FormLabel>
 						<span
 							className={cn(
 								"text-xs text-muted-foreground tabular-nums",
@@ -197,10 +196,6 @@ export function GuardrailsField({ form }: AgentFormFieldProps) {
 							{field.value?.length ?? 0}/{GUARDRAILS_MAX_CHARS}
 						</span>
 					</div>
-					<FormDescription>
-						Limits on what the agent will discuss or do. Baseline safety guardrails are always
-						applied — add rules specific to this job.
-					</FormDescription>
 					<FormControl>
 						<Textarea
 							rows={3}
@@ -224,13 +219,14 @@ export function GuardrailsField({ form }: AgentFormFieldProps) {
 /** Read-only note: caller/CRM details are injected automatically per call. */
 export function UserInfoNote() {
 	return (
-		<div className="gap-2 p-3 text-sm flex rounded-md border bg-muted/40 text-muted-foreground">
-			<InfoIcon className="mt-0.5 size-4 shrink-0" />
-			<p>
-				Caller details from your CRM — name, custom fields, and tags — are automatically added to
-				every call. Use variables like <code className="text-xs">{"{{contact_first_name}}"}</code>{" "}
-				anywhere in your prompts and they fill in per caller.
-			</p>
+		<div className="gap-1.5 p-3 text-sm flex items-center rounded-md border bg-muted/40 text-muted-foreground">
+			<InfoIcon className="size-4 shrink-0" />
+			<span>Caller details from your CRM are added automatically.</span>
+			<InfoHint>
+				Name, custom fields, and tags are added to every call. Use variables like{" "}
+				<code className="text-xs">{"{{contact_first_name}}"}</code> anywhere in your prompts and
+				they fill in per caller.
+			</InfoHint>
 		</div>
 	);
 }
@@ -242,10 +238,10 @@ export function ProhibitedWordsField({ form }: AgentFormFieldProps) {
 			name="prohibitedWords"
 			render={({ field }) => (
 				<FormItem>
-					<FormLabel>Prohibited words</FormLabel>
-					<FormDescription>
-						The agent will never use these words or phrases, in any form.
-					</FormDescription>
+					<FormLabel className="gap-1.5 flex items-center">
+						Prohibited words
+						<InfoHint>The agent will never use these words or phrases, in any form.</InfoHint>
+					</FormLabel>
 					<FormControl>
 						<ChipsInput
 							value={field.value ?? []}
@@ -267,10 +263,12 @@ export function GreetingField({ form }: AgentFormFieldProps) {
 			name="greeting"
 			render={({ field }) => (
 				<FormItem>
-					<FormLabel>Greeting</FormLabel>
-					<FormDescription>
-						Spoken first when the conversation starts. Leave empty to let the caller speak first.
-					</FormDescription>
+					<FormLabel className="gap-1.5 flex items-center">
+						Greeting
+						<InfoHint>
+							Spoken first when the conversation starts. Leave empty to let the caller speak first.
+						</InfoHint>
+					</FormLabel>
 					<FormControl>
 						<Input placeholder="Hi {{caller_name}}! How can I help today?" {...field} />
 					</FormControl>

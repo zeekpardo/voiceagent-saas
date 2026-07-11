@@ -122,9 +122,7 @@ export function PersonasPanel({ agent }: { agent: GatewayAgent }) {
 					</div>
 				</div>
 			) : (
-				<p className="text-sm text-muted-foreground">
-					No persona attached. Pick one below to give this agent a name, look, and tone.
-				</p>
+				<p className="text-sm text-muted-foreground">No persona attached — pick one below.</p>
 			)}
 
 			<div className="gap-2 flex items-center">

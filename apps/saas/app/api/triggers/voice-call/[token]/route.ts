@@ -24,6 +24,7 @@ interface TriggerPayload {
 	first_name?: string;
 	last_name?: string;
 	email?: string;
+	from?: string;
 	customData?: Record<string, unknown>;
 	contact?: { id?: string; phone?: string };
 	[key: string]: unknown;
@@ -77,6 +78,22 @@ export async function POST(
 			{ error: "payload has no usable phone number (expected E.164 or 10-digit US)" },
 			{ status: 400 },
 		);
+	}
+
+	// Caller ID: the URL's `?from=` query param wins (that's what a copied,
+	// ready-to-use trigger URL carries), falling back to a `from` field on the
+	// webhook body for authors who prefer to set it there. Omit both and the
+	// gateway/trunk default applies — existing tokens/URLs keep working as-is.
+	const rawFrom = new URL(req.url).searchParams.get("from") ?? payload.from;
+	let from: string | undefined;
+	if (rawFrom) {
+		from = toE164(rawFrom) ?? undefined;
+		if (!from) {
+			return Response.json(
+				{ error: "`from` must be a valid E.164 or 10-digit US phone number" },
+				{ status: 400 },
+			);
+		}
 	}
 
 	// Contact + account context become agent {{variables}} — best-effort, a
@@ -139,6 +156,7 @@ export async function POST(
 		const call = await gatewayFetch<{ id: string; status: string }>("POST", "/v1/calls", {
 			agent_id: identity.agentId,
 			to: phone,
+			...(from ? { from } : {}),
 			variables,
 			...(contactState ? { contactState } : {}),
 			...(contactTags ? { contactTags } : {}),

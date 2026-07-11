@@ -7,9 +7,15 @@ import { Textarea } from "@repo/ui/components/textarea";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
-import { makeId } from "../compile";
+import { makeId, newFullAddressObjectiveData } from "../compile";
 import { ContactWriteFieldCombobox } from "../ContactWriteFieldCombobox";
-import { fieldOptionsFor, fieldToKey, isCompositeField, keyToStored } from "../field-adapter";
+import {
+	fieldOptionsFor,
+	fieldToKey,
+	FULL_ADDRESS_FIELD_KEY,
+	isCompositeField,
+	keyToStored,
+} from "../field-adapter";
 import type { FlowNodeData, ObjectiveDoc, ObjectiveNodeData } from "../flow-types";
 import { TitleInput, usePatch } from "./shared";
 
@@ -110,6 +116,18 @@ export function ObjectiveNodeEditor({
 									agentId={agentId}
 									value={fieldToKey(objective.field, fields)}
 									onChange={(key) => {
+										// Picking "Full address" swaps this single objective for the
+										// managed street/city/state/zip collector + aggregate — the same
+										// behavior the old standalone "Get Full Address" preset produced.
+										if (key === FULL_ADDRESS_FIELD_KEY) {
+											const managed = newFullAddressObjectiveData().objectives;
+											patch({
+												objectives: data.objectives.flatMap((o) =>
+													o.id === objective.id ? managed : [o],
+												),
+											});
+											return;
+										}
 										const stored = keyToStored(key, fields);
 										// Magical, no-config answer options: if the chosen CRM field is a
 										// picklist, auto-scope the answer to its options so the caller's

@@ -70,7 +70,6 @@ export const FLOW_PALETTE_KINDS = [
 	"statement",
 	"scenario",
 	"scenario_aggression",
-	"full_address",
 	"booking",
 	"transfer",
 	"set_field",
@@ -166,9 +165,10 @@ export interface ObjectiveDoc {
 	 */
 	aggregateOf?: string[];
 	/**
-	 * Platform-managed objective (e.g. the "Get Full Address" preset's parts +
-	 * aggregate): read-only in the editor, still fully compiled. Canvas-only —
-	 * never sent to the engine.
+	 * Platform-managed objective (e.g. the "Full address" field's parts +
+	 * aggregate, applied when the user picks it in the output-field dropdown):
+	 * read-only in the editor, still fully compiled. Canvas-only — never sent
+	 * to the engine.
 	 */
 	managed?: boolean;
 }

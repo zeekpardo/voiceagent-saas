@@ -11,7 +11,6 @@ import {
 	FormInputIcon,
 	GraduationCapIcon,
 	type LucideIcon,
-	MapPinIcon,
 	MessageSquareIcon,
 	MessagesSquareIcon,
 	PhoneForwardedIcon,
@@ -61,13 +60,6 @@ const ACTION_SECTIONS: ActionSection[] = [
 				title: "Objective",
 				subtitle: "Gather info from the caller and update fields",
 				icon: GraduationCapIcon,
-				tileClassName: OBJECTIVE_TILE,
-			},
-			{
-				kind: "full_address",
-				title: "Get Full Address",
-				subtitle: "Locked preset: gathers street, city, state and ZIP into one address",
-				icon: MapPinIcon,
 				tileClassName: OBJECTIVE_TILE,
 			},
 			{

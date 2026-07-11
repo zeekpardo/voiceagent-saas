@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@repo/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/card";
 import {
 	FormControl,
@@ -9,21 +8,28 @@ import {
 	FormItem,
 	FormLabel,
 } from "@repo/ui/components/form";
-import { Input } from "@repo/ui/components/input";
 import { Switch } from "@repo/ui/components/switch";
-import { PlusIcon, Trash2Icon } from "lucide-react";
-import type { UseFieldArrayReturn, UseFormReturn } from "react-hook-form";
+import type { UseFormReturn } from "react-hook-form";
 
 import type { AgentFormValues } from "../../lib/agent-form-mapping";
+import { ContactWriteFieldCombobox } from "../flow/ContactWriteFieldCombobox";
 
-/** "After the call" card: call summarization toggle and structured extract fields. */
+/**
+ * "After the call" card: the summarize toggle plus an optional CRM contact
+ * field to write the summary to. The old per-field extract editor was removed —
+ * objective nodes now capture + write fields live during the call, so post-call
+ * re-extraction is redundant.
+ */
 export function AfterCallSection({
 	form,
-	extractFields,
+	agentId,
 }: {
 	form: UseFormReturn<AgentFormValues>;
-	extractFields: UseFieldArrayReturn<AgentFormValues, "postCall.extract">;
+	/** Scopes the summary-field picker's custom fields to this agent's Source. */
+	agentId?: string;
 }) {
+	const summarize = form.watch("postCall.summarize");
+
 	return (
 		<Card>
 			<CardHeader>
@@ -45,45 +51,32 @@ export function AfterCallSection({
 						</FormItem>
 					)}
 				/>
-				<div>
-					<FormLabel>Extracted fields</FormLabel>
-					<FormDescription className="mb-3">
-						Structured outcomes pulled from every call — delivered in the call.completed webhook
-						(e.g. appointment_scheduled: "true/false/unknown").
-					</FormDescription>
-					<div className="gap-2 flex flex-col">
-						{extractFields.fields.map((f, i) => (
-							<div key={f.id} className="gap-2 flex">
-								<Input
-									placeholder="field_name"
-									className="max-w-56 font-mono text-sm"
-									{...form.register(`postCall.extract.${i}.field`)}
-								/>
-								<Input
-									placeholder="Extraction instructions, e.g. true/false — did they book?"
-									{...form.register(`postCall.extract.${i}.instructions`)}
-								/>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon"
-									onClick={() => extractFields.remove(i)}
-								>
-									<Trash2Icon className="size-4" />
-								</Button>
-							</div>
-						))}
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							className="self-start"
-							onClick={() => extractFields.append({ field: "", instructions: "" })}
-						>
-							<PlusIcon className="size-4" /> Add field
-						</Button>
-					</div>
-				</div>
+				{summarize && (
+					<FormField
+						control={form.control}
+						name="postCall.summaryField"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Save summary to</FormLabel>
+								<FormControl>
+									<ContactWriteFieldCombobox
+										agentId={agentId}
+										value={field.value ?? null}
+										onChange={(key) => field.onChange(key)}
+										allowEmpty
+										emptyLabel="Don't save"
+										allowCustomKey
+										placeholder="Don't save"
+									/>
+								</FormControl>
+								<FormDescription>
+									Optionally write the call summary to a CRM field (e.g. a Call Summary custom
+									field).
+								</FormDescription>
+							</FormItem>
+						)}
+					/>
+				)}
 			</CardContent>
 		</Card>
 	);

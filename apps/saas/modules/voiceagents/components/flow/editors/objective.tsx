@@ -57,12 +57,11 @@ export function ObjectiveNodeEditor({
 									<span className="font-medium text-xs opacity-60">
 										{objective.title || `Objective ${index + 1}`}
 									</span>
-									<span className="text-xs opacity-50 italic">Managed — address capture</span>
+									<span className="text-xs italic opacity-50">Managed — address capture</span>
 								</div>
-								<div className="text-xs opacity-70 gap-1 flex flex-col">
+								<div className="text-xs gap-1 flex flex-col opacity-70">
 									<p>
-										<span className="opacity-50">Output variable:</span>{" "}
-										{objective.field || "—"}
+										<span className="opacity-50">Output variable:</span> {objective.field || "—"}
 									</p>
 									{objective.description ? (
 										<p>
@@ -76,8 +75,8 @@ export function ObjectiveNodeEditor({
 										</p>
 									) : null}
 									<p>
-										<span className="opacity-50">Sensitivity:</span> {objective.sensitivity ?? 90}{" "}
-										/ 100 · <span className="opacity-50">Max attempts:</span>{" "}
+										<span className="opacity-50">Sensitivity:</span> {objective.sensitivity ?? 90} /
+										100 · <span className="opacity-50">Max attempts:</span>{" "}
 										{objective.maxAttempts ?? "Keep trying (default)"}
 									</p>
 								</div>
@@ -146,7 +145,7 @@ export function ObjectiveNodeEditor({
 										Optional for a combined objective — its answer comes from the parts below.
 									</p>
 								) : (
-									<div className="text-xs opacity-60 flex flex-col gap-0.5">
+									<div className="text-xs gap-0.5 flex flex-col opacity-60">
 										<p>
 											The most important field — it tells the agent what to{" "}
 											<span className="font-medium">find out</span>, and it's how the agent knows
@@ -175,8 +174,8 @@ export function ObjectiveNodeEditor({
 							 */}
 							{objective.aggregateOf?.length ? (
 								<p className="text-xs opacity-50">
-									Managed combination — its answer is assembled from{" "}
-									{objective.aggregateOf.length} other objective
+									Managed combination — its answer is assembled from {objective.aggregateOf.length}{" "}
+									other objective
 									{objective.aggregateOf.length === 1 ? "" : "s"} in this node.
 								</p>
 							) : null}

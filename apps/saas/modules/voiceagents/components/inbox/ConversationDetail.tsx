@@ -7,11 +7,12 @@ import { useContactMatchQuery } from "@sources/lib/api";
 import { ChevronDownIcon, ExternalLinkIcon, MessageSquareIcon } from "lucide-react";
 import { Fragment, useState } from "react";
 
-import { useTranscriptQuery } from "../../lib/api";
+import { useCallEventsQuery, useTranscriptQuery } from "../../lib/api";
 import {
 	avatarClasses,
 	type Call,
 	callDisplayName,
+	capturedFromEvents,
 	formatClockTime,
 	formatDateTime,
 	formatDuration,
@@ -43,13 +44,21 @@ export function ConversationDetail({
 
 function ConversationDetailInner({ call, agentName }: { call: Call; agentName: string | null }) {
 	const { data: transcript, isLoading } = useTranscriptQuery(call.id);
+	const { data: events } = useCallEventsQuery(call.id);
 	const { data: contactMatch } = useContactMatchQuery(call);
 	const contact = contactMatch?.contact ?? null;
 	// Prefer the real CRM name as the conversation title when we have one.
 	const name = contact?.name || callDisplayName(call);
 	const duration = formatDuration(call.duration_seconds);
 	const summary = transcript?.summary ?? call.summary;
-	const extracted = usableExtractedEntries(transcript?.extracted ?? call.extracted);
+	// What the objective nodes captured live, derived from the call's
+	// flow.objective events. Falls back to legacy call.extracted for old calls
+	// (recorded before objectives, or from the removed post-call extraction).
+	const captured = capturedFromEvents(events);
+	const extracted =
+		captured.length > 0
+			? captured
+			: usableExtractedEntries(transcript?.extracted ?? call.extracted);
 
 	return (
 		<div className="min-h-0 flex h-full flex-col">
@@ -169,14 +178,19 @@ function SummaryCard({
 							<p className="text-sm text-muted-foreground">No summary for this call.</p>
 						)}
 						{extracted.length > 0 && (
-							<dl className="gap-x-6 gap-y-1.5 sm:grid-cols-2 grid grid-cols-1">
-								{extracted.map(([key, value]) => (
-									<div key={key} className="gap-2 text-sm flex items-baseline justify-between">
-										<dt className="shrink-0 text-muted-foreground">{prettifyKey(key)}</dt>
-										<dd className="font-medium truncate text-right">{value}</dd>
-									</div>
-								))}
-							</dl>
+							<div className="gap-1.5 flex flex-col">
+								<p className="font-semibold tracking-wide text-[10px] text-muted-foreground uppercase">
+									Captured
+								</p>
+								<dl className="gap-x-6 gap-y-1.5 sm:grid-cols-2 grid grid-cols-1">
+									{extracted.map(([key, value]) => (
+										<div key={key} className="gap-2 text-sm flex items-baseline justify-between">
+											<dt className="shrink-0 text-muted-foreground">{prettifyKey(key)}</dt>
+											<dd className="font-medium truncate text-right">{value}</dd>
+										</div>
+									))}
+								</dl>
+							</div>
 						)}
 					</div>
 				)}

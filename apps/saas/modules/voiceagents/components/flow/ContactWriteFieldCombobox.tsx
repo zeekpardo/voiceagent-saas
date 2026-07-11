@@ -18,6 +18,8 @@ export interface ContactWriteFieldComboboxProps {
 	agentId?: string;
 	/** Render a "Leave Empty" row (→ null) pinned to the top. */
 	allowEmpty?: boolean;
+	/** Label for the empty row (defaults to "Leave Empty"). */
+	emptyLabel?: string;
 	/** Trigger text when nothing is selected. */
 	placeholder?: string;
 	/** Accept a free-typed value as a bespoke key. */

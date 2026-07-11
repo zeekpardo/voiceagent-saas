@@ -140,6 +140,32 @@ describe("persona prompt compilation", () => {
 	});
 });
 
+describe("toGatewayConfig postCall", () => {
+	it("defaults to summary-only with no extract", () => {
+		const compiled = toGatewayConfig(baseConfig, null);
+		expect(compiled.postCall.summarize).toBe(true);
+		// The form no longer manages extract — new saves never build it.
+		expect("extract" in compiled.postCall).toBe(false);
+	});
+
+	it("round-trips summaryField onto the gateway config", () => {
+		const compiled = toGatewayConfig(
+			agentConfigInput.parse({
+				name: "Test Agent",
+				goal: "Book the caller an appointment.",
+				postCall: { summarize: true, summaryField: "contact.call_summary" },
+			}),
+			null,
+		);
+		expect(compiled.postCall.summaryField).toBe("contact.call_summary");
+	});
+
+	it("omits summaryField when none is configured", () => {
+		const compiled = toGatewayConfig(baseConfig, null);
+		expect(compiled.postCall.summaryField).toBeUndefined();
+	});
+});
+
 describe("extractGoalFromComposite", () => {
 	const persona = {
 		name: "Ava",

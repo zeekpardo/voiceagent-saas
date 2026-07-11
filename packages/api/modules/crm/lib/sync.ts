@@ -52,6 +52,29 @@ export interface SyncResult {
 	tagsAdded?: string[];
 	stagesMoved?: string[];
 	noteWritten?: boolean;
+	summaryWritten?: boolean;
+}
+
+/**
+ * The agent's configured summary-write target: the CRM contact-field KEY the
+ * call summary should be written to (post-call). Lives on the agent config
+ * under postCall.summaryField (a SaaS-side sync target the engine round-trips
+ * but never reads). Fetched fresh per sync because the webhook caller only has
+ * the completed-call event, not the agent. Failure-isolated — a gateway hiccup
+ * here must never break the rest of the sync.
+ */
+async function resolveSummaryField(agentId: string): Promise<string | undefined> {
+	try {
+		const agent = await gatewayFetch<{ config?: { postCall?: { summaryField?: unknown } } }>(
+			"GET",
+			`/v1/agents/${encodeURIComponent(agentId)}`,
+		);
+		const field = agent.config?.postCall?.summaryField;
+		return typeof field === "string" && field.length > 0 ? field : undefined;
+	} catch (err) {
+		console.warn(`[crm-sync] could not load agent ${agentId} for summaryField`, err);
+		return undefined;
+	}
 }
 
 function contactIdFrom(metadata: Record<string, unknown> | undefined): string | undefined {
@@ -150,6 +173,26 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 		}
 	}
 
+	// 3b. Optional: write the call summary to a chosen CRM contact field. Reuses
+	//     the field-mapping writer so a summary target resolves standard vs custom
+	//     (create-if-missing) exactly like every other mapping. Failure-isolated:
+	//     a summary-write error never breaks the rest of the sync.
+	let summaryWritten = false;
+	const summaryField = await resolveSummaryField(event.agent_id);
+	if (summaryField && event.summary) {
+		try {
+			const written = await applyFieldMappings(
+				provider,
+				contactId,
+				[{ extractField: "summary", contactField: summaryField }],
+				{ summary: event.summary },
+			);
+			summaryWritten = written > 0;
+		} catch (err) {
+			console.warn(`[crm-sync] summary write to "${summaryField}" failed`, err);
+		}
+	}
+
 	// 4. Timeline note with the call summary + outcomes.
 	if (mapping.writeNote && (event.summary || fieldsWritten > 0)) {
 		const lines = [
@@ -174,5 +217,6 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 		tagsAdded: tags,
 		stagesMoved,
 		noteWritten: mapping.writeNote,
+		summaryWritten,
 	};
 }

@@ -266,3 +266,15 @@ export function useTranscriptQuery(callId: string | null) {
 		enabled: !!callId,
 	});
 }
+
+export const callEventsQueryKey = (callId: string) =>
+	["voiceagents", "call-events", callId] as const;
+
+/** A call's raw engine events (flow.objective, tool calls, …) for the inbox trace. */
+export function useCallEventsQuery(callId: string | null) {
+	return useQuery({
+		queryKey: callEventsQueryKey(callId ?? "none"),
+		queryFn: () => orpcClient.voiceagents.calls.events({ id: callId! }),
+		enabled: !!callId,
+	});
+}

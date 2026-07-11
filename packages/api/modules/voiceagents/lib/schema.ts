@@ -79,11 +79,17 @@ export const agentConfigInput = z.object({
 	postCall: z
 		.object({
 			summarize: z.boolean().default(true),
-			extract: z
-				.array(z.object({ field: z.string().min(1), instructions: z.string().min(1) }))
-				.default([]),
+			/**
+			 * Optional CRM contact-field KEY (e.g. "contact.call_summary") the SaaS
+			 * writes the call summary to after the call. Rides through toGatewayConfig
+			 * onto the engine config so it round-trips; the engine never reads it —
+			 * syncCallToCrm (crm/lib/sync.ts) does the write. The old per-field
+			 * `extract` editor was removed: objective nodes now capture + write fields
+			 * live during the call, so post-call re-extraction is redundant.
+			 */
+			summaryField: z.string().nullish(),
 		})
-		.default({ summarize: true, extract: [] }),
+		.default({ summarize: true }),
 });
 
 export type AgentConfigInput = z.infer<typeof agentConfigInput>;
@@ -126,12 +132,12 @@ export function toGatewayConfig(input: AgentConfigInput, persona?: PersonaPrompt
 		tagWriteToolId: TAG_WRITE_TOOL_NAME,
 		// Engine requires stt.model to be a string when present.
 		...(stt.model ? { stt: { model: stt.model } } : {}),
+		// The form no longer manages `extract` — objective nodes capture + write
+		// fields live during the call, so new saves are summary-only. summaryField
+		// rides through as a SaaS-side sync target (the engine never reads it).
 		postCall: {
 			summarize: postCall.summarize,
-			extract:
-				postCall.extract.length > 0
-					? Object.fromEntries(postCall.extract.map((e) => [e.field, e.instructions]))
-					: undefined,
+			summaryField: postCall.summaryField ?? undefined,
 		},
 	};
 }

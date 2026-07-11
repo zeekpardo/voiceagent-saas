@@ -182,17 +182,19 @@ type MentionSuggestion = Omit<SuggestionOptions<MentionItem, MentionNodeAttrs>, 
 
 function filterItems(items: MentionItem[], query: string): MentionItem[] {
 	const q = query.toLowerCase();
-	return items
-		.filter(
-			(item) =>
-				item.id.toLowerCase().includes(q) ||
-				item.label.toLowerCase().includes(q) ||
-				(item.sub ?? "").toLowerCase().includes(q),
-		)
-		// Cap high enough that whole field families stay visible on an empty
-		// query — contact vars alone are 14, so a cap of 12 hid every location_*
-		// entry below them. The popup scrolls (max-h-64), so a generous cap is fine.
-		.slice(0, 60);
+	return (
+		items
+			.filter(
+				(item) =>
+					item.id.toLowerCase().includes(q) ||
+					item.label.toLowerCase().includes(q) ||
+					(item.sub ?? "").toLowerCase().includes(q),
+			)
+			// Cap high enough that whole field families stay visible on an empty
+			// query — contact vars alone are 14, so a cap of 12 hid every location_*
+			// entry below them. The popup scrolls (max-h-64), so a generous cap is fine.
+			.slice(0, 60)
+	);
 }
 
 /** A plain absolutely-positioned dropdown — no tippy.js needed. */

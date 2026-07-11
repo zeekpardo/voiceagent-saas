@@ -20,6 +20,8 @@ interface ContactFieldComboboxProps {
 	agentId?: string;
 	/** Render a "Leave Empty" row (mapping to null) pinned to the top. */
 	allowEmpty?: boolean;
+	/** Label for the empty row (defaults to "Leave Empty"). */
+	emptyLabel?: string;
 	/** Trigger text shown when nothing is selected. */
 	placeholder?: string;
 	/** Let a free-typed value become a picked key (for arbitrary/new field keys). */
@@ -46,6 +48,7 @@ export function ContactFieldCombobox({
 	onChange,
 	agentId,
 	allowEmpty = false,
+	emptyLabel = "Leave Empty",
 	placeholder = "Select a field",
 	allowCustomKey = false,
 	contactOnly = false,
@@ -145,7 +148,7 @@ export function ContactFieldCombobox({
 				 */}
 				<div
 					ref={scrollRef}
-					className="max-h-64 overflow-y-scroll [scrollbar-width:thin] [scrollbar-gutter:stable]"
+					className="max-h-64 [scrollbar-width:thin] [scrollbar-gutter:stable] overflow-y-scroll"
 				>
 					{allowEmpty && (
 						<button
@@ -156,7 +159,7 @@ export function ContactFieldCombobox({
 								!value && "font-medium",
 							)}
 						>
-							<span className="flex-1">Leave Empty</span>
+							<span className="flex-1">{emptyLabel}</span>
 							{!value && <CheckIcon className="size-3.5 shrink-0 text-muted-foreground" />}
 						</button>
 					)}

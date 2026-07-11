@@ -6,7 +6,7 @@ import { Button } from "@repo/ui/components/button";
 import { Form } from "@repo/ui/components/form";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { useRouter } from "next/navigation";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 
 import { toFormValues } from "../lib/agent-form-mapping";
 import { useCreateAgentMutation, useUpdateAgentMutation } from "../lib/api";
@@ -42,8 +42,6 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 		resolver: zodResolver(agentConfigInput),
 		defaultValues: toFormValues(agent),
 	});
-	const extractFields = useFieldArray({ control: form.control, name: "postCall.extract" });
-
 	const onSubmit = form.handleSubmit(async (values) => {
 		// For flow agents the Greeter node owns config.greeting, so the Job panel
 		// must not submit greeting — dropping it keeps it out of the PATCH body so
@@ -88,7 +86,7 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 				<IdentityPersonaSection form={form} variant={variant} />
 				<VoiceModelSection form={form} />
 				<ConversationDynamicsSection form={form} />
-				<AfterCallSection form={form} extractFields={extractFields} />
+				<AfterCallSection form={form} agentId={agent?.id} />
 
 				<div className="gap-3 flex justify-end">
 					<Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>

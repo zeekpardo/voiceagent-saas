@@ -52,10 +52,7 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 			: undefined,
 		postCall: {
 			summarize: c.postCall?.summarize ?? true,
-			extract: Object.entries(c.postCall?.extract ?? {}).map(([field, instructions]) => ({
-				field,
-				instructions: String(instructions),
-			})),
+			summaryField: typeof c.postCall?.summaryField === "string" ? c.postCall.summaryField : null,
 		},
 	});
 	if (!agent) {

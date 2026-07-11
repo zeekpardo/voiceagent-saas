@@ -1,4 +1,4 @@
-import type { GatewayCall } from "@repo/api/modules/voiceagents/procedures/calls";
+import type { GatewayCall, GatewayCallEvent } from "@repo/api/modules/voiceagents/procedures/calls";
 import { avatarClasses, initials } from "@shared/lib/avatar";
 
 export type Call = GatewayCall;
@@ -79,6 +79,30 @@ export function usableExtractedEntries(
 		return [];
 	}
 	return Object.entries(extracted).filter(([, value]) => isUsable(value));
+}
+
+/**
+ * The fields the OBJECTIVE nodes captured during the call, derived from the
+ * call's `flow.objective` engine events (each payload carries the objective
+ * `key` + its `answer`). Later events for the same key win (corrections ripple
+ * in after the first completion). Empty / "unknown" / "N/A" answers are dropped.
+ */
+export function capturedFromEvents(
+	events: GatewayCallEvent[] | null | undefined,
+): [string, string][] {
+	if (!events?.length) {
+		return [];
+	}
+	const byKey = new Map<string, string>();
+	for (const e of events) {
+		if (e.type !== "flow.objective") continue;
+		const key = e.payload.key;
+		const answer = e.payload.answer;
+		if (typeof key !== "string" || typeof answer !== "string") continue;
+		if (!isUsable(answer) || answer.trim().toUpperCase() === "N/A") continue;
+		byKey.set(key, answer.trim());
+	}
+	return [...byKey.entries()];
 }
 
 /**

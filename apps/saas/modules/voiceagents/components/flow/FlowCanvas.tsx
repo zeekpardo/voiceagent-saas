@@ -25,7 +25,7 @@ import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { FlowTrace } from "../../hooks/use-flow-trace";
 import type { AgentRFNode } from "./AgentFlowNode";
 import type { BookingRFNode } from "./BookingNode";
-import { makeId, newAggressionScenarioData } from "./compile";
+import { makeId, newAggressionScenarioData, newFullAddressObjectiveData } from "./compile";
 import type { ConversationRFNode } from "./ConversationNode";
 import type { CanvasDoc, CanvasNodeDoc, FlowNodeData, FlowPaletteKind } from "./flow-types";
 import { FLOW_NODE_DRAG_TYPE, FLOW_PALETTE_KINDS, START_NODE_ID } from "./flow-types";
@@ -129,6 +129,11 @@ function newPaletteNode(
 	// "scenario_aggression" is a preset on top of the scenario kind, not a kind of its own.
 	if (kind === "scenario_aggression") {
 		return { type: "scenario", data: newAggressionScenarioData() };
+	}
+	// "full_address" is a preset on top of the objective kind: a locked composite
+	// (4 managed parts + 1 managed aggregate), not a kind of its own.
+	if (kind === "full_address") {
+		return { type: "objective", data: newFullAddressObjectiveData() };
 	}
 	const nodeKind = isFlowNodeKind(kind) ? kind : "agent";
 	return { type: nodeKind, data: FLOW_KIND_META[nodeKind].createData(bookingToolIds) };

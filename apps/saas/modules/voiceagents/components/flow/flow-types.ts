@@ -69,6 +69,7 @@ export const FLOW_PALETTE_KINDS = [
 	"statement",
 	"scenario",
 	"scenario_aggression",
+	"full_address",
 	"booking",
 	"transfer",
 	"set_field",
@@ -162,6 +163,12 @@ export interface ObjectiveDoc {
 	 * compiled to the parts' engine keys.
 	 */
 	aggregateOf?: string[];
+	/**
+	 * Platform-managed objective (e.g. the "Get Full Address" preset's parts +
+	 * aggregate): read-only in the editor, still fully compiled. Canvas-only —
+	 * never sent to the engine.
+	 */
+	managed?: boolean;
 }
 
 export interface ObjectiveNodeData {
@@ -545,6 +552,7 @@ export const objectiveNodeDataSchema = z.object({
 			maxAttempts: z.number().optional(),
 			sensitivity: z.number().optional(),
 			aggregateOf: z.array(z.string()).optional(),
+			managed: z.boolean().optional(),
 		}),
 	),
 });

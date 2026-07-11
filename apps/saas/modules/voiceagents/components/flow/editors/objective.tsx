@@ -47,6 +47,44 @@ export function ObjectiveNodeEditor({
 				{data.objectives.map((objective, index) => {
 					const isComposite = isCompositeField(objective.field, fields);
 					const pickOptions = fieldOptionsFor(objective.field, fields);
+					const isManaged = !!objective.managed;
+					if (isManaged) {
+						return (
+							<div
+								key={objective.id}
+								className="gap-2 p-3 flex flex-col rounded-lg border bg-muted/30"
+							>
+								<div className="flex items-center justify-between">
+									<span className="font-medium text-xs opacity-60">
+										{objective.title || `Objective ${index + 1}`}
+									</span>
+									<span className="text-xs opacity-50 italic">Managed — address capture</span>
+								</div>
+								<div className="text-xs opacity-70 gap-1 flex flex-col">
+									<p>
+										<span className="opacity-50">Output variable:</span>{" "}
+										{objective.field || "—"}
+									</p>
+									{objective.description ? (
+										<p>
+											<span className="opacity-50">Description:</span> {objective.description}
+										</p>
+									) : null}
+									{objective.aggregateOf?.length ? (
+										<p className="opacity-50">
+											Assembled from {objective.aggregateOf.length} other objective
+											{objective.aggregateOf.length === 1 ? "" : "s"} in this node, in order.
+										</p>
+									) : null}
+									<p>
+										<span className="opacity-50">Sensitivity:</span> {objective.sensitivity ?? 90}{" "}
+										/ 100 · <span className="opacity-50">Max attempts:</span>{" "}
+										{objective.maxAttempts ?? "Keep trying (default)"}
+									</p>
+								</div>
+							</div>
+						);
+					}
 					return (
 						<div
 							key={objective.id}

@@ -130,3 +130,58 @@ export function newObjectiveNodeData(): ObjectiveNodeData {
 		objectives: [{ id: makeId("obj"), title: "", description: "", field: "" }],
 	};
 }
+
+/**
+ * The "Get Full Address" palette preset — a platform-managed composite: four
+ * part objectives (street/city/state/zip) plus an aggregate that assembles
+ * them into contact.address once every part is met. All five are `managed`,
+ * so the editor renders them read-only (see ObjectiveNodeEditor).
+ */
+export function newFullAddressObjectiveData(): ObjectiveNodeData {
+	const streetId = makeId("obj");
+	const cityId = makeId("obj");
+	const stateId = makeId("obj");
+	const postalId = makeId("obj");
+	return {
+		title: "Get Full Address",
+		entryMessage: "",
+		objectives: [
+			{
+				id: streetId,
+				title: "Street",
+				description: "determine the caller's street address",
+				field: "contact.address1",
+				managed: true,
+			},
+			{
+				id: cityId,
+				title: "City",
+				description: "determine the caller's city",
+				field: "contact.city",
+				managed: true,
+			},
+			{
+				id: stateId,
+				title: "State",
+				description: "determine the caller's state",
+				field: "contact.state",
+				managed: true,
+			},
+			{
+				id: postalId,
+				title: "Postal Code",
+				description: "determine the caller's ZIP or postal code",
+				field: "contact.postal_code",
+				managed: true,
+			},
+			{
+				id: makeId("obj"),
+				title: "Full Address",
+				description: "",
+				field: "contact.address",
+				aggregateOf: [streetId, cityId, stateId, postalId],
+				managed: true,
+			},
+		],
+	};
+}

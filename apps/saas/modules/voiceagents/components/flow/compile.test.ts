@@ -6,6 +6,7 @@ import {
 	ensureGreeter,
 	extractVariableNames,
 	newCanvas,
+	newFullAddressObjectiveData,
 	prettifyVariable,
 	sanitizeExitName,
 	sectionsToInstructions,
@@ -1069,6 +1070,56 @@ describe("aggregate objectives", () => {
 		objs[1].aggregateOf = ["o_city"];
 		const errors = validateFlowDoc(doc);
 		expect(errors.some((e) => e.includes("another combined objective"))).toBe(true);
+	});
+});
+
+describe("Get Full Address preset", () => {
+	function makeFullAddressDoc(): CanvasDoc {
+		return {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				{
+					id: "obj1",
+					type: "objective",
+					position: { x: 100, y: 0 },
+					data: newFullAddressObjectiveData(),
+				},
+			],
+			edges: [{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "obj1" }],
+		};
+	}
+
+	it("produces 4 managed parts + 1 managed aggregate on the canvas", () => {
+		const data = newFullAddressObjectiveData();
+		expect(data.objectives).toHaveLength(5);
+		expect(data.objectives.every((o) => o.managed)).toBe(true);
+		const aggregate = data.objectives.find((o) => o.aggregateOf?.length)!;
+		expect(aggregate.field).toBe("contact.address");
+		expect(aggregate.aggregateOf).toHaveLength(4);
+		const partIds = data.objectives.filter((o) => !o.aggregateOf?.length).map((o) => o.id);
+		expect(aggregate.aggregateOf).toEqual(partIds);
+	});
+
+	it("compiles to 4 parts + 1 aggregate whose aggregateOf references the 4 parts' engine keys", () => {
+		const { flow } = compileCanvas(makeFullAddressDoc(), []);
+		const node = flow.nodes.find((n) => n.id === "obj1")!;
+		expect(node.objectives).toHaveLength(5);
+		const aggregate = node.objectives!.find((o) => o.aggregateOf?.length)!;
+		const partKeys = node.objectives!.filter((o) => o !== aggregate).map((o) => o.key);
+		expect(partKeys).toHaveLength(4);
+		expect(aggregate.aggregateOf).toEqual(partKeys);
+		expect(aggregate.field).toBe("contact.address");
+	});
+
+	it("strips `managed` from the compiled engine objectives — canvas-only metadata", () => {
+		const { flow } = compileCanvas(makeFullAddressDoc(), []);
+		const node = flow.nodes.find((n) => n.id === "obj1")!;
+		for (const objective of node.objectives!) {
+			expect(objective).not.toHaveProperty("managed");
+		}
+		// Also confirm it isn't hiding under JSON serialization (belt and suspenders).
+		expect(JSON.stringify(flow)).not.toContain("managed");
 	});
 });
 

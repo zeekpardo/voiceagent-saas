@@ -36,7 +36,7 @@ export { newBookingNodeData } from "./nodes/booking";
 export { newConversationNodeData } from "./nodes/conversation";
 export { newGreeterNodeData } from "./nodes/greeter";
 export { newModifyTagsNodeData } from "./nodes/modify-tags";
-export { newObjectiveNodeData } from "./nodes/objective";
+export { newFullAddressObjectiveData, newObjectiveNodeData } from "./nodes/objective";
 export { newSwitchNodeData, newTrueFalseNodeData } from "./nodes/router";
 export { newAggressionScenarioData, newScenarioNodeData } from "./nodes/scenario";
 export { newSetFieldNodeData } from "./nodes/set-field";

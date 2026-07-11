@@ -60,6 +60,15 @@ export const flowInput = z.object({
 					.optional(),
 				// handoff-only: the target published agent id the live call is handed to.
 				handoffAgentId: z.string().min(1).optional(),
+				// handoff-only: optional announcement (source agent's voice) + hold music
+				// before the target agent takes over. Voice-channel only.
+				handoff: z
+					.object({
+						say: z.string().optional(),
+						// Hold-music duration. Engine default 3 when unset; 0 disables music.
+						holdSeconds: z.number().min(0).max(30).optional(),
+					})
+					.optional(),
 				instructions: z.string().min(1),
 				entryInstructions: z.string().optional(),
 				toolIds: z.array(z.string()),

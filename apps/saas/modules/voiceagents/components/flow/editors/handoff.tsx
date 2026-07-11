@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
 import {
 	Select,
@@ -8,6 +9,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@repo/ui/components/select";
+import { Textarea } from "@repo/ui/components/textarea";
+import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 
 import { useAgentsQuery } from "../../../lib/api";
 import type { FlowNodeData, HandoffNodeData } from "../flow-types";
@@ -72,6 +75,48 @@ export function HandoffNodeEditor({
 					The live call is handed to this agent — its own persona, flow and tools take over,
 					carrying the conversation so far. One-way: the call does not return here.
 				</p>
+			</div>
+
+			<div className="gap-1.5 flex flex-col">
+				<Label className="gap-1.5 flex items-center">
+					Announcement
+					<InfoHint>
+						Spoken by the CURRENT agent, in its own voice, right before the hold music. Supports{" "}
+						{"{{variables}}"}; leave empty to jump straight to the music.
+					</InfoHint>
+				</Label>
+				<Textarea
+					rows={2}
+					value={data.say ?? ""}
+					onChange={(e) => patch({ say: e.target.value })}
+					placeholder="One moment — connecting you with our valuation specialist."
+				/>
+			</div>
+
+			<div className="gap-1.5 flex flex-col">
+				<Label className="gap-1.5 flex items-center">
+					Hold music (seconds)
+					<InfoHint>
+						How long hold music plays before the target agent picks up, in its own voice. Leave
+						empty to use the default (3s); set to 0 to disable hold music entirely.
+					</InfoHint>
+				</Label>
+				<Input
+					type="number"
+					min={0}
+					max={30}
+					step={1}
+					value={data.holdSeconds ?? ""}
+					onChange={(e) => {
+						const raw = e.target.value;
+						if (raw === "") {
+							patch({ holdSeconds: undefined });
+							return;
+						}
+						patch({ holdSeconds: Math.max(0, Math.min(30, Number(raw))) });
+					}}
+					placeholder="3 (default)"
+				/>
 			</div>
 		</>
 	);

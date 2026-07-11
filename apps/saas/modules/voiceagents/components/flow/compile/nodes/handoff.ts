@@ -14,7 +14,10 @@ import type {
 export function compileHandoffNode(
 	node: HandoffCanvasNodeDoc & { data: HandoffNodeData },
 ): EngineFlowNode {
-	return {
+	const say = node.data.say?.trim();
+	const holdSeconds = node.data.holdSeconds;
+
+	const flowNode: EngineFlowNode = {
 		id: node.id,
 		name: node.data.title.trim() || undefined,
 		kind: "handoff",
@@ -25,6 +28,21 @@ export function compileHandoffNode(
 		toolIds: [],
 		exits: [],
 	};
+
+	// Only emit `handoff` when say or holdSeconds is actually set — omit the key
+	// entirely otherwise so the engine falls back to its own defaults.
+	if (say || holdSeconds !== undefined) {
+		const handoff: NonNullable<EngineFlowNode["handoff"]> = {};
+		if (say) {
+			handoff.say = say;
+		}
+		if (holdSeconds !== undefined) {
+			handoff.holdSeconds = holdSeconds;
+		}
+		flowNode.handoff = handoff;
+	}
+
+	return flowNode;
 }
 
 export function decompileHandoffNode(
@@ -39,6 +57,8 @@ export function decompileHandoffNode(
 			data: {
 				title: flowNode.name ?? flowNode.id,
 				handoffAgentId: flowNode.handoffAgentId,
+				say: flowNode.handoff?.say,
+				holdSeconds: flowNode.handoff?.holdSeconds,
 			},
 		},
 		edges: [],

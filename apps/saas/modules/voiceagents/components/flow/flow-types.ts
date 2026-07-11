@@ -317,6 +317,10 @@ export interface HandoffNodeData {
 	title: string;
 	/** The target published agent this node hands the live call off to (agent id). */
 	handoffAgentId?: string;
+	/** Announcement spoken by the SOURCE agent right before the hold music. Supports {{variables}}. */
+	say?: string;
+	/** Hold-music duration between the source agent's announcement and the target agent picking up. Engine default 3 when unset; 0 disables music. */
+	holdSeconds?: number;
 	[key: string]: unknown;
 }
 
@@ -504,6 +508,12 @@ export interface EngineFlowNode {
 	};
 	/** handoff-only: the target published agent id the live call is handed to. */
 	handoffAgentId?: string;
+	/** handoff-only: optional announcement (source agent's voice) + hold music before the target takes over. */
+	handoff?: {
+		say?: string;
+		/** Hold-music duration. Engine default 3 when unset; 0 disables music. 0..30. */
+		holdSeconds?: number;
+	};
 	instructions: string;
 	entryInstructions?: string;
 	toolIds: string[];
@@ -662,6 +672,8 @@ export const transferNodeDataSchema = z.object({
 export const handoffNodeDataSchema = z.object({
 	title: z.string(),
 	handoffAgentId: z.string().optional(),
+	say: z.string().optional(),
+	holdSeconds: z.number().optional(),
 });
 
 export const setFieldNodeDataSchema = z.object({

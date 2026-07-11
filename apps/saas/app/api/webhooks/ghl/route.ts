@@ -8,10 +8,13 @@ import {
 } from "@repo/api/modules/crm/lib/ghl-webhook";
 import { resolveInboundAgent } from "@repo/api/modules/crm/lib/omnichannel";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
+import { readChannelMode } from "@repo/api/modules/voiceagents/lib/channel-mode";
 import {
 	findOrCreateConversation,
 	postConversationMessage,
 } from "@repo/api/modules/voiceagents/lib/conversations-client";
+import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
+import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { findSourceByLocationId, listSourceAgentSources } from "@repo/database";
 
 /**
@@ -127,14 +130,29 @@ export async function POST(req: Request): Promise<Response> {
 		const contactTagsCsv = contactContext.contact_tags;
 
 		// 9) Pick the ONE agent monitoring this channel on this source whose tag
-		//    filters the contact passes.
+		//    filters the contact passes. Resolve each candidate's channel-mode
+		//    (best-effort) so voice-only agents are skipped by resolveInboundAgent.
 		const rows = await listSourceAgentSources(source.id);
+		const modeByAgent = new Map(
+			await Promise.all(
+				rows.map(async (r): Promise<[string, "voice" | "text" | "both"]> => {
+					const config = await gatewayFetch<GatewayAgent>(
+						"GET",
+						`/v1/agents/${encodeURIComponent(r.agentId)}`,
+					)
+						.then((a) => a.config)
+						.catch(() => undefined);
+					return [r.agentId, readChannelMode(config)];
+				}),
+			),
+		);
 		const match = resolveInboundAgent({
 			rows: rows.map((r) => ({
 				agentId: r.agentId,
 				enabled: r.enabled,
 				channels: r.channels,
 				tagFilters: r.tagFilters,
+				mode: modeByAgent.get(r.agentId),
 			})),
 			channel,
 			contactTagsCsv,

@@ -25,6 +25,13 @@ export interface RoutableAgentSource {
 	enabled: boolean;
 	channels: unknown;
 	tagFilters: unknown;
+	/**
+	 * The agent's `channels.mode` preference (from its config), when the caller
+	 * resolved it. A "voice"-only agent never handles inbound text and is skipped;
+	 * omit/undefined is treated as "not voice-only" so existing callers keep
+	 * routing unchanged.
+	 */
+	mode?: "voice" | "text" | "both";
 }
 
 /**
@@ -73,6 +80,9 @@ export function resolveInboundAgent(input: {
 }): RoutableAgentSource | null {
 	for (const row of input.rows) {
 		if (!row.enabled) continue;
+		// Voice-only agents never handle inbound text, even if their channel chips
+		// still list one — the mode preference wins.
+		if (row.mode === "voice") continue;
 		if (!coerceChannels(row.channels).includes(input.channel)) continue;
 		if (!passesTagFilters(coerceTagFilters(row.tagFilters), input.contactTagsCsv)) continue;
 		return row;

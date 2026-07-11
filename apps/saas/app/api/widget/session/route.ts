@@ -1,5 +1,11 @@
+import {
+	allowedSessionChannels,
+	isChannelAllowed,
+	readChannelMode,
+} from "@repo/api/modules/voiceagents/lib/channel-mode";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import { createRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
+import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { isOriginAllowed, verifyWidgetToken } from "@repo/api/modules/voiceagents/lib/widget-token";
 
 /**
@@ -82,6 +88,25 @@ export async function POST(req: Request): Promise<Response> {
 	}
 
 	const channel = body.channel === "text" ? "text" : "voice";
+
+	// Channel-mode enforcement: read the agent's allowed channels and reject a
+	// disallowed one with 409 (best-effort — a config hiccup shouldn't hard-fail
+	// the session; the engine revalidates too). `modes` rides on every response so
+	// the widget UI can adapt (hide the disallowed mode button).
+	const agentConfig = await gatewayFetch<GatewayAgent>(
+		"GET",
+		`/v1/agents/${encodeURIComponent(identity.agentId)}`,
+	)
+		.then((a) => a.config)
+		.catch(() => undefined);
+	const modes = allowedSessionChannels(readChannelMode(agentConfig));
+	if (agentConfig && !isChannelAllowed(readChannelMode(agentConfig), channel)) {
+		return Response.json(
+			{ error: `this agent does not accept ${channel} sessions`, modes },
+			{ status: 409, headers: cors },
+		);
+	}
+
 	const visitor = body.visitor ?? {};
 	const variables: Record<string, string> = {};
 	if (typeof visitor.name === "string" && visitor.name.trim()) {
@@ -110,8 +135,9 @@ export async function POST(req: Request): Promise<Response> {
 			},
 		});
 		// Return ONLY the LiveKit join info — never the gateway key or agent version.
+		// `modes` lets the widget UI adapt (show only the allowed channel buttons).
 		return Response.json(
-			{ call_id: session.call_id, room_url: session.room_url, token: session.token },
+			{ call_id: session.call_id, room_url: session.room_url, token: session.token, modes },
 			{ status: 201, headers: cors },
 		);
 	} catch (err) {

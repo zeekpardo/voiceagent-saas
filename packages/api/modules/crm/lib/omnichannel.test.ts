@@ -56,6 +56,36 @@ describe("resolveInboundAgent", () => {
 		).toBeNull();
 	});
 
+	it("skips voice-only agents even when their channels list the inbound channel", () => {
+		const voiceOnly: RoutableAgentSource[] = [
+			{ agentId: "agt_voice", enabled: true, channels: ["sms"], tagFilters: [], mode: "voice" },
+		];
+		expect(resolveInboundAgent({ rows: voiceOnly, channel: "sms" })).toBeNull();
+	});
+
+	it("routes to text-only and both-mode agents (and treats missing mode as allowed)", () => {
+		const rows: RoutableAgentSource[] = [
+			{ agentId: "agt_text", enabled: true, channels: ["sms"], tagFilters: [], mode: "text" },
+		];
+		expect(resolveInboundAgent({ rows, channel: "sms" })?.agentId).toBe("agt_text");
+		const both: RoutableAgentSource[] = [
+			{ agentId: "agt_both", enabled: true, channels: ["sms"], tagFilters: [], mode: "both" },
+		];
+		expect(resolveInboundAgent({ rows: both, channel: "sms" })?.agentId).toBe("agt_both");
+		const legacy: RoutableAgentSource[] = [
+			{ agentId: "agt_legacy", enabled: true, channels: ["sms"], tagFilters: [] },
+		];
+		expect(resolveInboundAgent({ rows: legacy, channel: "sms" })?.agentId).toBe("agt_legacy");
+	});
+
+	it("falls through a voice-only agent to the next qualifying row", () => {
+		const rows: RoutableAgentSource[] = [
+			{ agentId: "agt_voice", enabled: true, channels: ["sms"], tagFilters: [], mode: "voice" },
+			{ agentId: "agt_text", enabled: true, channels: ["sms"], tagFilters: [], mode: "both" },
+		];
+		expect(resolveInboundAgent({ rows, channel: "sms" })?.agentId).toBe("agt_text");
+	});
+
 	it("picks the first qualifying row deterministically (one-per-channel invariant)", () => {
 		// Two rows claim sms (shouldn't happen post-enforcement, but resolution
 		// must still be deterministic): the first in order wins.

@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 import { getAgentSource } from "@repo/database";
 import z from "zod";
 
@@ -6,6 +7,7 @@ import { buildContactState, parseContactTags } from "../../crm/lib/contact-state
 import { normalizePhone } from "../../crm/lib/normalize";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
 import { requireOwnedSource } from "../../sources/lib/require-owned-source";
+import { isChannelAllowed, readChannelMode } from "../lib/channel-mode";
 import { mergeCustomVariables } from "../lib/custom-variables";
 import { gatewayFetch } from "../lib/gateway";
 import { requireOwnedAgent } from "../lib/require-owned-agent";
@@ -103,6 +105,15 @@ export const createTestSession = protectedProcedure
 				? getAgentSource(input.agentId, input.sourceId).catch(() => null)
 				: Promise.resolve(null),
 		]);
+		// Channel-mode enforcement: reject a disallowed channel (409/CONFLICT). The
+		// config is best-effort loaded above — only enforce when we actually have it.
+		const requestedChannel = input.channel ?? "voice";
+		if (agentConfig && !isChannelAllowed(readChannelMode(agentConfig), requestedChannel)) {
+			throw new ORPCError("CONFLICT", {
+				message: `This agent does not accept ${requestedChannel} sessions.`,
+			});
+		}
+
 		const runtimeVariables = {
 			caller_name: context.user.name ?? "there",
 			...crmVariables,

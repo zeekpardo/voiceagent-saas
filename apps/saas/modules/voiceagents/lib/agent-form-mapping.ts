@@ -34,6 +34,9 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 		description: c.description ?? "",
 		goal,
 		guardrails: c.guardrails ?? "",
+		// Raw phrasing/tone directive; blank for agents that never set it (so the
+		// engine keeps injecting nothing and their behavior is unchanged).
+		responseStyle: typeof c.responseStyle === "string" ? c.responseStyle : "",
 		prohibitedWords: Array.isArray(c.prohibitedWords) ? c.prohibitedWords.map(String) : [],
 		// Preserved verbatim so any full-config submit (job/settings/preferences
 		// forms) round-trips the Job Flow Variable definitions without clobbering

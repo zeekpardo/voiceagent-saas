@@ -166,6 +166,30 @@ describe("toGatewayConfig postCall", () => {
 	});
 });
 
+describe("toGatewayConfig responseStyle", () => {
+	it("rides RAW onto the gateway config and is NOT compiled into instructions", () => {
+		const compiled = toGatewayConfig(
+			agentConfigInput.parse({
+				name: "Test Agent",
+				goal: "Book the caller an appointment.",
+				responseStyle: "Keep it warm and vary your phrasing.",
+			}),
+			null,
+		);
+		expect((compiled as { responseStyle?: string }).responseStyle).toBe(
+			"Keep it warm and vary your phrasing.",
+		);
+		// Distinct from guardrails/goal: never folded into the composed prompt.
+		expect(compiled.instructions).not.toContain("Keep it warm and vary your phrasing.");
+		expect(compiled.instructions).not.toContain("## RESPONSE STYLE");
+	});
+
+	it("is absent when the agent sets no responseStyle (existing agents unchanged)", () => {
+		const compiled = toGatewayConfig(baseConfig, null);
+		expect((compiled as { responseStyle?: string }).responseStyle).toBeUndefined();
+	});
+});
+
 describe("extractGoalFromComposite", () => {
 	const persona = {
 		name: "Ava",

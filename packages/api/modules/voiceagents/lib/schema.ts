@@ -26,6 +26,14 @@ export const agentConfigInput = z.object({
 	 *  so the form round-trips it, exactly like personaId. The engine treats it as
 	 *  an opaque builder field. */
 	guardrails: z.string().max(3000).nullish(),
+	/**
+	 * Free-text phrasing/tone directive (CloseBot "Response Style"). Unlike
+	 * guardrails/goal, this is NOT compiled into `instructions` — it rides RAW on
+	 * the config doc (like greetingGenerate/prohibitedWords) and the engine reads
+	 * it LIVE, injecting a `## RESPONSE STYLE` block into every generated message.
+	 * Optional; blank = engine injects nothing (existing agents unchanged).
+	 */
+	responseStyle: z.string().max(1000).nullish(),
 	/** Words/phrases the agent must never say — enforced globally across all flow nodes. */
 	prohibitedWords: z.array(z.string()).default([]),
 	/**

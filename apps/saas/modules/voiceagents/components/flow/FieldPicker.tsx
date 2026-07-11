@@ -3,7 +3,9 @@
 import { readCustomVariableDefs } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { cn } from "@repo/ui";
 import { Input } from "@repo/ui/components/input";
-import { Textarea } from "@repo/ui/components/textarea";
+import type { JSONContent } from "@tiptap/core";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import { StarterKit } from "@tiptap/starter-kit";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import {
 	ChevronDownIcon,
@@ -26,8 +28,14 @@ import {
 } from "react";
 
 import { useAgentQuery } from "../../lib/api";
+import { MENTION_CHAR_VARIABLE, prettifyVariable, textToTiptapDoc, tiptapToText } from "./compile";
 import { useFieldFocus } from "./field-focus-context";
-import { fieldRuntimeVariable } from "./mentions";
+import {
+	createVariablePillExtension,
+	fieldRuntimeVariable,
+	type MentionItem,
+	type VariablePillMeta,
+} from "./mentions";
 
 /**
  * CloseBot-style field picker: search + collapsible Contact/Location/Custom
@@ -206,7 +214,12 @@ export function FieldsPanel({ agentId }: { agentId: string }) {
 					</p>
 				) : (
 					filtered.map((group) => (
-						<FieldPickerGroup key={group.label} group={group} onPick={pick} />
+						<FieldPickerGroup
+							key={group.label}
+							group={group}
+							onPick={pick}
+							searchActive={query.length > 0}
+						/>
 					))
 				)}
 			</div>
@@ -235,18 +248,25 @@ function FieldPickerOpenButton({ onOpen, className }: { onOpen: () => void; clas
 function FieldPickerGroup({
 	group,
 	onPick,
+	searchActive,
 }: {
 	group: FieldPickerGroupDef;
 	onPick: (entry: FieldPickerEntry) => void;
+	/** A search query is active — force-reveal this group's (filtered) matches. */
+	searchActive: boolean;
 }) {
-	const [expanded, setExpanded] = useState(true);
+	// Collapsed by default; an active search force-expands matching groups
+	// WITHOUT touching the user's toggle state, so clearing the query restores
+	// exactly what was open before.
+	const [expanded, setExpanded] = useState(false);
+	const open = searchActive || expanded;
 	const Icon = group.icon;
 	return (
 		<div className="mb-1">
 			<button
 				type="button"
 				onClick={() => setExpanded((v) => !v)}
-				aria-expanded={expanded}
+				aria-expanded={open}
 				className="gap-2 px-2 py-1.5 flex w-full items-center rounded-md text-left hover:bg-muted/60"
 			>
 				<Icon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -256,11 +276,11 @@ function FieldPickerGroup({
 				<ChevronDownIcon
 					className={cn(
 						"size-3.5 shrink-0 text-muted-foreground transition-transform",
-						!expanded && "-rotate-90",
+						!open && "-rotate-90",
 					)}
 				/>
 			</button>
-			{expanded &&
+			{open &&
 				group.entries.map((entry) => (
 					<button
 						key={entry.name}
@@ -312,43 +332,187 @@ interface FieldPickerFieldProps {
 	onValueChange: (next: string) => void;
 }
 
-/** Textarea with the "+" field picker overlaid in its top-right corner. */
+/** Flatten the picker groups into the @-trigger suggestion list. */
+function flattenMentionItems(groups: FieldPickerGroupDef[]): MentionItem[] {
+	return groups.flatMap((group) =>
+		group.entries.map((entry) => ({
+			id: entry.name,
+			label: `${group.label}.${entry.label}`,
+			sub: `{{${entry.name}}}`,
+		})),
+	);
+}
+
+/** Resolve a token name to its picker group + display label (pill copy). */
+function lookupPillMeta(groups: FieldPickerGroupDef[], name: string): VariablePillMeta | undefined {
+	for (const group of groups) {
+		const hit = group.entries.find((entry) => entry.name === name);
+		if (hit) {
+			return { group: group.label, label: hit.label };
+		}
+	}
+	return undefined;
+}
+
+const TOKEN_ONLY_PATTERN = /^\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}$/;
+
+/**
+ * Multi-line field whose `{{tokens}}` render as inline pills (icon + bold
+ * group + thin field label), CloseBot-style. A TipTap editor under the hood:
+ * the STORED value stays the exact `{{token}}` string (textToTiptapDoc on
+ * load, tiptapToText on every change — the same round-trip the agent prompt
+ * sections use), pills delete as one unit, and `@` triggers the variables
+ * suggestion inline. The "+" overlay opens the rail's Fields panel, which
+ * inserts a pill at this field's cursor via FieldFocusContext.
+ */
 export function FieldPickerTextarea({
-	agentId: _agentId,
+	agentId,
 	value,
 	onValueChange,
 	className,
-	...props
-}: FieldPickerFieldProps & Omit<ComponentProps<typeof Textarea>, "value" | "onChange">) {
-	const ref = useRef<HTMLTextAreaElement>(null);
+	placeholder,
+	rows = 3,
+	disabled = false,
+}: FieldPickerFieldProps & {
+	className?: string;
+	placeholder?: string;
+	rows?: number;
+	disabled?: boolean;
+}) {
 	const id = useId();
 	const fieldFocus = useFieldFocus();
+	const { groups } = useFieldPickerGroups(agentId);
 
-	// Re-register on every render so the closure always inserts against the
-	// latest `value`/`onValueChange` (list rows re-key by id, not by index).
+	// Refs so the once-created extension + registered insert closure always see
+	// the latest catalog/handlers without recreating the editor (recreating it
+	// would lose focus and cursor position).
+	const groupsRef = useRef(groups);
+	groupsRef.current = groups;
+	const onValueChangeRef = useRef(onValueChange);
+	onValueChangeRef.current = onValueChange;
+	const fieldFocusRef = useRef(fieldFocus);
+	fieldFocusRef.current = fieldFocus;
+	// The last text THIS editor emitted — distinguishes our own onUpdate echo
+	// from a genuinely external value change (node switch, undo elsewhere).
+	const lastEmittedRef = useRef(value);
+
+	const mentionExtension = useMemo(
+		() =>
+			createVariablePillExtension({
+				getVariables: () => flattenMentionItems(groupsRef.current),
+				getMeta: (name) => lookupPillMeta(groupsRef.current, name),
+			}),
+		[],
+	);
+
+	const editor = useEditor({
+		extensions: [
+			StarterKit.configure({
+				heading: false,
+				codeBlock: false,
+				blockquote: false,
+				horizontalRule: false,
+				link: false,
+			}),
+			mentionExtension,
+		],
+		content: textToTiptapDoc(value) as JSONContent,
+		editable: !disabled,
+		// Next.js App Router: client-only render to avoid hydration mismatches.
+		immediatelyRender: false,
+		editorProps: {
+			attributes: {
+				class: cn(
+					"px-3 py-2 pr-10 text-sm leading-relaxed [&_p]:my-0 w-full rounded-md border bg-background focus:ring-1 focus:ring-ring focus:outline-none",
+					disabled && "cursor-not-allowed opacity-50",
+					className,
+				),
+				style: `min-height: ${rows * 20 + 18}px`,
+			},
+		},
+		onUpdate: ({ editor: instance }) => {
+			const text = tiptapToText(instance.getJSON());
+			lastEmittedRef.current = text;
+			onValueChangeRef.current(text);
+		},
+		onFocus: () => fieldFocusRef.current?.focus(id),
+	});
+
+	const editorRef = useRef(editor);
+	editorRef.current = editor;
+
+	// External value change (not our own echo): rehydrate the doc. Covers node
+	// switches re-using this mounted editor and programmatic patches.
+	useEffect(() => {
+		if (!editor || value === lastEmittedRef.current) {
+			return;
+		}
+		lastEmittedRef.current = value;
+		editor.commands.setContent(textToTiptapDoc(value) as JSONContent, { emitUpdate: false });
+	}, [editor, value]);
+
+	useEffect(() => {
+		editor?.setEditable(!disabled);
+	}, [editor, disabled]);
+
+	// Rail-panel insertion target: parse the `{{token}}` and insert a PILL (a
+	// mention node) at the cursor — not raw text — then a space, mirroring what
+	// the @-suggestion command produces.
 	useEffect(() => {
 		return fieldFocus?.register(id, {
-			insert: (token) => insertAtCursor(ref.current, value, token, onValueChange),
+			insert: (token) => {
+				const instance = editorRef.current;
+				if (!instance) {
+					return;
+				}
+				const match = TOKEN_ONLY_PATTERN.exec(token);
+				if (!match) {
+					instance.chain().focus().insertContent(token).run();
+					return;
+				}
+				const name = match[1];
+				const meta = lookupPillMeta(groupsRef.current, name);
+				instance
+					.chain()
+					.focus()
+					.insertContent([
+						{
+							type: "mention",
+							attrs: {
+								id: name,
+								label: meta ? `${meta.group}.${meta.label}` : prettifyVariable(name),
+								mentionSuggestionChar: MENTION_CHAR_VARIABLE,
+							},
+						},
+						{ type: "text", text: " " },
+					])
+					.run();
+			},
 		});
-	}, [fieldFocus, id, value, onValueChange]);
+	}, [fieldFocus, id]);
+
+	const isEmpty = useEditorState({
+		editor,
+		selector: ({ editor: instance }) => instance?.isEmpty ?? true,
+	});
 
 	return (
 		<div className="relative w-full">
-			<Textarea
-				ref={ref}
-				value={value}
-				onChange={(e) => onValueChange(e.target.value)}
-				onFocus={() => fieldFocus?.focus(id)}
-				className={cn("pr-10", className)}
-				{...props}
-			/>
-			<FieldPickerOpenButton
-				onOpen={() => {
-					fieldFocus?.focus(id);
-					fieldFocus?.openPanel();
-				}}
-				className="right-1.5 top-1.5 absolute"
-			/>
+			<EditorContent editor={editor} />
+			{isEmpty && placeholder && (
+				<p className="px-3 py-2 inset-x-0 top-0 text-sm pointer-events-none absolute truncate text-muted-foreground">
+					{placeholder}
+				</p>
+			)}
+			{!disabled && (
+				<FieldPickerOpenButton
+					onOpen={() => {
+						fieldFocus?.focus(id);
+						fieldFocus?.openPanel();
+					}}
+					className="right-1.5 top-1.5 absolute"
+				/>
+			)}
 		</div>
 	);
 }

@@ -33,8 +33,10 @@ export function compileAgentNode(
 		id: node.id,
 		name: node.data.title.trim() || undefined,
 		instructions,
-		// The engine ignores entryInstructions on the entry node — omit it there.
-		entryInstructions: node.id !== entry && entryMessage ? entryMessage : undefined,
+		// Compiled for every node, including the entry node: on a normal call the
+		// engine ignores the entry node's entryInstructions (the greeting opens),
+		// but on a HANDOFF the target's entry node is entered fresh and speaks it.
+		entryInstructions: entryMessage || undefined,
 		toolIds: [...node.data.toolIds],
 		llm: node.data.model ? { model: node.data.model } : undefined,
 		exits: node.data.exits.map((exit) => ({

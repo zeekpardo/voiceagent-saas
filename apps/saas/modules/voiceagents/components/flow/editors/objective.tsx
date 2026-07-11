@@ -226,18 +226,17 @@ export function ObjectiveNodeEditor({
 			</div>
 
 			<div className="gap-1.5 flex flex-col">
-				<Label className={isEntry ? "opacity-50" : ""}>Entry message</Label>
+				<Label>Entry message</Label>
 				<FieldPickerTextarea
 					agentId={agentId}
 					rows={2}
-					disabled={isEntry}
 					value={data.entryMessage}
 					onValueChange={(entryMessage) => patch({ entryMessage })}
 					placeholder="Move naturally into collecting these details."
 				/>
 				<p className="text-xs opacity-50">
 					{isEntry
-						? "The greeting opens the entry node, so this is ignored here."
+						? "The agent's opening line when this node is entered via a handoff from another agent — spoken in the caller's current language. On a normal call the greeting opens instead, so this is only used on handoff."
 						: "Spoken when the flow reaches this node, before the first objective question."}
 				</p>
 			</div>

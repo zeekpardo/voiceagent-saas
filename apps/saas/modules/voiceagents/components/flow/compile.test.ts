@@ -189,7 +189,7 @@ function makeDoc(): CanvasDoc {
 					sections: [
 						{ id: "s1", body: sectionBody([{ type: "text", text: "Qualify the lead." }]) },
 					],
-					entryMessage: "ignored on entry",
+					entryMessage: "Introduce yourself as the specialist",
 					exits: [
 						{ id: "x1", name: "qualified", description: "Caller wants to book" },
 						{ id: "x2", name: "not interested", description: "Caller declines" },
@@ -248,7 +248,9 @@ describe("compileCanvas", () => {
 		expect(toolIds.sort()).toEqual(["tool_a", "tool_b", "tool_existing"]);
 
 		const n1 = flow.nodes.find((n) => n.id === "n1");
-		expect(n1?.entryInstructions).toBeUndefined(); // entry node — omitted
+		// Entry node's entry message now compiles too (spoken by a handoff target
+		// when it enters this node fresh; ignored by the engine on a normal call).
+		expect(n1?.entryInstructions).toBe("Introduce yourself as the specialist");
 		expect(n1?.exits).toEqual([
 			{ name: "qualified", description: "Caller wants to book", target: "n2" },
 			{ name: "not interested", description: "Caller declines", target: undefined },

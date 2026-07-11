@@ -151,17 +151,16 @@ export function AgentPromptEditor({
 			</div>
 
 			<div className="gap-1.5 flex flex-col">
-				<Label className={isEntry ? "opacity-50" : ""}>Entry message</Label>
+				<Label>Entry message</Label>
 				<Textarea
 					rows={2}
-					disabled={isEntry}
 					value={data.entryMessage}
 					onChange={(e) => patch({ entryMessage: e.target.value })}
 					placeholder="Spoken direction when the call moves onto this node"
 				/>
 				<p className="text-xs opacity-50">
 					{isEntry
-						? "This is the entry node — the agent's greeting covers the opening, so the entry message is ignored here."
+						? "The agent's opening line when this node is entered via a handoff from another agent — spoken in the caller's current language. On a normal call the greeting opens instead, so this is only used on handoff."
 						: "Generated when this node becomes active, e.g. “Let the caller know you're checking the calendar.”"}
 				</p>
 			</div>

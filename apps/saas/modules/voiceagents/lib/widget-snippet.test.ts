@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { composeWidgetSnippet, isValidWidgetOrigin, normalizeWidgetOrigin } from "./widget-snippet";
+import {
+	composeWidgetIdSnippet,
+	composeWidgetSnippet,
+	isValidWidgetOrigin,
+	normalizeWidgetOrigin,
+	resolveWidgetChannels,
+} from "./widget-snippet";
 
 describe("composeWidgetSnippet", () => {
 	it("emits the minimal snippet when everything is default", () => {
@@ -78,6 +84,38 @@ describe("composeWidgetSnippet", () => {
 		});
 		expect(snippet).not.toContain('"><script>alert');
 		expect(snippet).toContain("&quot;>&lt;script>alert");
+	});
+});
+
+describe("composeWidgetIdSnippet", () => {
+	it("emits a data-widget-id loader tag", () => {
+		expect(
+			composeWidgetIdSnippet({ baseUrl: "https://app.example.com/", widgetId: "wgt_123" }),
+		).toBe(
+			'<script src="https://app.example.com/widget.js" data-widget-id="wgt_123" async></script>',
+		);
+	});
+
+	it("escapes attribute-breaking characters in the id", () => {
+		const snippet = composeWidgetIdSnippet({
+			baseUrl: "https://app.example.com",
+			widgetId: 'x"><script>',
+		});
+		expect(snippet).not.toContain('"><script>');
+		expect(snippet).toContain("&quot;>&lt;script>");
+	});
+});
+
+describe("resolveWidgetChannels", () => {
+	it("trusts the widget's own config until server modes are known", () => {
+		expect(resolveWidgetChannels({ voice: true, chat: true }, null)).toEqual(["voice", "text"]);
+		expect(resolveWidgetChannels({ voice: false, chat: true }, null)).toEqual(["text"]);
+	});
+
+	it("intersects with server-allowed modes once known", () => {
+		expect(resolveWidgetChannels({ voice: true, chat: true }, ["voice"])).toEqual(["voice"]);
+		expect(resolveWidgetChannels({ voice: true, chat: true }, ["text"])).toEqual(["text"]);
+		expect(resolveWidgetChannels({ voice: true, chat: false }, ["text"])).toEqual([]);
 	});
 });
 

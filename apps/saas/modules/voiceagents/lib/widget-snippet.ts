@@ -92,6 +92,19 @@ export function composeWidgetSnippet(options: WidgetSnippetOptions): string {
 }
 
 /**
+ * The paste-ready <script> for a SAVED widget (Studio "Install" section). All
+ * appearance/targeting/behavior lives in the widget record, so the snippet is
+ * just the loader src + the widget id — editing the widget later goes live
+ * without the customer touching this tag again.
+ */
+export function composeWidgetIdSnippet(options: { baseUrl: string; widgetId: string }): string {
+	const base = options.baseUrl.replace(/\/$/, "");
+	return `<script src="${escapeAttribute(base)}/widget.js" data-widget-id="${escapeAttribute(
+		options.widgetId,
+	)}" async></script>`;
+}
+
+/**
  * Which channels the widget can actually offer a visitor: the intersection of
  * what the embed enables (its voice/chat attrs) and what the agent allows
  * server-side (`modes` returned by /api/widget/session). Pure so it can be

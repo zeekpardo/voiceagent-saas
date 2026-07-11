@@ -5,8 +5,14 @@ import type {
 	EngineFlow,
 	EngineFlowNode,
 	EngineFlowScenario,
+	FlowChannel,
 } from "../flow-types";
-import { GREETER_NEXT_HANDLE_ID, START_HANDLE_ID, START_NODE_ID } from "../flow-types";
+import {
+	GREETER_NEXT_HANDLE_ID,
+	normalizeChannels,
+	START_HANDLE_ID,
+	START_NODE_ID,
+} from "../flow-types";
 import { FLOW_KINDS, isFlowNodeKind } from "../kinds";
 import { decompileAgentNode } from "./nodes/agent";
 import { decompileConversationNode } from "./nodes/conversation";
@@ -31,6 +37,7 @@ export {
 	tiptapToText,
 } from "./text";
 export { MENTION_CHAR_EXIT, MENTION_CHAR_TOOL, MENTION_CHAR_VARIABLE } from "./text";
+export { channelPruneWarnings, pruneFlowForChannel } from "./channels";
 export { validateFlowDoc } from "./validate";
 export { newAgentNodeData } from "./nodes/agent";
 export { newBookingNodeData } from "./nodes/booking";
@@ -44,6 +51,19 @@ export { newAggressionScenarioData, newScenarioNodeData } from "./nodes/scenario
 export { newSetFieldNodeData } from "./nodes/set-field";
 export { newStatementNodeData } from "./nodes/statement";
 export { newTransferNodeData } from "./nodes/transfer";
+
+/**
+ * The channels a canvas node compiles onto, or undefined when it runs on both
+ * (the default — omitted from the engine payload). Transfer nodes are always
+ * voice-only; every other kind reads its optional `channels` data mark.
+ */
+function channelsForCanvasNode(node: CanvasNodeDoc): FlowChannel[] | undefined {
+	if (node.type === "transfer") {
+		return ["voice"];
+	}
+	const raw = (node.data as { channels?: FlowChannel[] } | undefined)?.channels;
+	return normalizeChannels(raw);
+}
 
 /**
  * Compile the canvas into the engine payload. Assumes validateFlowDoc passed.
@@ -98,6 +118,14 @@ export function compileCanvas(
 		}
 		const result = FLOW_KINDS[node.type].compile(node, { entry, targetOf });
 		if (result.node) {
+			// Channel marks ride on the compiled node so the runtime (and the
+			// SaaS text-prune pass) can skip nodes that don't run on a channel.
+			// Transfers are voice-only by nature (announcement + hold music + voice
+			// swap / SIP forward) — always voice, regardless of any stored mark.
+			const channels = channelsForCanvasNode(node);
+			if (channels) {
+				result.node.channels = channels;
+			}
 			nodes.push(result.node);
 		}
 		if (result.scenario) {
@@ -304,6 +332,20 @@ export function canvasFromFlow(flow: EngineFlow, greeting = ""): CanvasDoc {
 		const { node, edges: nodeEdges } = decompileAgentNode(flowNode, position);
 		nodes.push(node);
 		edges.push(...nodeEdges);
+	}
+
+	// Restore per-node channel marks from the compiled flow onto the canvas data
+	// (so reopening the builder shows the same voice/text chips). Transfer is
+	// fixed voice-only — its mark is implicit, never stored on the node data.
+	const channelsById = new Map(flow.nodes.map((flowNode) => [flowNode.id, flowNode.channels]));
+	for (const node of nodes) {
+		if (node.type === "transfer" || !node.data) {
+			continue;
+		}
+		const channels = normalizeChannels(channelsById.get(node.id));
+		if (channels) {
+			(node.data as { channels?: FlowChannel[] }).channels = channels;
+		}
 	}
 
 	// Scenarios live outside flow.nodes — grid-place their canvas nodes in a

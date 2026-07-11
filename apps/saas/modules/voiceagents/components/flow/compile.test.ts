@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
 	canvasFromFlow,
+	channelPruneWarnings,
 	collapseManagedObjectives,
 	compileCanvas,
 	ensureGreeter,
@@ -9,16 +10,25 @@ import {
 	newCanvas,
 	newFullAddressObjectiveData,
 	prettifyVariable,
+	pruneFlowForChannel,
 	sanitizeExitName,
 	sectionsToInstructions,
 	textToTiptapDoc,
 	tiptapToText,
 	validateFlowDoc,
 } from "./compile";
-import type { CanvasDoc, HandoffNodeData, ObjectiveNodeData, TransferNodeData } from "./flow-types";
+import type {
+	AgentNodeData,
+	CanvasDoc,
+	HandoffNodeData,
+	ObjectiveNodeData,
+	StatementNodeData,
+	TransferNodeData,
+} from "./flow-types";
 import {
 	FALSE_HANDLE_ID,
 	GREETER_NEXT_HANDLE_ID,
+	normalizeChannels,
 	OBJECTIVE_NEXT_HANDLE_ID,
 	OTHERWISE_HANDLE_ID,
 	SCENARIO_JUMP_HANDLE_ID,
@@ -1571,5 +1581,322 @@ describe("transfer nodes", () => {
 		expect(recompiled.nodes.map((n) => [n.id, n.kind, n.transfer, n.exits])).toEqual(
 			original.nodes.map((n) => [n.id, n.kind, n.transfer, n.exits]),
 		);
+	});
+});
+
+// --- W3: channel-aware compile + text-prune -------------------------------
+
+function agentNode(
+	id: string,
+	title: string,
+	exits: { id: string; name: string; description: string }[],
+	channels?: AgentNodeData["channels"],
+): CanvasDoc["nodes"][number] {
+	return {
+		id,
+		type: "agent",
+		position: { x: 0, y: 0 },
+		data: {
+			title,
+			sections: [{ id: `${id}_s`, body: sectionBody([{ type: "text", text: `${title}.` }]) }],
+			entryMessage: "",
+			exits,
+			toolIds: [],
+			...(channels ? { channels } : {}),
+		},
+	};
+}
+
+function statementNode(
+	id: string,
+	title: string,
+	channels?: StatementNodeData["channels"],
+): CanvasDoc["nodes"][number] {
+	return {
+		id,
+		type: "statement",
+		position: { x: 0, y: 0 },
+		data: { title, say: `${title} spoken.`, ...(channels ? { channels } : {}) },
+	};
+}
+
+describe("channel marks — compile emit", () => {
+	it("emits channels only on restricted nodes; unmarked nodes stay bare (byte-identical)", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Both", [{ id: "x1", name: "next", description: "d" }]),
+				statementNode("st1", "Voice notice", ["voice"]),
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "st1" },
+			],
+		};
+		const { flow } = compileCanvas(doc, []);
+		expect(flow.nodes.find((n) => n.id === "a1")?.channels).toBeUndefined();
+		expect(flow.nodes.find((n) => n.id === "st1")?.channels).toEqual(["voice"]);
+	});
+
+	it("forces channels ['voice'] on transfer nodes regardless of stored data", () => {
+		const { flow } = compileCanvas(makeTransferDoc(), []);
+		expect(flow.nodes.find((n) => n.id === "t1")?.channels).toEqual(["voice"]);
+	});
+
+	it("normalizes a both-marked ['voice','text'] node to no channels (runs everywhere)", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Both listed", [], ["voice", "text"]),
+			],
+			edges: [{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" }],
+		};
+		expect(compileCanvas(doc, []).flow.nodes.find((n) => n.id === "a1")?.channels).toBeUndefined();
+	});
+
+	it("round-trips channel marks flow → canvas → flow (transfer stays implicit voice)", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Text intake", [{ id: "x1", name: "next", description: "d" }], ["text"]),
+				statementNode("st1", "Voice notice", ["voice"]),
+				{
+					id: "h1",
+					type: "handoff",
+					position: { x: 0, y: 0 },
+					data: { title: "To booking", handoffAgentId: "ag_b", channels: ["text"] },
+				},
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "st1" },
+				{ id: "e3", source: "st1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "h1" },
+			],
+		};
+		const flow = compileCanvas(doc, []).flow;
+		const rebuilt = canvasFromFlow(flow);
+		const dataOf = (id: string) => rebuilt.nodes.find((n) => n.id === id)?.data;
+		expect((dataOf("a1") as AgentNodeData).channels).toEqual(["text"]);
+		expect((dataOf("st1") as StatementNodeData).channels).toEqual(["voice"]);
+		expect((dataOf("h1") as HandoffNodeData).channels).toEqual(["text"]);
+		// Recompiling the rebuilt canvas reproduces the same channel marks.
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		expect(recompiled.nodes.map((n) => [n.id, n.channels])).toEqual(
+			flow.nodes.map((n) => [n.id, n.channels]),
+		);
+	});
+});
+
+describe("pruneFlowForChannel", () => {
+	it("returns the same flow untouched when no node is channel-restricted", () => {
+		const flow = compileCanvas(makeStatementDoc(), []).flow;
+		expect(pruneFlowForChannel(flow, "text")).toBe(flow);
+	});
+
+	it("splices a single-exit voice-only node out, re-pointing its predecessor to the Next target", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Intake", [{ id: "x1", name: "go", description: "d" }]),
+				statementNode("st1", "Voice hold", ["voice"]),
+				agentNode("a2", "Book", []),
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "st1" },
+				{ id: "e3", source: "st1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "a2" },
+			],
+		};
+		const flow = compileCanvas(doc, []).flow;
+		const pruned = pruneFlowForChannel(flow, "text");
+		expect(pruned.nodes.map((n) => n.id).sort()).toEqual(["a1", "a2"]);
+		// a1's exit now skips the removed voice-only statement straight to a2.
+		expect(pruned.nodes.find((n) => n.id === "a1")?.exits[0]?.target).toBe("a2");
+		expect(pruned.entry).toBe("a1");
+		// The original flow is not mutated.
+		expect(flow.nodes.find((n) => n.id === "a1")?.exits[0]?.target).toBe("st1");
+	});
+
+	it("splices a chain of voice-only nodes transitively to the first survivor", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Intake", [{ id: "x1", name: "go", description: "d" }]),
+				statementNode("v1", "Voice one", ["voice"]),
+				statementNode("v2", "Voice two", ["voice"]),
+				agentNode("a2", "Book", []),
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "v1" },
+				{ id: "e3", source: "v1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "v2" },
+				{ id: "e4", source: "v2", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "a2" },
+			],
+		};
+		const pruned = pruneFlowForChannel(compileCanvas(doc, []).flow, "text");
+		expect(pruned.nodes.map((n) => n.id).sort()).toEqual(["a1", "a2"]);
+		expect(pruned.nodes.find((n) => n.id === "a1")?.exits[0]?.target).toBe("a2");
+	});
+
+	it("falls back to the first exit target when a pruned multi-exit node is spliced", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Intake", [{ id: "x1", name: "go", description: "d" }]),
+				agentNode(
+					"av",
+					"Voice router",
+					[
+						{ id: "e1x", name: "first", description: "d" },
+						{ id: "e2x", name: "second", description: "d" },
+					],
+					["voice"],
+				),
+				agentNode("a2", "First target", []),
+				agentNode("a3", "Second target", []),
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "av" },
+				{ id: "e3", source: "av", sourceHandle: "e1x", target: "a2" },
+				{ id: "e4", source: "av", sourceHandle: "e2x", target: "a3" },
+			],
+		};
+		const pruned = pruneFlowForChannel(compileCanvas(doc, []).flow, "text");
+		expect(pruned.nodes.some((n) => n.id === "av")).toBe(false);
+		// Predecessor splices to av's FIRST exit target.
+		expect(pruned.nodes.find((n) => n.id === "a1")?.exits[0]?.target).toBe("a2");
+	});
+
+	it("leaves an exit ending the call when a pruned node has no surviving target", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Intake", [{ id: "x1", name: "go", description: "d" }]),
+				statementNode("v1", "Voice dead-end", ["voice"]),
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "v1" },
+				// v1's Next is unwired → after prune, a1's exit ends the call.
+			],
+		};
+		const pruned = pruneFlowForChannel(compileCanvas(doc, []).flow, "text");
+		expect(pruned.nodes.map((n) => n.id)).toEqual(["a1"]);
+		expect(pruned.nodes.find((n) => n.id === "a1")?.exits[0]?.target).toBeUndefined();
+	});
+
+	it("retargets a scenario through a pruned node and drops it when it dead-ends", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Intake", []),
+				statementNode("v1", "Voice hop", ["voice"]),
+				agentNode("a2", "Survivor", []),
+				statementNode("vdead", "Voice dead", ["voice"]),
+				{
+					id: "sc1",
+					type: "scenario",
+					position: { x: 0, y: 0 },
+					data: { title: "Live", description: "jump to hop" },
+				},
+				{
+					id: "sc2",
+					type: "scenario",
+					position: { x: 0, y: 0 },
+					data: { title: "Dead", description: "jump to dead" },
+				},
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "v1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "a2" },
+				{ id: "s1", source: "sc1", sourceHandle: SCENARIO_JUMP_HANDLE_ID, target: "v1" },
+				{ id: "s2", source: "sc2", sourceHandle: SCENARIO_JUMP_HANDLE_ID, target: "vdead" },
+			],
+		};
+		const pruned = pruneFlowForChannel(compileCanvas(doc, []).flow, "text");
+		// sc1 retargets through the pruned hop to the survivor; sc2 dead-ends → dropped.
+		expect(pruned.scenarios).toEqual([{ name: "Live", description: "jump to hop", target: "a2" }]);
+	});
+
+	it("keeps voice-only nodes when pruning for voice", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Intake", [{ id: "x1", name: "go", description: "d" }]),
+				statementNode("st1", "Voice hold", ["voice"]),
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "st1" },
+			],
+		};
+		const pruned = pruneFlowForChannel(compileCanvas(doc, []).flow, "voice");
+		expect(pruned.nodes.some((n) => n.id === "st1")).toBe(true);
+	});
+});
+
+describe("channelPruneWarnings", () => {
+	it("returns no warnings when nothing is channel-restricted", () => {
+		const flow = compileCanvas(makeStatementDoc(), []).flow;
+		expect(channelPruneWarnings(flow, "text")).toEqual([]);
+	});
+
+	it("warns when the text-pruned graph has no starting node (voice-only entry chain)", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Voice intake", [{ id: "x1", name: "go", description: "d" }], ["voice"]),
+				agentNode("a2", "Voice book", [], ["voice"]),
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "a2" },
+			],
+		};
+		const flow = compileCanvas(doc, []).flow;
+		const warnings = channelPruneWarnings(flow, "text");
+		expect(warnings.length).toBeGreaterThan(0);
+		expect(warnings[0]).toContain("no starting node");
+		// The pruned flow is indeed orphaned.
+		expect(pruneFlowForChannel(flow, "text").entry).toBe("");
+	});
+
+	it("does not warn when a voice-only entry splices to a surviving text node", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Voice intro", [{ id: "x1", name: "go", description: "d" }], ["voice"]),
+				agentNode("a2", "Both book", []),
+			],
+			edges: [
+				{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "a2" },
+			],
+		};
+		const flow = compileCanvas(doc, []).flow;
+		expect(channelPruneWarnings(flow, "text")).toEqual([]);
+		expect(pruneFlowForChannel(flow, "text").entry).toBe("a2");
+	});
+});
+
+describe("normalizeChannels", () => {
+	it("collapses both/empty/undefined to undefined and keeps single channels", () => {
+		expect(normalizeChannels(undefined)).toBeUndefined();
+		expect(normalizeChannels([])).toBeUndefined();
+		expect(normalizeChannels(["voice", "text"])).toBeUndefined();
+		expect(normalizeChannels(["voice"])).toEqual(["voice"]);
+		expect(normalizeChannels(["text"])).toEqual(["text"]);
 	});
 });

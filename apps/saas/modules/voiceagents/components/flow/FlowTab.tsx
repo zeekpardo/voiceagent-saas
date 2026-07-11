@@ -3,7 +3,7 @@
 import { readCustomVariableDefs } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { Skeleton } from "@repo/ui/components/skeleton";
-import { toastError, toastSuccess } from "@repo/ui/components/toast";
+import { toastError, toastSuccess, toastWarning } from "@repo/ui/components/toast";
 import { useConfirmationAlert } from "@shared/components/ConfirmationAlertProvider";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { useMemo, useState } from "react";
@@ -19,6 +19,7 @@ import {
 } from "../../lib/api";
 import {
 	canvasFromFlow,
+	channelPruneWarnings,
 	collapseManagedObjectives,
 	compileCanvas,
 	ensureGreeter,
@@ -156,9 +157,17 @@ export function FlowTab({
 		}
 		const baseToolIds = Array.isArray(config.toolIds) ? (config.toolIds as string[]) : [];
 		const { flow, toolIds, greeting } = compileCanvas(doc, baseToolIds);
+		// Non-blocking: warn when the text-pruned flow would be unsound (e.g. the
+		// entry node is voice-only, so text sessions have nowhere to start). Voice
+		// still ships — the author just needs a text-reachable entry.
+		const textWarnings = channelPruneWarnings(flow, "text");
 		try {
 			await saveDraftMutation.mutateAsync({ flow, canvas: doc, toolIds, greeting });
-			toastSuccess("Draft saved");
+			if (textWarnings.length > 0) {
+				toastWarning("Saved — text channel needs attention", textWarnings.join("\n"));
+			} else {
+				toastSuccess("Draft saved");
+			}
 		} catch (err) {
 			toastError(err instanceof Error ? err.message : "Could not save the draft");
 		}

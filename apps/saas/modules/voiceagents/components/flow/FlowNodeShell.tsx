@@ -2,8 +2,17 @@
 
 import { cn } from "@repo/ui";
 import { Handle, Position, useEdges, useReactFlow } from "@xyflow/react";
-import { type LucideIcon, PhoneOffIcon, Trash2Icon } from "lucide-react";
+import {
+	type LucideIcon,
+	MessageSquareTextIcon,
+	MicIcon,
+	PhoneOffIcon,
+	Trash2Icon,
+} from "lucide-react";
 import { Fragment, type ReactNode } from "react";
+
+import type { FlowChannel } from "./flow-types";
+import { normalizeChannels } from "./flow-types";
 
 export interface ShellSourceHandle {
 	id: string;
@@ -69,6 +78,7 @@ export function FlowNodeShell({
 	hasTargetHandle = true,
 	unwiredEndsCall = true,
 	deletable = true,
+	channels,
 }: {
 	id: string;
 	selected?: boolean;
@@ -97,8 +107,11 @@ export function FlowNodeShell({
 	unwiredEndsCall?: boolean;
 	/** Fixtures (Greeter) can't be removed — hide the hover delete affordance. */
 	deletable?: boolean;
+	/** Channels this node runs on; a single-channel mark renders a corner chip. */
+	channels?: FlowChannel[];
 }) {
 	const edges = useEdges();
+	const channelChip = normalizeChannels(channels);
 	const { deleteElements } = useReactFlow();
 	const connectedHandles = new Set(
 		edges.filter((edge) => edge.source === id).map((edge) => edge.sourceHandle),
@@ -168,6 +181,20 @@ export function FlowNodeShell({
 			</div>
 
 			{badge}
+
+			{channelChip && channelChip.length === 1 && (
+				<span
+					title={channelChip[0] === "voice" ? "Voice sessions only" : "Text sessions only"}
+					className="-top-2 -left-2 gap-0.5 px-1 shadow-sm font-medium absolute flex items-center rounded-full border bg-background py-px text-[10px] text-muted-foreground"
+				>
+					{channelChip[0] === "voice" ? (
+						<MicIcon className="size-2.5" aria-hidden />
+					) : (
+						<MessageSquareTextIcon className="size-2.5" aria-hidden />
+					)}
+					{channelChip[0] === "voice" ? "Voice" : "Text"}
+				</span>
+			)}
 
 			{hasTargetHandle && (
 				<Handle

@@ -2,8 +2,16 @@
 
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@repo/ui/components/select";
 
-import type { ExitTagRules, FlowNodeData } from "../flow-types";
+import type { ExitTagRules, FlowChannel, FlowNodeData } from "../flow-types";
+import { normalizeChannels } from "../flow-types";
 
 export interface FlowToolOption {
 	id: string;
@@ -83,6 +91,50 @@ export function ExitTagConditions({
 				</p>
 			</div>
 		</details>
+	);
+}
+
+const CHANNEL_BOTH = "both";
+
+/**
+ * "Channels" selector shared by the node editors that support it (agent,
+ * statement, handoff). "Both" is the default and stores `undefined` (the node
+ * runs everywhere); "Voice only" / "Text only" restrict it. Restricted nodes
+ * are pruned from the flow compiled for the other channel (`pruneFlowForChannel`)
+ * and show a chip on the canvas.
+ */
+export function ChannelSelector({
+	value,
+	onChange,
+}: {
+	value: FlowChannel[] | undefined;
+	onChange: (next: FlowChannel[] | undefined) => void;
+}) {
+	const normalized = normalizeChannels(value);
+	const current = normalized ? normalized[0] : CHANNEL_BOTH;
+	return (
+		<div className="gap-1.5 flex flex-col">
+			<Label>Channels</Label>
+			<Select
+				value={current}
+				onValueChange={(next) =>
+					onChange(next === CHANNEL_BOTH ? undefined : [next as FlowChannel])
+				}
+			>
+				<SelectTrigger>
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					<SelectItem value={CHANNEL_BOTH}>Voice & text</SelectItem>
+					<SelectItem value="voice">Voice only</SelectItem>
+					<SelectItem value="text">Text only</SelectItem>
+				</SelectContent>
+			</Select>
+			<p className="text-xs opacity-50">
+				Which sessions run this node. A restricted node is skipped for the other channel — its
+				incoming paths splice through to the next node.
+			</p>
+		</div>
 	);
 }
 

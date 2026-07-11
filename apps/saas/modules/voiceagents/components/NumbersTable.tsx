@@ -88,7 +88,9 @@ export function NumbersTable() {
 								<td className={bodyCellClass}>
 									{isForeignAgent ? (
 										<span className="text-muted-foreground">
-											Assigned outside this organization
+											{number.inbound_agent_name
+												? `${number.inbound_agent_name} (outside this organization)`
+												: "Assigned outside this organization"}
 										</span>
 									) : (
 										<Select

@@ -1,9 +1,11 @@
 import { CHANNEL_TO_GHL_SEND_TYPE } from "../channels";
+import { customValueVariableName } from "../field-mapping";
 import { normalizeName } from "../normalize";
 import type {
 	CrmCalendar,
 	CrmConversationMessage,
 	CrmCustomFieldDef,
+	CrmCustomValueDef,
 	CrmFieldWrite,
 	CrmPipeline,
 	CrmProvider,
@@ -11,6 +13,7 @@ import type {
 	SentMessage,
 } from "../provider";
 import { type CrmProviderContext, registerCrmProvider } from "../registry";
+import { formatCurrentDateTime } from "../spoken-time";
 import { GhlClient } from "./ghl-client";
 import { exchangeGhlCode, getGhlAuthUrl, ghlOauthConfigured, refreshGhlToken } from "./ghl-oauth";
 
@@ -85,6 +88,12 @@ export class GoHighLevelProvider implements CrmProvider {
 		await this.ensureFreshToken();
 		const f = await this.client.createCustomField(name);
 		return { id: f.id, name: f.name, key: f.fieldKey };
+	}
+
+	async listCustomValues(): Promise<CrmCustomValueDef[]> {
+		await this.ensureFreshToken();
+		const values = await this.client.getCustomValues();
+		return values.map((v) => ({ id: v.id, name: v.name, value: v.value }));
 	}
 
 	async updateContactFields(contactId: string, fields: CrmFieldWrite[]): Promise<void> {
@@ -368,13 +377,22 @@ export class GoHighLevelProvider implements CrmProvider {
 
 	async getAccountContext(): Promise<Record<string, string>> {
 		await this.ensureFreshToken();
-		const l = await this.client.getLocationDetails();
+		// Custom Values ride the same round-trip as the location details — a CRM
+		// hiccup fetching them must never drop the rest of the account context.
+		const [l, customValues] = await Promise.all([
+			this.client.getLocationDetails(),
+			this.client.getCustomValues().catch(() => []),
+		]);
 		const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+		const b = l.business;
 		const entries: Record<string, string | undefined> = {
+			location_id: str(l.id),
 			location_name: str(l.name),
+			location_email: str(l.email),
 			location_address: str(l.address),
 			location_city: str(l.city),
 			location_state: str(l.state),
+			location_country: str(l.country),
 			location_postal_code: str(l.postalCode),
 			location_full_address: [str(l.address), str(l.city), str(l.state), str(l.postalCode)]
 				.filter(Boolean)
@@ -382,7 +400,24 @@ export class GoHighLevelProvider implements CrmProvider {
 			location_phone: str(l.phone),
 			location_website: str(l.website),
 			location_timezone: str(l.timezone),
+			location_current_date_time: str(l.timezone) ? formatCurrentDateTime(l.timezone!) : undefined,
+			location_business_name: str(b?.name),
+			location_business_address: str(b?.address),
+			location_business_city: str(b?.city),
+			location_business_state: str(b?.state),
+			location_business_country: str(b?.country),
+			location_business_postal_code: str(b?.postalCode),
+			location_business_website: str(b?.website),
+			location_business_timezone: str(b?.timezone),
 		};
+		// Custom Values are location-wide settings, so they sit at the SAME
+		// priority as the rest of the account context here — the caller's merge
+		// (contact context, then explicit variables) still overrides them.
+		for (const cv of customValues) {
+			if (!cv.value?.trim()) continue;
+			const name = customValueVariableName(`customValue.${cv.name}`);
+			if (name) entries[name] = cv.value.trim();
+		}
 		return Object.fromEntries(
 			Object.entries(entries).filter(([, v]) => v != null && v !== "") as [string, string][],
 		);

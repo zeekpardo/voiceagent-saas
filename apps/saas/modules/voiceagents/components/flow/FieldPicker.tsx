@@ -8,7 +8,9 @@ import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import {
 	ChevronDownIcon,
 	DatabaseIcon,
+	FingerprintIcon,
 	type LucideIcon,
+	MapPinIcon,
 	PlusIcon,
 	SearchIcon,
 	UserIcon,
@@ -28,9 +30,10 @@ import { useFieldFocus } from "./field-focus-context";
 import { fieldRuntimeVariable } from "./mentions";
 
 /**
- * CloseBot-style field picker: search + collapsible Contact/Source groups of
- * insertable `{{variable}}` tokens, hosted inside the node editor's "Fields &
- * variables" rail panel (see NodeEditorPanel) rather than a floating popover.
+ * CloseBot-style field picker: search + collapsible Contact/Location/Custom
+ * Values/Source groups of insertable `{{variable}}` tokens, hosted inside the
+ * node editor's "Fields & variables" rail panel (see NodeEditorPanel) rather
+ * than a floating popover.
  *
  * Groups:
  *  - Contact — the unified field catalog (standard contact fields AND the
@@ -38,6 +41,13 @@ import { fieldRuntimeVariable } from "./mentions";
  *    maps to the runtime variable its value is dispatched under
  *    (fieldRuntimeVariable — custom fields included since the dispatch merge
  *    exposes them as {{contact_<slug>}}).
+ *  - Location — the connected sub-account's own details (name/address/business
+ *    profile/current time), also via useContactFieldsQuery (namespace
+ *    "location"); resolved by getAccountContext() at dispatch.
+ *  - Custom Values — this sub-account's GHL Custom Values (Settings → Custom
+ *    Values, location-level key/value settings distinct from contact custom
+ *    fields), via useContactFieldsQuery (namespace "customValue"); resolved
+ *    the same way, folded into getAccountContext() at dispatch.
  *  - Source — the agent's Job Flow Variables (customVariables), whose values
  *    come from the source page's per-source overrides.
  *
@@ -80,10 +90,15 @@ function useFieldPickerGroups(agentId: string) {
 	const { data: agent } = useAgentQuery(agentId);
 
 	const groups = useMemo<FieldPickerGroupDef[]>(() => {
-		const contact: FieldPickerEntry[] = [];
+		const byNamespace: Record<"contact" | "location" | "customValue", FieldPickerEntry[]> = {
+			contact: [],
+			location: [],
+			customValue: [],
+		};
 		const seen = new Set<string>();
 		for (const field of fieldsData?.fields ?? []) {
-			if ((field.namespace ?? "contact") !== "contact") {
+			const namespace = field.namespace ?? "contact";
+			if (namespace !== "contact" && namespace !== "location" && namespace !== "customValue") {
 				continue;
 			}
 			const name = fieldRuntimeVariable(field);
@@ -91,7 +106,7 @@ function useFieldPickerGroups(agentId: string) {
 				continue;
 			}
 			seen.add(name);
-			contact.push({ name, label: field.label, sub: `{{${name}}}` });
+			byNamespace[namespace].push({ name, label: field.label, sub: `{{${name}}}` });
 		}
 		const source: FieldPickerEntry[] = readCustomVariableDefs(agent?.config).map((v) => ({
 			name: v.name,
@@ -99,8 +114,18 @@ function useFieldPickerGroups(agentId: string) {
 			sub: v.description || `{{${v.name}}}`,
 		}));
 		const defs: FieldPickerGroupDef[] = [];
-		if (contact.length > 0) {
-			defs.push({ label: "Contact", icon: UserIcon, entries: contact });
+		if (byNamespace.contact.length > 0) {
+			defs.push({ label: "Contact", icon: UserIcon, entries: byNamespace.contact });
+		}
+		if (byNamespace.location.length > 0) {
+			defs.push({ label: "Location", icon: MapPinIcon, entries: byNamespace.location });
+		}
+		if (byNamespace.customValue.length > 0) {
+			defs.push({
+				label: "Custom Value",
+				icon: FingerprintIcon,
+				entries: byNamespace.customValue,
+			});
 		}
 		if (source.length > 0) {
 			defs.push({ label: "Source", icon: DatabaseIcon, entries: source });

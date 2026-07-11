@@ -182,56 +182,21 @@ export function ObjectiveNodeEditor({
 								)}
 							</div>
 
-							{/* Combine other objectives (aggregate — CloseBot's get_full_address). */}
-							{data.objectives.length > 1 && (
-								<details className="text-xs" open={!!objective.aggregateOf?.length}>
-									<summary className="cursor-pointer text-primary">
-										Combine other objectives
-										{objective.aggregateOf?.length ? ` (${objective.aggregateOf.length})` : ""}
-									</summary>
-									<div className="mt-2 gap-1.5 flex flex-col">
-										<p className="opacity-50">
-											Select other objectives in this node; this one completes automatically once
-											they're all met, and its answer is their answers joined in order.
-										</p>
-										{data.objectives
-											.filter((other) => other.id !== objective.id)
-											.map((other, otherIndex) => {
-												const selected = objective.aggregateOf?.includes(other.id) ?? false;
-												// Prevent aggregate-of-aggregate: a part that is itself an aggregate can't be picked.
-												const otherIsAggregate = !!other.aggregateOf?.length;
-												return (
-													<label
-														key={other.id}
-														className={`gap-2 flex items-center ${otherIsAggregate ? "opacity-40" : "cursor-pointer"}`}
-													>
-														<input
-															type="checkbox"
-															className="accent-primary"
-															disabled={otherIsAggregate}
-															checked={selected}
-															onChange={(e) => {
-																const current = objective.aggregateOf ?? [];
-																const next = e.target.checked
-																	? [...current, other.id]
-																	: current.filter((id) => id !== other.id);
-																patchObjective(objective.id, {
-																	aggregateOf: next.length ? next : undefined,
-																});
-															}}
-														/>
-														<span>
-															{other.title.trim() ||
-																other.description.trim().slice(0, 40) ||
-																`Objective ${data.objectives.indexOf(other) + 1}`}
-															{otherIsAggregate ? " (already a combination)" : ""}
-														</span>
-													</label>
-												);
-											})}
-									</div>
-								</details>
-							)}
+							{/*
+							 * Aggregate objectives (`aggregateOf`) are a PLATFORM feature, not a
+							 * user control: we compose them into default node templates (e.g. a
+							 * managed Full Address objective that combines street/city/state/zip).
+							 * The `aggregateOf` field still round-trips through the schema, compiler,
+							 * and engine — it's just not user-editable here. A read-only note shows
+							 * when an objective is a managed combination.
+							 */}
+							{objective.aggregateOf?.length ? (
+								<p className="text-xs opacity-50">
+									Managed combination — its answer is assembled from{" "}
+									{objective.aggregateOf.length} other objective
+									{objective.aggregateOf.length === 1 ? "" : "s"} in this node.
+								</p>
+							) : null}
 
 							<details className="text-xs">
 								<summary className="cursor-pointer text-primary">Advanced</summary>

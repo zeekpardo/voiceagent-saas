@@ -13,6 +13,18 @@ export function useSourcesQuery() {
 	return useQuery({ queryKey: sourcesQueryKey, queryFn: () => orpcClient.sources.list() });
 }
 
+/**
+ * Single-source lookup for the detail page. There's no dedicated get-by-id
+ * procedure, so this derives from the same org-scoped list the table uses.
+ */
+export function useSourceQuery(sourceId: string) {
+	const query = useSourcesQuery();
+	return {
+		...query,
+		data: query.data?.find((source) => source.id === sourceId),
+	};
+}
+
 export function useSourceProvidersQuery() {
 	return useQuery({
 		queryKey: sourceProvidersQueryKey,

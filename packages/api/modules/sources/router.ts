@@ -17,6 +17,7 @@ import {
 } from "./procedures/numbers";
 import { sourceOauthUrl } from "./procedures/oauth";
 import { sourceProviders } from "./procedures/providers";
+import { sourceUsage, usageSummary } from "./procedures/usage";
 
 export const sourcesRouter = {
 	list: listSourcesProcedure,
@@ -38,4 +39,6 @@ export const sourcesRouter = {
 		list: listNumbersForSource,
 		release: releaseNumberForSource,
 	},
+	usage: sourceUsage,
+	usageSummary,
 };

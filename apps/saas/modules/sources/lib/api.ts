@@ -250,6 +250,25 @@ export function useReleaseNumberMutation(sourceId: string) {
 	});
 }
 
+// ---------------------------------------------------------------- usage
+
+/** Last-N-days call usage for a single source (detail page card). */
+export function useSourceUsageQuery(sourceId: string, days = 30) {
+	return useQuery({
+		queryKey: ["sources", sourceId, "usage", days] as const,
+		queryFn: () => orpcClient.sources.usage({ sourceId, days }),
+	});
+}
+
+/** Org-wide per-source usage — admin only; the server enforces the role check too. */
+export function useSourceUsageSummaryQuery(days = 30, enabled = true) {
+	return useQuery({
+		queryKey: ["sources", "usageSummary", days] as const,
+		queryFn: () => orpcClient.sources.usageSummary({ days }),
+		enabled,
+	});
+}
+
 /**
  * Match the selected call to a CRM contact (by stored contact id, else by
  * the human's phone number). Resolves which Source via the call's

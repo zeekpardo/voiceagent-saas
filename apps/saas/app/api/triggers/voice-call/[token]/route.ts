@@ -61,6 +61,26 @@ function toE164(raw: string | undefined): string | null {
 	return normalizePhone(raw);
 }
 
+/**
+ * CRM webhook editors (GHL among them) re-encode pasted URLs, so a copied
+ * `?from=%2B1…` arrives double-encoded and one decode leaves the literal
+ * "%2B1…" — whose stray "2" then corrupts the E.164 digits (+2166… instead of
+ * +1661…). Peel any remaining percent-encoding before normalizing; clean
+ * values ("+1…", bare digits) pass through untouched. Bounded loop + try/catch
+ * so malformed input can never hang or throw.
+ */
+function peelPercentEncoding(value: string): string {
+	let out = value;
+	for (let i = 0; i < 3 && /%[0-9a-fA-F]{2}/.test(out); i++) {
+		try {
+			out = decodeURIComponent(out);
+		} catch {
+			break; // malformed sequence — use what we have
+		}
+	}
+	return out;
+}
+
 export async function POST(
 	req: Request,
 	{ params }: { params: Promise<{ token: string }> },
@@ -87,7 +107,7 @@ export async function POST(
 	const rawFrom = new URL(req.url).searchParams.get("from") ?? payload.from;
 	let from: string | undefined;
 	if (rawFrom) {
-		from = toE164(rawFrom) ?? undefined;
+		from = toE164(peelPercentEncoding(rawFrom)) ?? undefined;
 		if (!from) {
 			return Response.json(
 				{ error: "`from` must be a valid E.164 or 10-digit US phone number" },

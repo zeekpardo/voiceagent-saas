@@ -375,7 +375,10 @@ function SourceDetail({
 	const triggerUrlWithFrom = useMemo(() => {
 		if (!triggerUrl?.url) return "";
 		if (fromSelect === DEFAULT_FROM || !selectedFrom) return triggerUrl.url;
-		return `${triggerUrl.url}?from=${encodeURIComponent(selectedFrom)}`;
+		// Digits only — CRM webhook editors (GHL included) re-encode pasted URLs,
+		// turning an encoded "+" (%2B) into %252B and corrupting the number. Bare
+		// digits survive any re-encoding; the trigger route normalizes to E.164.
+		return `${triggerUrl.url}?from=${selectedFrom.replace(/\D/g, "")}`;
 	}, [triggerUrl?.url, fromSelect, selectedFrom]);
 
 	const extractFields = Object.keys(

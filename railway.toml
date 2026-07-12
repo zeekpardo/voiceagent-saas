@@ -1,0 +1,8 @@
+# Railway config for the voiceagent-saas app (apps/saas).
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

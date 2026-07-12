@@ -6,6 +6,9 @@ import nextIntlPlugin from "next-intl/plugin";
 const withNextIntl = nextIntlPlugin("./modules/i18n/request.ts");
 
 const nextConfig: NextConfig = {
+	// Emit a self-contained server bundle for the Docker runtime image
+	// (apps/saas/.next/standalone/...). Required by the Railway deployment.
+	output: "standalone",
 	transpilePackages: ["@repo/api", "@repo/auth", "@repo/database", "@repo/ui"],
 	images: {
 		remotePatterns: [

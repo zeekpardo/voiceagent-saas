@@ -106,6 +106,7 @@ export function compileObjectiveNode(
 			options: o.options?.length ? o.options : undefined,
 			maxAttempts: o.maxAttempts,
 			sensitivity: o.sensitivity,
+			skipIfKnown: o.skipIfKnown,
 			aggregateOf,
 		};
 	});
@@ -166,6 +167,7 @@ export function decompileObjectiveNode(
 			options: o.options,
 			maxAttempts: o.maxAttempts,
 			sensitivity: o.sensitivity,
+			skipIfKnown: o.skipIfKnown,
 			aggregateOf: o.aggregateOf?.length
 				? o.aggregateOf.map((k) => idByKey.get(k)).filter((id): id is string => !!id)
 				: undefined,
@@ -191,7 +193,11 @@ export function newObjectiveNodeData(): ObjectiveNodeData {
 	return {
 		title: "Objective",
 		entryMessage: "",
-		objectives: [{ id: makeId("obj"), title: "", description: "", field: "" }],
+		// skipIfKnown defaults OFF for new objectives — the engine's own default
+		// (true, when omitted) lets contactState silently satisfy an objective
+		// with no CRM write, which is the wrong default coming out of a HANDOFF
+		// (a specialist should re-ask/re-verify unless an author opts in).
+		objectives: [{ id: makeId("obj"), title: "", description: "", field: "", skipIfKnown: false }],
 	};
 }
 

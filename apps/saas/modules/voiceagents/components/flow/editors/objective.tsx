@@ -2,6 +2,8 @@
 
 import { Input } from "@repo/ui/components/input";
 import { Label } from "@repo/ui/components/label";
+import { Switch } from "@repo/ui/components/switch";
+import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
@@ -204,6 +206,28 @@ export function ObjectiveNodeEditor({
 											Give up and move on after this many caller turns. Leave blank to always wait.
 										</p>
 									</div>
+									<div className="gap-3 p-2.5 flex items-center rounded-lg border">
+										<Switch
+											id={`objective-skip-if-known-${objective.id}`}
+											checked={objective.skipIfKnown ?? false}
+											onCheckedChange={(on) => patchObjective(objective.id, { skipIfKnown: on })}
+										/>
+										<label
+											htmlFor={`objective-skip-if-known-${objective.id}`}
+											className="min-w-0 cursor-pointer"
+										>
+											<span className="text-sm gap-1 flex items-center">
+												Skip if the CRM already has this value
+												<InfoHint>
+													When on, the agent may silently treat this objective as met from data
+													already known about the contact — no question asked, no CRM write. Off
+													(default) means it's always asked and (re)saved, which matters after a
+													handoff from another agent: the caller may not have actually confirmed
+													this value with THIS agent yet.
+												</InfoHint>
+											</span>
+										</label>
+									</div>
 								</div>
 							</details>
 						</div>
@@ -215,7 +239,7 @@ export function ObjectiveNodeEditor({
 						patch({
 							objectives: [
 								...data.objectives,
-								{ id: makeId("obj"), title: "", description: "", field: "" },
+								{ id: makeId("obj"), title: "", description: "", field: "", skipIfKnown: false },
 							],
 						})
 					}

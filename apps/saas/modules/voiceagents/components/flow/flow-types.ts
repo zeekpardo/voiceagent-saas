@@ -207,6 +207,14 @@ export interface ObjectiveDoc {
 	/** Judge strictness 0-100 (CloseBot "Sensitivity", default 90). */
 	sensitivity?: number;
 	/**
+	 * When true, the engine may silently mark this objective met from
+	 * contactState (e.g. carried over from a prior agent on a HANDOFF) without
+	 * asking the caller or writing to the CRM. Engine default is true; the
+	 * builder defaults NEW objectives to false so a handoff specialist re-asks
+	 * unless an author explicitly opts in.
+	 */
+	skipIfKnown?: boolean;
+	/**
 	 * Aggregate objective (CloseBot's get_full_address). Ids of OTHER objectives
 	 * in THIS node whose answers this objective composes. When set, the objective
 	 * has no own judge question: it completes once every part is met and its answer
@@ -652,6 +660,12 @@ export interface EngineFlowObjective {
 	required?: boolean;
 	maxAttempts?: number;
 	sensitivity?: number;
+	/**
+	 * When true, the engine may auto-complete this objective from contactState
+	 * with no CRM write and no question asked (e.g. carried over on a
+	 * HANDOFF). Engine defaults this true when omitted.
+	 */
+	skipIfKnown?: boolean;
 	/** Aggregate objective (Phase 5b): engine keys of the parts it composes. */
 	aggregateOf?: string[];
 }
@@ -718,6 +732,7 @@ export const objectiveNodeDataSchema = z.object({
 			options: z.array(z.string()).optional(),
 			maxAttempts: z.number().optional(),
 			sensitivity: z.number().optional(),
+			skipIfKnown: z.boolean().optional(),
 			aggregateOf: z.array(z.string()).optional(),
 			managed: z.boolean().optional(),
 			fullAddress: z.boolean().optional(),
@@ -912,6 +927,7 @@ export const engineFlowSchema = z.object({
 						required: z.boolean().optional(),
 						maxAttempts: z.number().optional(),
 						sensitivity: z.number().optional(),
+						skipIfKnown: z.boolean().optional(),
 						aggregateOf: z.array(z.string()).optional(),
 					}),
 				)

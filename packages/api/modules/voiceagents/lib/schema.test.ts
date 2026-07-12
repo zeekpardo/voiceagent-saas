@@ -38,6 +38,25 @@ describe("agentConfigInput channels", () => {
 	});
 });
 
+describe("agentConfigInput continueConversation", () => {
+	it("defaults to absent (engine treats as false)", () => {
+		const parsed = agentConfigInput.parse({ name: "Agent" });
+		expect(parsed.continueConversation).toBeUndefined();
+	});
+
+	it("round-trips an explicit true through toGatewayConfig", () => {
+		const input = agentConfigInput.parse({ name: "Agent", continueConversation: true });
+		const gateway = toGatewayConfig(input);
+		expect(gateway.continueConversation).toBe(true);
+	});
+
+	it("round-trips an explicit false through toGatewayConfig", () => {
+		const input = agentConfigInput.parse({ name: "Agent", continueConversation: false });
+		const gateway = toGatewayConfig(input);
+		expect(gateway.continueConversation).toBe(false);
+	});
+});
+
 describe("channel-mode helpers", () => {
 	it("readChannelMode normalizes an agent config (defaults to both)", () => {
 		expect(readChannelMode({ channels: { mode: "voice" } })).toBe("voice");

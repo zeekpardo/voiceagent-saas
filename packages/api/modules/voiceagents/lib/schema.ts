@@ -59,6 +59,15 @@ export const agentConfigInput = z.object({
 	/** When true, `greeting` is a direction the engine generates the opener from
 	 * (via AI) rather than a verbatim line. Default false/absent = verbatim. */
 	greetingGenerate: z.boolean().optional(),
+	/**
+	 * When true, once a text conversation's objectives are all complete the
+	 * engine keeps a light rapport/upsell conversation going instead of ending
+	 * the session (engine PR #32). Default false/absent = engine ends the
+	 * conversation as soon as objectives are met — unchanged existing behavior.
+	 * Rides RAW on the config doc (like greetingGenerate) so the builder
+	 * round-trips it; the engine reads it live, no SaaS-side compilation needed.
+	 */
+	continueConversation: z.boolean().optional(),
 	language: z.string().default("en"),
 	/**
 	 * Channel preferences for this agent (engine slot already merged):

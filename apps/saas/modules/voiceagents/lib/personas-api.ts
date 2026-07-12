@@ -24,6 +24,12 @@ export interface Persona {
 	/** Free-entry tone words, max 3 (e.g. "warm", "curious"). */
 	styles: string[];
 	howToRespond: string;
+	/** Reusable safety/behavior rules — compiles into `## GUARDRAILS` for every agent using this persona. */
+	guardrails: string | null;
+	/** TTS voice id — voice channels only, ignored for text/SMS. */
+	ttsVoice: string | null;
+	/** Voice respond model id — voice channels only, ignored for text/SMS. */
+	llmModel: string | null;
 	createdAt: Date | string;
 	updatedAt: Date | string;
 }
@@ -35,6 +41,9 @@ export interface PersonaInput {
 	themeColor?: string | null;
 	styles: string[];
 	howToRespond: string;
+	guardrails?: string | null;
+	ttsVoice?: string | null;
+	llmModel?: string | null;
 }
 
 function personasClient() {

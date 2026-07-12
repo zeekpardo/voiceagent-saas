@@ -20,11 +20,20 @@ import {
 	FormMessage,
 } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from "@repo/ui/components/select";
 import { Textarea } from "@repo/ui/components/textarea";
 import { toastError, toastSuccess } from "@repo/ui/components/toast";
 import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import { CheckIcon, XIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -33,11 +42,15 @@ import {
 	useCreatePersonaMutation,
 	useUpdatePersonaMutation,
 } from "../../lib/personas-api";
+import { ALL_VOICES, CUSTOM_VOICE, MODEL_GROUPS, VOICE_GROUPS } from "../../lib/voice-catalog";
 import {
 	DEFAULT_PERSONA_THEME_COLOR,
+	GUARDRAILS_MAX,
+	GUARDRAILS_PLACEHOLDER,
 	HOW_TO_RESPOND_MAX,
 	HOW_TO_RESPOND_PLACEHOLDER,
 	MAX_PERSONA_STYLES,
+	NO_PREFERENCE_VALUE,
 	PERSONA_STYLE_SUGGESTIONS,
 	PERSONA_THEME_COLORS,
 } from "./persona-constants";
@@ -50,6 +63,9 @@ const personaFormSchema = z.object({
 	themeColor: z.string(),
 	styles: z.array(z.string()).max(MAX_PERSONA_STYLES),
 	howToRespond: z.string().max(HOW_TO_RESPOND_MAX),
+	guardrails: z.string().max(GUARDRAILS_MAX).optional(),
+	ttsVoice: z.string().optional(),
+	llmModel: z.string().optional(),
 });
 
 type PersonaFormValues = z.infer<typeof personaFormSchema>;
@@ -62,6 +78,9 @@ function toDefaults(persona?: Persona): PersonaFormValues {
 		themeColor: persona?.themeColor ?? DEFAULT_PERSONA_THEME_COLOR,
 		styles: persona?.styles ?? [],
 		howToRespond: persona?.howToRespond ?? "",
+		guardrails: persona?.guardrails ?? "",
+		ttsVoice: persona?.ttsVoice ?? "",
+		llmModel: persona?.llmModel ?? "",
 	};
 }
 
@@ -90,10 +109,15 @@ export function PersonaEditorDialog({
 		defaultValues: toDefaults(persona),
 	});
 
+	// Whether the "Voice" select is in free-entry mode (a voice id outside the
+	// known catalog, or the user explicitly picked "Custom voice ID…").
+	const [customVoice, setCustomVoice] = useState(false);
+
 	// Re-seed when the target persona changes or the dialog re-opens.
 	useEffect(() => {
 		if (open) {
 			form.reset(toDefaults(persona));
+			setCustomVoice(false);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open, persona?.id]);
@@ -103,6 +127,7 @@ export function PersonaEditorDialog({
 	const avatarUrl = form.watch("avatarUrl");
 	const name = form.watch("name");
 	const howToRespond = form.watch("howToRespond") ?? "";
+	const guardrails = form.watch("guardrails") ?? "";
 
 	const addStyle = (raw: string) => {
 		const value = raw.trim().toLowerCase();
@@ -128,6 +153,9 @@ export function PersonaEditorDialog({
 			themeColor: values.themeColor,
 			styles: values.styles,
 			howToRespond: values.howToRespond,
+			guardrails: values.guardrails?.trim() || undefined,
+			ttsVoice: values.ttsVoice?.trim() || undefined,
+			llmModel: values.llmModel?.trim() || undefined,
 		};
 		try {
 			const saved = isEditing
@@ -304,8 +332,8 @@ export function PersonaEditorDialog({
 										<FormLabel className="gap-1.5 flex items-center">
 											How to respond
 											<InfoHint>
-												Guidance the agent applies whenever it speaks — phrasing, pacing, and do's
-												and don'ts.
+												The single source of tone for this persona — governs phrasing, variety,
+												and pacing for every reply it gives, on voice and text alike.
 											</InfoHint>
 										</FormLabel>
 										<span
@@ -329,6 +357,170 @@ export function PersonaEditorDialog({
 								</FormItem>
 							)}
 						/>
+
+						<FormField
+							control={form.control}
+							name="guardrails"
+							render={({ field }) => (
+								<FormItem>
+									<div className="flex items-center justify-between">
+										<FormLabel className="gap-1.5 flex items-center">
+											Guardrails
+											<InfoHint>
+												Rules every agent using this persona must follow (compiles into ##
+												GUARDRAILS).
+											</InfoHint>
+										</FormLabel>
+										<span
+											className={cn(
+												"text-xs text-muted-foreground tabular-nums",
+												guardrails.length > GUARDRAILS_MAX && "text-destructive",
+											)}
+										>
+											{guardrails.length}/{GUARDRAILS_MAX}
+										</span>
+									</div>
+									<FormControl>
+										<Textarea
+											rows={4}
+											maxLength={GUARDRAILS_MAX}
+											placeholder={GUARDRAILS_PLACEHOLDER}
+											{...field}
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						{/* Voice-only settings — never applied to text/SMS conversations. */}
+						<div className="gap-3 p-4 rounded-lg border border-dashed bg-muted/30 flex flex-col">
+							<div className="gap-1 flex flex-col">
+								<p className="gap-1.5 text-sm font-medium flex items-center">
+									Voice channel settings
+									<InfoHint>
+										These map to the TTS voice and the voice-call respond model. They only take
+										effect when this persona is used on a voice call — text and SMS
+										conversations never read them.
+									</InfoHint>
+								</p>
+								<p className="text-xs text-muted-foreground">
+									Used on voice calls only — ignored for text/SMS.
+								</p>
+							</div>
+
+							<div className="gap-4 sm:grid-cols-2 grid">
+								<FormField
+									control={form.control}
+									name="ttsVoice"
+									render={({ field }) => {
+										const isKnown = ALL_VOICES.some((v) => v.id === field.value);
+										const selectValue = customVoice
+											? CUSTOM_VOICE
+											: field.value
+												? isKnown
+													? field.value
+													: CUSTOM_VOICE
+												: NO_PREFERENCE_VALUE;
+										return (
+											<FormItem>
+												<FormLabel>Voice</FormLabel>
+												<Select
+													onValueChange={(v) => {
+														if (v === NO_PREFERENCE_VALUE) {
+															setCustomVoice(false);
+															field.onChange("");
+															return;
+														}
+														if (v === CUSTOM_VOICE) {
+															setCustomVoice(true);
+															return;
+														}
+														setCustomVoice(false);
+														field.onChange(v);
+													}}
+													value={selectValue}
+												>
+													<FormControl>
+														<SelectTrigger>
+															<SelectValue />
+														</SelectTrigger>
+													</FormControl>
+													<SelectContent>
+														<SelectGroup>
+															<SelectItem value={NO_PREFERENCE_VALUE}>
+																No preference (agent default)
+															</SelectItem>
+														</SelectGroup>
+														{VOICE_GROUPS.map((group) => (
+															<SelectGroup key={group.provider}>
+																<SelectLabel>{group.label}</SelectLabel>
+																{group.voices.map((v) => (
+																	<SelectItem key={v.id} value={v.id}>
+																		{v.label}
+																	</SelectItem>
+																))}
+															</SelectGroup>
+														))}
+														<SelectGroup>
+															<SelectLabel>Bring your own</SelectLabel>
+															<SelectItem value={CUSTOM_VOICE}>Custom voice ID…</SelectItem>
+														</SelectGroup>
+													</SelectContent>
+												</Select>
+												{selectValue === CUSTOM_VOICE && (
+													<Input
+														placeholder="voice id from the provider"
+														className="font-mono text-xs"
+														value={field.value ?? ""}
+														onChange={(e) => field.onChange(e.target.value)}
+													/>
+												)}
+											</FormItem>
+										);
+									}}
+								/>
+
+								<FormField
+									control={form.control}
+									name="llmModel"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Model (voice respond)</FormLabel>
+											<Select
+												onValueChange={(v) =>
+													field.onChange(v === NO_PREFERENCE_VALUE ? "" : v)
+												}
+												value={field.value || NO_PREFERENCE_VALUE}
+											>
+												<FormControl>
+													<SelectTrigger>
+														<SelectValue />
+													</SelectTrigger>
+												</FormControl>
+												<SelectContent>
+													<SelectGroup>
+														<SelectItem value={NO_PREFERENCE_VALUE}>
+															No preference (openai/gpt-4o default)
+														</SelectItem>
+													</SelectGroup>
+													{MODEL_GROUPS.map((group) => (
+														<SelectGroup key={group.label}>
+															<SelectLabel>{group.label}</SelectLabel>
+															{group.models.map((m) => (
+																<SelectItem key={m.id} value={m.id}>
+																	{m.label}
+																</SelectItem>
+															))}
+														</SelectGroup>
+													))}
+												</SelectContent>
+											</Select>
+										</FormItem>
+									)}
+								/>
+							</div>
+						</div>
 
 						<DialogFooter>
 							<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

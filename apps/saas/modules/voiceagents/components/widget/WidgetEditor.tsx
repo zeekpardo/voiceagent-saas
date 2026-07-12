@@ -32,9 +32,9 @@ import {
 	AudioLinesIcon,
 	CheckIcon,
 	CopyIcon,
-	CreditCardIcon,
 	HeadphonesIcon,
 	HelpCircleIcon,
+	LayoutTemplateIcon,
 	type LucideIcon,
 	MessageCircleIcon,
 	MessageSquareIcon,
@@ -49,16 +49,46 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { composeWidgetIdSnippet, normalizeWidgetOrigin } from "../../lib/widget-snippet";
+import {
+	composeInlineHostMarkup,
+	composeWidgetIdSnippet,
+	normalizeWidgetOrigin,
+} from "../../lib/widget-snippet";
 import { InfoHint } from "../shared/InfoHint";
 import { WidgetLiveTest } from "./WidgetLiveTest";
 import { WidgetPreview } from "./WidgetPreview";
 
-const STYLE_OPTIONS: { value: WidgetStyle; label: string; icon: LucideIcon }[] = [
-	{ value: "bubble", label: "Bubble", icon: MessageCircleIcon },
-	{ value: "card", label: "Card", icon: CreditCardIcon },
-	{ value: "panel", label: "Panel", icon: PanelRightIcon },
-	{ value: "bar", label: "Bar", icon: RectangleHorizontalIcon },
+const STYLE_OPTIONS: {
+	value: WidgetStyle;
+	label: string;
+	icon: LucideIcon;
+	description: string;
+}[] = [
+	{
+		value: "bubble",
+		label: "Bubble",
+		icon: MessageCircleIcon,
+		description: "A floating button in the corner that opens a chat panel.",
+	},
+	{
+		value: "card",
+		label: "Inline",
+		icon: LayoutTemplateIcon,
+		description:
+			"Embeds right inside your page, where you drop a container — not a floating button. Great for landing pages and contact sections.",
+	},
+	{
+		value: "panel",
+		label: "Panel",
+		icon: PanelRightIcon,
+		description: "A slide-in drawer anchored to the side of the screen.",
+	},
+	{
+		value: "bar",
+		label: "Bar",
+		icon: RectangleHorizontalIcon,
+		description: "A docked bar across the bottom of the screen.",
+	},
 ];
 
 const ICON_OPTIONS: { value: WidgetIcon; icon: LucideIcon }[] = [
@@ -166,7 +196,7 @@ export function WidgetEditor({
 					<Tabs defaultValue="appearance">
 						<TabsList className="mb-4">
 							<TabsTrigger value="appearance">Appearance</TabsTrigger>
-							<TabsTrigger value="target">Target</TabsTrigger>
+							<TabsTrigger value="target">Pages</TabsTrigger>
 							<TabsTrigger value="behavior">Behavior</TabsTrigger>
 						</TabsList>
 
@@ -206,7 +236,19 @@ export function WidgetEditor({
 										</Tile>
 									))}
 								</div>
+								<p className="text-xs text-muted-foreground">
+									{STYLE_OPTIONS.find((s) => s.value === appearance.style)?.description}
+								</p>
 							</Field>
+
+							{appearance.style === "card" && (
+								<InlinePlacementFields
+									target={appearance.target}
+									cardSize={appearance.cardSize}
+									onTargetChange={(target) => patch({ target })}
+									onSizeChange={(cardSize) => patch({ cardSize })}
+								/>
+							)}
 
 							{appearance.style !== "card" && appearance.style !== "bar" && (
 								<Field label="Position">
@@ -367,7 +409,7 @@ export function WidgetEditor({
 						) : (
 							<WidgetPreview appearance={appearance} />
 						)}
-						<InstallSnippet widgetId={widget.id} />
+						<InstallSnippet widgetId={widget.id} appearance={appearance} />
 					</div>
 				</div>
 			</div>
@@ -693,43 +735,140 @@ function OriginsEditor({
 
 // ---------------------------------------------------------------- install snippet
 
-function InstallSnippet({ widgetId }: { widgetId: string }) {
-	const [copied, setCopied] = useState(false);
-	const snippet =
+function InstallSnippet({
+	widgetId,
+	appearance,
+}: {
+	widgetId: string;
+	appearance: WidgetAppearance;
+}) {
+	const [copied, setCopied] = useState<"script" | "host" | null>(null);
+	const isInline = appearance.style === "card";
+	const scriptSnippet =
 		typeof window !== "undefined"
 			? composeWidgetIdSnippet({ baseUrl: window.location.origin, widgetId })
 			: "";
-	const copy = async () => {
-		await navigator.clipboard.writeText(snippet);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
+	const hostSnippet = composeInlineHostMarkup(appearance.target);
+
+	const copy = async (which: "script" | "host", text: string) => {
+		await navigator.clipboard.writeText(text);
+		setCopied(which);
+		setTimeout(() => setCopied(null), 2000);
 	};
+
 	return (
 		<div className="mt-4 gap-2 flex flex-col">
 			<h4 className="font-medium text-sm">Install</h4>
-			<div className="relative">
-				<pre className="p-3 pr-10 text-xs overflow-x-auto rounded-lg border bg-muted/50 break-all whitespace-pre-wrap">
-					{snippet}
-				</pre>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon"
-					className="top-1.5 right-1.5 size-7 absolute"
-					aria-label="Copy embed code"
-					onClick={() => void copy()}
-				>
-					{copied ? (
-						<CheckIcon className="size-4 text-emerald-500" />
-					) : (
-						<CopyIcon className="size-4" />
-					)}
-				</Button>
-			</div>
+			{isInline && (
+				<>
+					<p className="text-xs text-muted-foreground">
+						<strong>1.</strong> Drop this where you want the assistant to appear:
+					</p>
+					<CodeBlock
+						code={hostSnippet}
+						copied={copied === "host"}
+						onCopy={() => void copy("host", hostSnippet)}
+						label="Copy container markup"
+					/>
+					<p className="text-xs text-muted-foreground">
+						<strong>2.</strong> Add this once before <code>&lt;/body&gt;</code>:
+					</p>
+				</>
+			)}
+			<CodeBlock
+				code={scriptSnippet}
+				copied={copied === "script"}
+				onCopy={() => void copy("script", scriptSnippet)}
+				label="Copy embed code"
+			/>
 			<p className="text-xs text-muted-foreground">
-				Paste this once before <code>&lt;/body&gt;</code>. Edits here apply automatically — no need
-				to reinstall.
+				{isInline ? (
+					"Edits in the Studio apply automatically — no reinstall needed. The container can go anywhere in your layout."
+				) : (
+					<>
+						Paste this once before <code>&lt;/body&gt;</code>. Edits here apply automatically — no
+						need to reinstall.
+					</>
+				)}
 			</p>
+		</div>
+	);
+}
+
+function CodeBlock({
+	code,
+	copied,
+	onCopy,
+	label,
+}: {
+	code: string;
+	copied: boolean;
+	onCopy: () => void;
+	label: string;
+}) {
+	return (
+		<div className="relative">
+			<pre className="p-3 pr-10 text-xs overflow-x-auto rounded-lg border bg-muted/50 break-all whitespace-pre-wrap">
+				{code}
+			</pre>
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon"
+				className="top-1.5 right-1.5 size-7 absolute"
+				aria-label={label}
+				onClick={onCopy}
+			>
+				{copied ? (
+					<CheckIcon className="size-4 text-emerald-500" />
+				) : (
+					<CopyIcon className="size-4" />
+				)}
+			</Button>
+		</div>
+	);
+}
+
+/** Inline ("card") placement controls: which container to mount into + how the
+ * card sizes within it. Shown only when the Inline style is selected. */
+function InlinePlacementFields({
+	target,
+	cardSize,
+	onTargetChange,
+	onSizeChange,
+}: {
+	target: string;
+	cardSize: WidgetAppearance["cardSize"];
+	onTargetChange: (value: string) => void;
+	onSizeChange: (value: WidgetAppearance["cardSize"]) => void;
+}) {
+	return (
+		<div className="gap-3 p-3 flex flex-col rounded-lg border bg-muted/30">
+			<p className="text-xs text-muted-foreground">
+				The assistant renders inside a container you add to your page — the <strong>Install</strong>{" "}
+				steps below give you the exact markup. If that container is missing, visitors safely fall
+				back to a floating bubble.
+			</p>
+			<Field label="Container selector">
+				<Input
+					className="h-8 font-mono text-xs"
+					value={target}
+					placeholder="#voice-widget"
+					onChange={(e) => onTargetChange(e.target.value)}
+					maxLength={200}
+				/>
+			</Field>
+			<Field label="Size">
+				<Segmented
+					value={cardSize}
+					options={[
+						{ value: "compact", label: "Compact" },
+						{ value: "standard", label: "Standard" },
+						{ value: "full", label: "Full width" },
+					]}
+					onChange={onSizeChange}
+				/>
+			</Field>
 		</div>
 	);
 }

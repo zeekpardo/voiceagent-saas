@@ -23,7 +23,7 @@ export const transferKind = defineKind<TransferNodeData>({
 	sheetMeta: {
 		title: "Forward to a Person",
 		description:
-			"Connect the caller to a real person's phone. It dials the target and merges the caller in once someone picks up; wire the \"Not connected\" branch to keep the call going if no one answers.",
+			'Connect the caller to a real person\'s phone. It dials the target and merges the caller in once someone picks up; wire the "Not connected" branch to keep the call going if no one answers.',
 	},
 	newData: () => newTransferNodeData(),
 	sourceHandles: (data) => {

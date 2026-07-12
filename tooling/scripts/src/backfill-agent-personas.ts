@@ -142,7 +142,12 @@ async function main() {
 		// Equivalence: current compile (no persona) vs Phase-3 compile (persona,
 		// per-agent responseStyle/guardrails retired). Isolates the migration's
 		// only effect on the same compiler.
-		const beforeCompiled = composeInstructions(goal, null, guardrails || null, responseStyle || null);
+		const beforeCompiled = composeInstructions(
+			goal,
+			null,
+			guardrails || null,
+			responseStyle || null,
+		);
 		const afterCompiled = composeInstructions(goal, personaInput, null, null);
 		const { added, removed } = diffLines(beforeCompiled, afterCompiled);
 
@@ -205,9 +210,7 @@ async function main() {
 				...config,
 				personaId: persona.id,
 			});
-			logger.success(
-				`  ${existing ? "reused" : "created"} persona ${persona.id} and attached it.`,
-			);
+			logger.success(`  ${existing ? "reused" : "created"} persona ${persona.id} and attached it.`);
 		} else {
 			logger.log(`  [dry-run] would create persona + PATCH personaId (no recompile).`);
 		}

@@ -31,8 +31,7 @@ export function TransferNode({ id, data, selected }: NodeProps<TransferRFNode>) 
 	const BadgeIcon = modeBadge?.icon;
 	// Warm transfers can fail (no answer / declined) — expose a second "Not
 	// connected" source handle so the call can continue along its own branch.
-	const sourceHandles =
-		mode === "warm" ? [NEXT_HANDLE, NOT_CONNECTED_HANDLE] : [NEXT_HANDLE];
+	const sourceHandles = mode === "warm" ? [NEXT_HANDLE, NOT_CONNECTED_HANDLE] : [NEXT_HANDLE];
 	return (
 		<FlowNodeShell
 			id={id}

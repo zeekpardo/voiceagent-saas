@@ -1891,9 +1891,7 @@ describe("transfer nodes", () => {
 
 	it("never emits a 'Not Connected' exit for simulated or cold transfers", () => {
 		for (const mode of ["simulated", "cold"] as const) {
-			const doc = makeTransferDoc(
-				mode === "cold" ? { mode, target: "+15551234567" } : { mode },
-			);
+			const doc = makeTransferDoc(mode === "cold" ? { mode, target: "+15551234567" } : { mode });
 			// Even if a stray failure edge exists, non-warm modes ignore it.
 			doc.edges.push({
 				id: "e4",
@@ -2280,9 +2278,7 @@ describe("flowSoundnessWarnings — warm transfer reachability", () => {
 				statementNode("s1", "Hold on"),
 				warmTransferNode("t1", "Escalate"),
 			],
-			edges: [
-				{ id: "e1", source: "s1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "t1" },
-			],
+			edges: [{ id: "e1", source: "s1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "t1" }],
 		};
 		const warnings = flowSoundnessWarnings(doc);
 		expect(warnings.length).toBe(1);
@@ -2357,9 +2353,7 @@ describe("flowSoundnessWarnings — warm transfer reachability", () => {
 					} satisfies TransferNodeData,
 				},
 			],
-			edges: [
-				{ id: "e1", source: "s1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "t1" },
-			],
+			edges: [{ id: "e1", source: "s1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "t1" }],
 		};
 		expect(flowSoundnessWarnings(doc)).toEqual([]);
 	});

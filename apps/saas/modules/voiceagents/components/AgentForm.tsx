@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 
 import { toFormValues } from "../lib/agent-form-mapping";
 import { useCreateAgentMutation, useUpdateAgentMutation } from "../lib/api";
+import { AudioSection } from "./agent-form/AudioSection";
 import { ConversationDynamicsSection } from "./agent-form/ConversationDynamicsSection";
 import { IdentityPersonaSection } from "./agent-form/IdentityPersonaSection";
 import { JobInformationSection } from "./agent-form/JobInformationSection";
@@ -104,6 +105,7 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 				<IdentityPersonaSection form={form} variant={variant} agentId={agent?.id} />
 				<VoiceModelSection form={form} />
 				<ConversationDynamicsSection form={form} />
+				<AudioSection form={form} />
 
 				<div className="gap-3 flex justify-end">
 					<Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>

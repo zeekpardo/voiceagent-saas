@@ -107,6 +107,31 @@ export const agentConfigInput = z.object({
 			model: z.string().optional(),
 		})
 		.default({}),
+	audio: z
+		.object({
+			noiseCancellation: z.boolean().default(true),
+			thinkingSound: z.boolean().default(true),
+			thinkingSoundClip: z
+				.enum(["keyboard_typing", "keyboard_typing2", "office_ambience", "hold_music"])
+				.default("keyboard_typing2"),
+			thinkingSoundVolume: z.number().min(0).max(1).default(0.4),
+			ambientSound: z
+				.object({
+					enabled: z.boolean().default(false),
+					clip: z
+						.enum(["office_ambience", "keyboard_typing", "keyboard_typing2", "hold_music"])
+						.default("office_ambience"),
+					volume: z.number().min(0).max(1).default(0.3),
+				})
+				.default({ enabled: false, clip: "office_ambience", volume: 0.3 }),
+		})
+		.default({
+			noiseCancellation: true,
+			thinkingSound: true,
+			thinkingSoundClip: "keyboard_typing2",
+			thinkingSoundVolume: 0.4,
+			ambientSound: { enabled: false, clip: "office_ambience", volume: 0.3 },
+		}),
 	turnDetection: z
 		.object({
 			mode: z.enum(["vad", "semantic"]).default("semantic"),

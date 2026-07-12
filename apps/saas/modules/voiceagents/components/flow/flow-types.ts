@@ -26,8 +26,15 @@ export const OTHERWISE_HANDLE_ID = "__otherwise__";
 export const STATEMENT_NEXT_HANDLE_ID = "next";
 /** The single "Next" source handle on an objective node (engine auto-advances once met). */
 export const OBJECTIVE_NEXT_HANDLE_ID = "next";
-/** The single "Connects to" source handle on a transfer node. */
+/** The primary "Connects to" source handle on a transfer node. */
 export const TRANSFER_NEXT_HANDLE_ID = "next";
+/**
+ * The warm-only "Not connected" failure source handle on a transfer node — the
+ * branch taken when the person doesn't answer or declines. Compiles to an exit
+ * named exactly `TRANSFER_FAILED_EXIT_NAME` (a cross-repo join key the engine
+ * matches). Only present for `mode === "warm"`.
+ */
+export const TRANSFER_FAILED_HANDLE_ID = "not-connected";
 /** The single "Next" source handle on the deterministic action nodes. */
 export const SET_FIELD_NEXT_HANDLE_ID = "next";
 export const MODIFY_TAGS_NEXT_HANDLE_ID = "next";
@@ -113,7 +120,6 @@ export const FLOW_PALETTE_KINDS = [
 	"scenario",
 	"scenario_aggression",
 	"booking",
-	"transfer",
 	"transfer_human",
 	"set_field",
 	"modify_tags",

@@ -1,15 +1,23 @@
 import type {
 	CanvasEdgeDoc,
 	CanvasNodeDoc,
+	EngineFlowExit,
 	EngineFlowNode,
 	TransferCanvasNodeDoc,
 	TransferNodeData,
 } from "../../flow-types";
-import { TRANSFER_NEXT_HANDLE_ID } from "../../flow-types";
+import { TRANSFER_FAILED_HANDLE_ID, TRANSFER_NEXT_HANDLE_ID } from "../../flow-types";
 import { makeId } from "../text";
 
 const DEFAULT_WAIT_SECONDS = 30;
 const DEFAULT_HOLD_SECONDS = 4;
+
+/**
+ * The warm-transfer failure exit name. MUST match the engine string exactly
+ * (case-sensitive) — the engine routes an unanswered/declined warm transfer to
+ * the exit named this, so it is a cross-repo join key. Do NOT rename.
+ */
+export const TRANSFER_FAILED_EXIT_NAME = "Not Connected";
 
 /**
  * Normalize a warm/cold transfer target. Anything already shaped like
@@ -60,6 +68,24 @@ export function compileTransferNode(
 		transfer.waitSeconds = node.data.waitSeconds ?? DEFAULT_WAIT_SECONDS;
 	}
 
+	const exits: EngineFlowExit[] = [];
+	if (nextTarget) {
+		exits.push({ name: "Next", description: "Continue after the transfer", target: nextTarget });
+	}
+	// Warm transfers can fail (no answer / declined). When the "Not connected"
+	// handle is wired, emit the engine's failure exit so the call continues;
+	// leave it unwired and the engine ends the call.
+	if (mode === "warm") {
+		const failedTarget = targetOf(node.id, TRANSFER_FAILED_HANDLE_ID);
+		if (failedTarget) {
+			exits.push({
+				name: TRANSFER_FAILED_EXIT_NAME,
+				description: "The person didn't answer or declined the transfer",
+				target: failedTarget,
+			});
+		}
+	}
+
 	return {
 		id: node.id,
 		name: node.data.title.trim() || undefined,
@@ -68,9 +94,7 @@ export function compileTransferNode(
 		// The engine requires instructions min 1 on every node.
 		instructions: say || "Transferring the caller.",
 		toolIds: [],
-		exits: nextTarget
-			? [{ name: "Next", description: "Continue after the transfer", target: nextTarget }]
-			: [],
+		exits,
 	};
 }
 
@@ -79,13 +103,17 @@ export function decompileTransferNode(
 	position: { x: number; y: number },
 ): { node: CanvasNodeDoc; edges: CanvasEdgeDoc[] } {
 	const edges: CanvasEdgeDoc[] = [];
-	const target = flowNode.exits[0]?.target;
-	if (target) {
+	for (const exit of flowNode.exits) {
+		if (!exit.target) {
+			continue;
+		}
+		const isFailed =
+			exit.name.trim().toLowerCase() === TRANSFER_FAILED_EXIT_NAME.toLowerCase();
 		edges.push({
 			id: makeId("edge"),
 			source: flowNode.id,
-			sourceHandle: TRANSFER_NEXT_HANDLE_ID,
-			target,
+			sourceHandle: isFailed ? TRANSFER_FAILED_HANDLE_ID : TRANSFER_NEXT_HANDLE_ID,
+			target: exit.target,
 		});
 	}
 	return {

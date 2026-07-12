@@ -1,6 +1,5 @@
-import z from "zod";
-
 import { listOrganizationAgentIds } from "@repo/database";
+import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
 import { requireActiveOrganizationId } from "../../sources/lib/org";

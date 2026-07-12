@@ -52,6 +52,17 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 			mode: c.channels?.mode === "voice" || c.channels?.mode === "text" ? c.channels.mode : "both",
 			textFallback: typeof c.channels?.textFallback === "boolean" ? c.channels.textFallback : false,
 		},
+		audio: {
+			noiseCancellation: c.audio?.noiseCancellation ?? true,
+			thinkingSound: c.audio?.thinkingSound ?? true,
+			thinkingSoundClip: c.audio?.thinkingSoundClip ?? "keyboard_typing2",
+			thinkingSoundVolume: c.audio?.thinkingSoundVolume ?? 0.4,
+			ambientSound: {
+				enabled: c.audio?.ambientSound?.enabled ?? false,
+				clip: c.audio?.ambientSound?.clip ?? "office_ambience",
+				volume: c.audio?.ambientSound?.volume ?? 0.3,
+			},
+		},
 		llm: c.llm,
 		tts: c.tts ? { provider: c.tts.provider, voice: c.tts.voice, speed: c.tts.speed } : undefined,
 		stt: c.stt?.model ? { model: c.stt.model } : undefined,

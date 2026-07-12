@@ -14,6 +14,13 @@ export async function getSource(id: string, organizationId: string) {
 	return db.source.findFirst({ where: { id, organizationId } });
 }
 
+/** Unscoped list of every Source across all organizations — for platform-admin /
+ * migration flows (e.g. backfilling number↔source mappings) that must reason about
+ * all sources at once. Not for request-scoped app code (use listSources instead). */
+export async function listAllSources() {
+	return db.source.findMany({ orderBy: { createdAt: "asc" } });
+}
+
 /** Unscoped internal lookup — for system flows (sync, live-tools) that already hold a trusted sourceId. */
 export async function getSourceById(id: string) {
 	return db.source.findUnique({ where: { id } });
@@ -76,6 +83,12 @@ export async function listSourcePhoneNumbers(sourceId: string) {
 
 export async function getSourcePhoneNumber(id: string, sourceId: string) {
 	return db.sourcePhoneNumber.findFirst({ where: { id, sourceId } });
+}
+
+/** Unscoped lookup by the globally-unique e164 — used to make number↔source
+ * backfills idempotent (a number already mapped anywhere must not be re-created). */
+export async function findSourcePhoneNumberByE164(e164: string) {
+	return db.sourcePhoneNumber.findUnique({ where: { e164 } });
 }
 
 export async function createSourcePhoneNumber(data: {

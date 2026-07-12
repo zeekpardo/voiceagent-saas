@@ -107,8 +107,7 @@ export function decompileTransferNode(
 		if (!exit.target) {
 			continue;
 		}
-		const isFailed =
-			exit.name.trim().toLowerCase() === TRANSFER_FAILED_EXIT_NAME.toLowerCase();
+		const isFailed = exit.name.trim().toLowerCase() === TRANSFER_FAILED_EXIT_NAME.toLowerCase();
 		edges.push({
 			id: makeId("edge"),
 			source: flowNode.id,

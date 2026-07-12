@@ -25,7 +25,7 @@ export function PersonaBadge({ agent, onClick }: { agent: GatewayAgent; onClick?
 				type="button"
 				onClick={onClick}
 				title="Attach a persona — required to publish"
-				className="gap-1.5 py-1 pr-3 pl-2.5 flex items-center rounded-full border border-dashed text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+				className="gap-1.5 py-1 pr-3 pl-2.5 text-xs font-medium flex items-center rounded-full border border-dashed text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 			>
 				<SparklesIcon className="size-3.5" />
 				Attach a persona

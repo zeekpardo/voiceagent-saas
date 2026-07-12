@@ -332,8 +332,8 @@ export function PersonaEditorDialog({
 										<FormLabel className="gap-1.5 flex items-center">
 											How to respond
 											<InfoHint>
-												The single source of tone for this persona — governs phrasing, variety,
-												and pacing for every reply it gives, on voice and text alike.
+												The single source of tone for this persona — governs phrasing, variety, and
+												pacing for every reply it gives, on voice and text alike.
 											</InfoHint>
 										</FormLabel>
 										<span
@@ -394,14 +394,14 @@ export function PersonaEditorDialog({
 						/>
 
 						{/* Voice-only settings — never applied to text/SMS conversations. */}
-						<div className="gap-3 p-4 rounded-lg border border-dashed bg-muted/30 flex flex-col">
+						<div className="gap-3 p-4 flex flex-col rounded-lg border border-dashed bg-muted/30">
 							<div className="gap-1 flex flex-col">
 								<p className="gap-1.5 text-sm font-medium flex items-center">
 									Voice channel settings
 									<InfoHint>
 										These map to the TTS voice and the voice-call respond model. They only take
-										effect when this persona is used on a voice call — text and SMS
-										conversations never read them.
+										effect when this persona is used on a voice call — text and SMS conversations
+										never read them.
 									</InfoHint>
 								</p>
 								<p className="text-xs text-muted-foreground">
@@ -488,9 +488,7 @@ export function PersonaEditorDialog({
 										<FormItem>
 											<FormLabel>Model (voice respond)</FormLabel>
 											<Select
-												onValueChange={(v) =>
-													field.onChange(v === NO_PREFERENCE_VALUE ? "" : v)
-												}
+												onValueChange={(v) => field.onChange(v === NO_PREFERENCE_VALUE ? "" : v)}
 												value={field.value || NO_PREFERENCE_VALUE}
 											>
 												<FormControl>

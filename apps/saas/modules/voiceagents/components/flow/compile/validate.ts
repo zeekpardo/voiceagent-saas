@@ -126,8 +126,7 @@ export function flowSoundnessWarnings(doc: CanvasDoc): string[] {
 		const reachableByAgent = inbound.some((edge) => {
 			const sourceKind = kindById.get(edge.source);
 			return (
-				sourceKind !== undefined &&
-				MODEL_CALLABLE_SOURCE_KINDS.has(sourceKind as FlowNodeKind)
+				sourceKind !== undefined && MODEL_CALLABLE_SOURCE_KINDS.has(sourceKind as FlowNodeKind)
 			);
 		});
 		if (!reachableByAgent) {

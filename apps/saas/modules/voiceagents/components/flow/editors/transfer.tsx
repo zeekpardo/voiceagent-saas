@@ -50,10 +50,10 @@ export function TransferNodeEditor({
 				<Label className="gap-1.5 flex items-center">
 					Mode
 					<InfoHint>
-						"Connect to a person" dials the target and merges the caller in once someone picks up
-						— the caller waits on hold while it rings. "Forward the call and drop off" blind-
-						forwards the caller to the target and the agent leaves. "Simulated hand-off" is a demo
-						only — an announcement, hold music, and a new voice in-session, with no real phone call.
+						"Connect to a person" dials the target and merges the caller in once someone picks up —
+						the caller waits on hold while it rings. "Forward the call and drop off" blind- forwards
+						the caller to the target and the agent leaves. "Simulated hand-off" is a demo only — an
+						announcement, hold music, and a new voice in-session, with no real phone call.
 					</InfoHint>
 				</Label>
 				<Select value={mode} onValueChange={(value) => patch({ mode: value as TransferMode })}>

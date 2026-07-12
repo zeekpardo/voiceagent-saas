@@ -269,18 +269,21 @@ export function personaPrompt(persona: PersonaPromptInput): string {
  *     → ## GUARDRAILS  (persona guardrails + optional per-agent lines + safety baseline)
  *     → ## VOICE STYLE (output rules — applied to every agent)
  *
- * Persona-v2 consolidation (Phase 1b):
+ * Persona-v2 consolidation (Phase 3a — persona is the single source of truth):
  *
- *  - `## HOW TO RESPOND` ABSORBS the per-agent Response Style. The persona's
- *    `howToRespond` and the agent's `responseStyle` collapse into ONE tone
- *    directive (persona phrasing first, then the job's response-style text). The
- *    SaaS therefore stops sending `config.responseStyle`, so the engine's raw
- *    `## RESPONSE STYLE` block evaluates empty (harmless — see toGatewayConfig).
- *    When there is response-style text but no persona, the block still renders
- *    on its own via `howToRespondPrompt`.
- *  - `## GUARDRAILS` prefers the persona's reusable `guardrails`; the per-agent
- *    job-specific `guardrails` are APPENDED after them (both optional). Falling
- *    back to the per-agent value keeps existing personaless agents unchanged.
+ *  - When a **persona IS attached**, the persona is the SOLE source of tone and
+ *    rules: `## HOW TO RESPOND` comes from `persona.howToRespond` ONLY (the
+ *    per-agent `responseStyle` is NOT appended) and `## GUARDRAILS` comes from
+ *    `persona.guardrails` ONLY (the per-agent `guardrails` are NOT appended).
+ *    This is the compile-precedence fix for the Phase 2 migration, which COPIES
+ *    each agent's `guardrails`/`responseStyle` ONTO its new persona — appending
+ *    both would render that text twice. The SaaS still stops sending
+ *    `config.responseStyle`, so the engine's raw `## RESPONSE STYLE` block
+ *    evaluates empty (harmless — see toGatewayConfig).
+ *  - When there is **NO persona**, behavior is unchanged: the per-agent
+ *    `responseStyle` renders as a standalone `## HOW TO RESPOND` via
+ *    `howToRespondPrompt`, and the per-agent `guardrails` feed `## GUARDRAILS`.
+ *    Personaless agents therefore compile byte-identically to before.
  *
  * The guardrails safety baseline and the voice-style block apply even when there
  * is no persona. `goal` is the builder's job text (config.instructions); it
@@ -294,18 +297,12 @@ export function composeInstructions(
 	guardrails?: string | null,
 	responseStyle?: string | null,
 ): string {
-	// HOW TO RESPOND = persona.howToRespond + per-agent responseStyle (one directive).
-	const howToRespond = [persona?.howToRespond, responseStyle]
-		.map((s) => s?.trim())
-		.filter(Boolean)
-		.join("\n\n");
+	// Persona is the single source of truth when attached: tone comes from
+	// persona.howToRespond only, rules from persona.guardrails only. With no
+	// persona, fall back to the per-agent responseStyle/guardrails (unchanged).
+	const howToRespond = persona ? (persona.howToRespond ?? "") : (responseStyle ?? "");
 
-	// GUARDRAILS = persona.guardrails first, then per-agent job-specific lines.
-	const combinedGuardrails =
-		[persona?.guardrails, guardrails]
-			.map((s) => s?.trim())
-			.filter(Boolean)
-			.join("\n\n") || null;
+	const combinedGuardrails = (persona ? persona.guardrails : guardrails)?.trim() || null;
 
 	const identityBlock = persona
 		? personaPrompt({ ...persona, howToRespond })

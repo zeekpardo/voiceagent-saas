@@ -16,14 +16,12 @@ const baseConfig = agentConfigInput.parse({
 
 describe("persona prompt compilation", () => {
 	it("assembles persona → GOAL → GUARDRAILS → VOICE STYLE, in that order", () => {
-		const compiled = toGatewayConfig(
-			{ ...baseConfig, guardrails: "Never quote exact pricing." },
-			{
-				name: "Ava",
-				styles: ["warm", "curious"],
-				howToRespond: "Always confirm the appointment time twice.",
-			},
-		);
+		const compiled = toGatewayConfig(baseConfig, {
+			name: "Ava",
+			styles: ["warm", "curious"],
+			howToRespond: "Always confirm the appointment time twice.",
+			guardrails: "Never quote exact pricing.",
+		});
 		const text = compiled.instructions;
 
 		// Every expected block is present...
@@ -166,8 +164,8 @@ describe("toGatewayConfig postCall", () => {
 	});
 });
 
-describe("toGatewayConfig responseStyle (folded into HOW TO RESPOND)", () => {
-	it("folds responseStyle into the persona's HOW TO RESPOND and stops sending it raw", () => {
+describe("toGatewayConfig responseStyle (persona is the sole HOW TO RESPOND source)", () => {
+	it("sources HOW TO RESPOND from the persona ONLY and DROPS the per-agent responseStyle", () => {
 		const compiled = toGatewayConfig(
 			agentConfigInput.parse({
 				name: "Test Agent",
@@ -180,14 +178,28 @@ describe("toGatewayConfig responseStyle (folded into HOW TO RESPOND)", () => {
 		// is never emitted (we stop sending config.responseStyle).
 		expect((compiled as { responseStyle?: string }).responseStyle).toBeUndefined();
 		expect(compiled.instructions).not.toContain("## RESPONSE STYLE");
-		// Absorbed into HOW TO RESPOND alongside the persona's howToRespond
-		// (persona phrasing first, then the job's response-style text).
+		// With a persona attached, HOW TO RESPOND is the persona's howToRespond ONLY.
+		// The per-agent responseStyle is NOT appended — so a Phase 2-migrated agent
+		// (persona.howToRespond == old responseStyle) renders that tone text ONCE.
 		expect(compiled.instructions).toContain("## HOW TO RESPOND");
 		expect(compiled.instructions).toContain("Confirm the time twice.");
-		expect(compiled.instructions).toContain("Keep it warm and vary your phrasing.");
-		expect(compiled.instructions.indexOf("Confirm the time twice.")).toBeLessThan(
-			compiled.instructions.indexOf("Keep it warm and vary your phrasing."),
+		expect(compiled.instructions).not.toContain("Keep it warm and vary your phrasing.");
+	});
+
+	it("renders migrated tone text exactly once (no persona/per-agent duplication)", () => {
+		// Phase 2 migration COPIES the agent's responseStyle onto persona.howToRespond.
+		// If both were still appended, this identical text would appear twice.
+		const migratedTone = "Keep it warm and vary your phrasing so replies never sound scripted.";
+		const compiled = toGatewayConfig(
+			agentConfigInput.parse({
+				name: "Test Agent",
+				goal: "Book the caller an appointment.",
+				responseStyle: migratedTone,
+			}),
+			{ name: "Ava", styles: ["warm"], howToRespond: migratedTone },
 		);
+		const occurrences = compiled.instructions.split(migratedTone).length - 1;
+		expect(occurrences).toBe(1);
 	});
 
 	it("emits a HOW TO RESPOND block from responseStyle even without a persona", () => {
@@ -213,7 +225,7 @@ describe("toGatewayConfig responseStyle (folded into HOW TO RESPOND)", () => {
 	});
 });
 
-describe("toGatewayConfig guardrails (persona-first, per-agent fallback)", () => {
+describe("toGatewayConfig guardrails (persona-only when present, per-agent fallback when absent)", () => {
 	it("sources GUARDRAILS from the persona when present", () => {
 		const compiled = toGatewayConfig(baseConfig, {
 			name: "Ava",
@@ -225,7 +237,7 @@ describe("toGatewayConfig guardrails (persona-first, per-agent fallback)", () =>
 		expect(compiled.instructions).toContain("Never share pricing over the phone.");
 	});
 
-	it("appends the per-agent guardrails AFTER the persona's when both are set", () => {
+	it("uses the persona guardrails ONLY and DROPS the per-agent guardrails when both are set", () => {
 		const compiled = toGatewayConfig(
 			{ ...baseConfig, guardrails: "No competitor talk." },
 			{
@@ -236,18 +248,27 @@ describe("toGatewayConfig guardrails (persona-first, per-agent fallback)", () =>
 			},
 		);
 		const text = compiled.instructions;
+		// Persona is the single source of truth: its guardrails render, and the
+		// per-agent guardrails are NOT appended (so a Phase 2-migrated agent, whose
+		// persona.guardrails == old per-agent guardrails, renders them ONCE).
 		expect(text).toContain("Never share pricing.");
-		expect(text).toContain("No competitor talk.");
-		expect(text.indexOf("Never share pricing.")).toBeLessThan(
-			text.indexOf("No competitor talk."),
-		);
+		expect(text).not.toContain("No competitor talk.");
 	});
 
-	it("falls back to the per-agent guardrails when the persona has none (unchanged)", () => {
+	it("renders migrated guardrails text exactly once (no persona/per-agent duplication)", () => {
+		// Phase 2 migration COPIES the agent's guardrails onto persona.guardrails.
+		// If both were still appended, this identical text would appear twice.
+		const migratedRules = "Never share exact pricing over the phone.";
 		const compiled = toGatewayConfig(
-			{ ...baseConfig, guardrails: "No competitor talk." },
-			{ name: "Ava", styles: ["warm"], howToRespond: "" },
+			{ ...baseConfig, guardrails: migratedRules },
+			{ name: "Ava", styles: ["warm"], howToRespond: "", guardrails: migratedRules },
 		);
+		const occurrences = compiled.instructions.split(migratedRules).length - 1;
+		expect(occurrences).toBe(1);
+	});
+
+	it("falls back to the per-agent guardrails when NO persona is attached (unchanged)", () => {
+		const compiled = toGatewayConfig({ ...baseConfig, guardrails: "No competitor talk." }, null);
 		expect(compiled.instructions).toContain("No competitor talk.");
 	});
 });

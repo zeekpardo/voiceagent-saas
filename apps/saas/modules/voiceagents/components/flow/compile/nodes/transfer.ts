@@ -117,3 +117,18 @@ export function newTransferNodeData(): TransferNodeData {
 		holdSeconds: DEFAULT_HOLD_SECONDS,
 	};
 }
+
+/**
+ * "Forward to a Person" preset — a Transfer node pre-configured for a warm
+ * human transfer, so users don't have to know the node defaults to
+ * "simulated". `target` is left blank for the user to fill in.
+ */
+export function newHumanTransferNodeData(): TransferNodeData {
+	return {
+		title: "Forward to a Person",
+		say: "One moment — I'll connect you with someone now.",
+		mode: "warm",
+		holdSeconds: DEFAULT_HOLD_SECONDS,
+		waitSeconds: DEFAULT_WAIT_SECONDS,
+	};
+}

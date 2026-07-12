@@ -240,10 +240,18 @@
 			mountBubble(cfg, query);
 			return;
 		}
+		// Size within the host: "compact"/"standard" are fixed cards; "full" fills
+		// the host's width (and height when the host has one) so it can be dropped
+		// into any layout column or section.
+		var dims =
+			cfg.cardSize === "full"
+				? "width:100%;height:100%;min-height:520px;"
+				: cfg.cardSize === "compact"
+					? "width:100%;max-width:320px;height:440px;"
+					: "width:100%;max-width:380px;height:520px;";
 		var card = css(
 			document.createElement("div"),
-			"width:100%;max-width:380px;height:520px;border-radius:16px;overflow:hidden;" +
-				"box-shadow:0 8px 30px rgba(0,0,0,.16);",
+			dims + "border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.16);",
 		);
 		card.appendChild(makeIframe(query, "100%", "100%"));
 		host.appendChild(card);
@@ -377,9 +385,11 @@
 			style: style,
 			position: a.position === "left" ? "left" : "right",
 			accent: a.accent || "#6366f1",
-			// The card style needs a host element; a saved widget has no selector,
-			// so it falls back to the conventional #voice-widget.
-			target: "#voice-widget",
+			// The card style mounts into a host element the site owner adds. The
+			// selector is configurable in the Studio; older rows / blanks fall back
+			// to the conventional #voice-widget.
+			target: (a.target && String(a.target).trim()) || "#voice-widget",
+			cardSize: a.cardSize,
 		};
 		// The embed app fetches the same config by id for its own appearance; we
 		// only forward the id and token (token lets it start a session without a

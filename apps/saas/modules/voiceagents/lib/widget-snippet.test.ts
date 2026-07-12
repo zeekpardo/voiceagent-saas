@@ -1,12 +1,29 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	composeInlineHostMarkup,
 	composeWidgetIdSnippet,
 	composeWidgetSnippet,
 	isValidWidgetOrigin,
 	normalizeWidgetOrigin,
 	resolveWidgetChannels,
 } from "./widget-snippet";
+
+describe("composeInlineHostMarkup", () => {
+	it("derives a div with an id from an id selector", () => {
+		expect(composeInlineHostMarkup("#assistant")).toBe('<div id="assistant"></div>');
+	});
+
+	it("derives a div with a class from a class selector", () => {
+		expect(composeInlineHostMarkup(".chat-slot")).toBe('<div class="chat-slot"></div>');
+	});
+
+	it("falls back to the conventional #voice-widget for blank or unsupported selectors", () => {
+		expect(composeInlineHostMarkup("")).toBe('<div id="voice-widget"></div>');
+		expect(composeInlineHostMarkup(undefined)).toBe('<div id="voice-widget"></div>');
+		expect(composeInlineHostMarkup("main > section")).toBe('<div id="voice-widget"></div>');
+	});
+});
 
 describe("composeWidgetSnippet", () => {
 	it("emits the minimal snippet when everything is default", () => {

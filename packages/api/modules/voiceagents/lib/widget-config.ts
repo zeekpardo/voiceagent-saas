@@ -21,12 +21,15 @@ export const WIDGET_POSITIONS = ["left", "right"] as const;
 export const WIDGET_THEMES = ["system", "light", "dark"] as const;
 export const WIDGET_ICONS = ["chat", "help", "smile", "headset", "mic"] as const;
 export const WIDGET_VISUALIZERS = ["bars", "pulse", "waveform", "dots"] as const;
+/** Inline ("card") placement only — how the embedded card sizes in its host. */
+export const WIDGET_CARD_SIZES = ["compact", "standard", "full"] as const;
 
 export type WidgetStyle = (typeof WIDGET_STYLES)[number];
 export type WidgetPosition = (typeof WIDGET_POSITIONS)[number];
 export type WidgetTheme = (typeof WIDGET_THEMES)[number];
 export type WidgetIcon = (typeof WIDGET_ICONS)[number];
 export type WidgetVisualizer = (typeof WIDGET_VISUALIZERS)[number];
+export type WidgetCardSize = (typeof WIDGET_CARD_SIZES)[number];
 
 export const widgetAppearanceSchema = z.object({
 	style: z.enum(WIDGET_STYLES).catch("bubble").default("bubble"),
@@ -41,6 +44,11 @@ export const widgetAppearanceSchema = z.object({
 	voice: z.boolean().catch(true).default(true),
 	chat: z.boolean().catch(true).default(true),
 	showOnlineDot: z.boolean().catch(true).default(true),
+	// Inline ("card") placement only: the CSS selector of the host container the
+	// site owner drops on their page, and how the card sizes inside it. Ignored
+	// by the floating styles (bubble/panel/bar).
+	target: z.string().max(200).catch("#voice-widget").default("#voice-widget"),
+	cardSize: z.enum(WIDGET_CARD_SIZES).catch("standard").default("standard"),
 });
 
 export type WidgetAppearance = z.infer<typeof widgetAppearanceSchema>;

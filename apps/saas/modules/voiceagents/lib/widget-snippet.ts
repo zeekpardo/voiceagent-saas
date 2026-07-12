@@ -105,6 +105,23 @@ export function composeWidgetIdSnippet(options: { baseUrl: string; widgetId: str
 }
 
 /**
+ * The host-element markup a site owner must place for an INLINE ("card") widget,
+ * derived from its CSS selector so the copy-paste is exact:
+ *   `#foo`  → `<div id="foo"></div>`
+ *   `.foo`  → `<div class="foo"></div>`
+ * Anything else (or blank) falls back to the conventional `#voice-widget`, which
+ * is also what the loader defaults to. The card mounts inside this element.
+ */
+export function composeInlineHostMarkup(target?: string): string {
+	const selector = (target ?? "").trim() || "#voice-widget";
+	const idMatch = /^#([A-Za-z][\w-]*)$/.exec(selector);
+	if (idMatch) return `<div id="${idMatch[1]}"></div>`;
+	const classMatch = /^\.([A-Za-z][\w-]*)$/.exec(selector);
+	if (classMatch) return `<div class="${classMatch[1]}"></div>`;
+	return `<div id="voice-widget"></div>`;
+}
+
+/**
  * Which channels the widget can actually offer a visitor: the intersection of
  * what the embed enables (its voice/chat attrs) and what the agent allows
  * server-side (`modes` returned by /api/widget/session). Pure so it can be

@@ -114,6 +114,7 @@ export const FLOW_PALETTE_KINDS = [
 	"scenario_aggression",
 	"booking",
 	"transfer",
+	"transfer_human",
 	"set_field",
 	"modify_tags",
 	"handoff",

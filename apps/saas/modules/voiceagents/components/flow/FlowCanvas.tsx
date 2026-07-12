@@ -26,6 +26,7 @@ import type { FlowTrace } from "../../hooks/use-flow-trace";
 import type { AgentRFNode } from "./AgentFlowNode";
 import type { BookingRFNode } from "./BookingNode";
 import { makeId, newAggressionScenarioData } from "./compile";
+import { newHumanTransferNodeData } from "./compile/nodes/transfer";
 import type { ConversationRFNode } from "./ConversationNode";
 import { FlowNodesProvider } from "./flow-nodes-context";
 import type { CanvasDoc, CanvasNodeDoc, FlowNodeData, FlowPaletteKind } from "./flow-types";
@@ -130,6 +131,10 @@ function newPaletteNode(
 	// "scenario_aggression" is a preset on top of the scenario kind, not a kind of its own.
 	if (kind === "scenario_aggression") {
 		return { type: "scenario", data: newAggressionScenarioData() };
+	}
+	// "transfer_human" is a preset on top of the transfer kind, not a kind of its own.
+	if (kind === "transfer_human") {
+		return { type: "transfer", data: newHumanTransferNodeData() };
 	}
 	const nodeKind = isFlowNodeKind(kind) ? kind : "agent";
 	return { type: nodeKind, data: FLOW_KIND_META[nodeKind].createData(bookingToolIds) };

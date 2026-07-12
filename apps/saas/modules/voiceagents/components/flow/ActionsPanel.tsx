@@ -85,6 +85,13 @@ const ACTION_SECTIONS: ActionSection[] = [
 				tileClassName: TRANSFER_TILE,
 			},
 			{
+				kind: "transfer_human",
+				title: "Forward to a Person",
+				subtitle: "Warm-transfer the caller to a real person's phone",
+				icon: PhoneForwardedIcon,
+				tileClassName: TRANSFER_TILE,
+			},
+			{
 				kind: "handoff",
 				title: "Hand off to agent",
 				subtitle: "Another agent takes over the call, carrying context",

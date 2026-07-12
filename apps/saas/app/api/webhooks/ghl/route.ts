@@ -6,7 +6,19 @@ import {
 	sentMessageIds,
 	verifyGhlWebhookSignature,
 } from "@repo/api/modules/crm/lib/ghl-webhook";
+import { extractInboundContent } from "@repo/api/modules/crm/lib/inbound-content";
+import {
+	DEBOUNCE_WINDOW_MS,
+	inboundDebouncer,
+	sleep,
+} from "@repo/api/modules/crm/lib/inbound-debounce";
 import { resolveInboundAgent } from "@repo/api/modules/crm/lib/omnichannel";
+import { AI_OFF_TAG, classifyOptOut, isOptedOut } from "@repo/api/modules/crm/lib/opt-out";
+import {
+	INTER_MESSAGE_DELAY_MS,
+	sendPaced,
+	splitOutboundMessages,
+} from "@repo/api/modules/crm/lib/outbound-pacing";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
 import { readChannelMode } from "@repo/api/modules/voiceagents/lib/channel-mode";
 import {
@@ -16,6 +28,14 @@ import {
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { findSourceByLocationId, listSourceAgentSources } from "@repo/database";
+
+/**
+ * The inbound debounce holds the request open for the quiet window (~5s) before
+ * dispatching a turn; the turn + paced multi-message send add more. Give the
+ * route generous headroom over the platform's default so a coalesced burst never
+ * times out mid-turn.
+ */
+export const maxDuration = 60;
 
 /**
  * GoHighLevel marketplace InboundMessage webhook (app-level — configured ONCE
@@ -44,6 +64,8 @@ interface InboundMessagePayload {
 	messageId?: string;
 	messageType?: string;
 	body?: string;
+	/** Inbound MMS/media: an array of attachment URLs (images, files, …). */
+	attachments?: unknown;
 	direction?: string;
 	dateAdded?: string;
 	timestamp?: string | number;
@@ -105,7 +127,15 @@ export async function POST(req: Request): Promise<Response> {
 	if (!payload.locationId || !payload.contactId || !payload.conversationId) {
 		return ack({ skipped: "missing locationId/contactId/conversationId" });
 	}
-	const text = (payload.body ?? "").trim();
+
+	// Inbound MMS/media: an image-only message has an empty body but attachments.
+	// Extract a media-aware turn text (placeholder + any caption) so an MMS still
+	// produces a sensible, non-empty turn instead of erroring.
+	const content = extractInboundContent({
+		body: payload.body,
+		attachments: payload.attachments,
+	});
+	const text = content.text;
 	if (!text) {
 		return ack({ skipped: "empty message body" });
 	}
@@ -128,6 +158,45 @@ export async function POST(req: Request): Promise<Response> {
 			.getContactContext(payload.contactId)
 			.catch(() => ({}) as Record<string, string>);
 		const contactTagsCsv = contactContext.contact_tags;
+
+		// 8a) STOP / opt-out compliance (regulatory — runs BEFORE any turn and is
+		//     never debounced, so a STOP is honored immediately). On an opt-out
+		//     keyword we flag the contact with the `ai off` tag (the existing
+		//     opt-out convention) and do NOT reply — the carrier/CRM sends the
+		//     compliance confirmation; a second message would double-text. On an
+		//     opt-back-in keyword we clear the tag. Both stop here.
+		const optOutIntent = classifyOptOut(payload.body ?? "");
+		if (optOutIntent === "opt_out") {
+			await provider.addContactTags(payload.contactId, [AI_OFF_TAG]).catch((err) => {
+				console.error("[ghl-webhook] failed to tag opt-out:", err);
+			});
+			return ack({ handled: true, optedOut: true, replied: false });
+		}
+		if (optOutIntent === "opt_in") {
+			await provider.removeContactTags(payload.contactId, [AI_OFF_TAG]).catch((err) => {
+				console.error("[ghl-webhook] failed to clear opt-out:", err);
+			});
+			return ack({ handled: true, optedIn: true, replied: false });
+		}
+
+		// 8b) Gate every ordinary inbound: an already-opted-out contact (has the
+		//     `ai off` tag) must NOT trigger an agent turn until they opt back in.
+		if (isOptedOut(contactTagsCsv)) {
+			return ack({ skipped: "contact opted out (ai off)", replied: false });
+		}
+
+		// 8c) Debounce rapid bursts: buffer this message under the conversation key,
+		//     wait a short quiet window, and only dispatch if no NEWER inbound landed
+		//     meanwhile (i.e. THIS handler is the latest). Superseded handlers no-op;
+		//     the winner drains the combined buffered text and runs it as ONE turn.
+		//     See inbound-debounce.ts for the serverless tradeoff/limits.
+		const debounceKey = payload.conversationId;
+		const debounceToken = inboundDebouncer.enqueue(debounceKey, text);
+		if (DEBOUNCE_WINDOW_MS > 0) await sleep(DEBOUNCE_WINDOW_MS);
+		if (!inboundDebouncer.isLatest(debounceKey, debounceToken)) {
+			return ack({ handled: true, debounced: true, replied: false });
+		}
+		const turnText = inboundDebouncer.drain(debounceKey) || text;
 
 		// 9) Pick the ONE agent monitoring this channel on this source whose tag
 		//    filters the contact passes. Resolve each candidate's channel-mode
@@ -198,32 +267,46 @@ export async function POST(req: Request): Promise<Response> {
 				.catch(() => {});
 		}
 
-		// 13) Run one turn.
-		const turn = await postConversationMessage(conversation.id, text);
+		// 13) Run one turn on the (possibly coalesced) burst text.
+		const turn = await postConversationMessage(conversation.id, turnText);
 		const reply = (turn.reply ?? "").trim();
 		if (!reply) {
 			return ack({ handled: true, agentId, conversationId: conversation.id, replied: false });
 		}
 
-		// 14) Send the reply back on the SAME channel. Email threads under the
+		// 14) Send the reply back on the SAME channel. A multi-part reply (blank-line
+		//     separated — e.g. an announced-handoff bridge + greeting) goes out as
+		//     several messages PACED ~1.2s apart so it reads human and stays ordered;
+		//     a single-block reply is one immediate send. Email threads under the
 		//     inbound message; subject echoes with a "Re: " prefix.
-		const sent = await provider.sendConversationMessage({
-			contactId: payload.contactId,
-			channel,
-			text: reply,
-			extras:
-				channel === "email"
-					? {
-							subject: payload.subject ? ensureRePrefix(payload.subject) : undefined,
-							replyToEmailMessageId: payload.emailMessageId,
-							threadId: payload.threadId,
-						}
-					: undefined,
-		});
+		const parts = splitOutboundMessages(reply);
+		// Capture the (already-guarded) contactId so the send closure keeps its
+		// narrowed `string` type.
+		const contactId = payload.contactId;
+		const emailExtras =
+			channel === "email"
+				? {
+						subject: payload.subject ? ensureRePrefix(payload.subject) : undefined,
+						replyToEmailMessageId: payload.emailMessageId,
+						threadId: payload.threadId,
+					}
+				: undefined;
+		const sends = await sendPaced(
+			parts,
+			(part) =>
+				provider.sendConversationMessage!({
+					contactId,
+					channel,
+					text: part,
+					extras: emailExtras,
+				}),
+			INTER_MESSAGE_DELAY_MS,
+			sleep,
+		);
 
-		// 15) Record our messageId so its echo (redelivery / OutboundMessage) is
-		//     skipped by the loop guard.
-		if (sent.messageId) sentMessageIds.add(sent.messageId);
+		// 15) Record our messageIds so their echoes (redelivery / OutboundMessage)
+		//     are skipped by the loop guard.
+		for (const sent of sends) if (sent.messageId) sentMessageIds.add(sent.messageId);
 
 		return ack({
 			handled: true,

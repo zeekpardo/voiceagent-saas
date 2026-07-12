@@ -17,6 +17,7 @@ import { objectiveKind } from "./objective";
 import { scenarioKind } from "./scenario";
 import { setFieldKind } from "./set-field";
 import { statementKind } from "./statement";
+import { stopRespondingKind } from "./stop-responding";
 import { switchKind } from "./switch";
 import { transferKind } from "./transfer";
 import { trueFalseKind } from "./true-false";
@@ -56,6 +57,7 @@ export const FLOW_KIND_LIST: FlowKindDefinition<any>[] = [
 	scenarioKind,
 	transferKind,
 	handoffKind,
+	stopRespondingKind,
 	setFieldKind,
 	modifyTagsKind,
 	bookingKind,

@@ -24,6 +24,7 @@ import { decompileRouterNode } from "./nodes/router";
 import { decompileScenario } from "./nodes/scenario";
 import { decompileSetFieldNode } from "./nodes/set-field";
 import { decompileStatementNode } from "./nodes/statement";
+import { decompileStopRespondingNode } from "./nodes/stop-responding";
 import { decompileTransferNode } from "./nodes/transfer";
 import { makeId, textToTiptapDoc } from "./text";
 
@@ -50,6 +51,7 @@ export { newSwitchNodeData, newTrueFalseNodeData } from "./nodes/router";
 export { newAggressionScenarioData, newScenarioNodeData } from "./nodes/scenario";
 export { newSetFieldNodeData } from "./nodes/set-field";
 export { newStatementNodeData } from "./nodes/statement";
+export { newStopRespondingNodeData } from "./nodes/stop-responding";
 export { newTransferNodeData } from "./nodes/transfer";
 
 /**
@@ -317,6 +319,13 @@ export function canvasFromFlow(
 
 		if (flowNode.kind === "handoff") {
 			const { node, edges: nodeEdges } = decompileHandoffNode(flowNode, position);
+			nodes.push(node);
+			edges.push(...nodeEdges);
+			continue;
+		}
+
+		if (flowNode.kind === "stop_responding") {
+			const { node, edges: nodeEdges } = decompileStopRespondingNode(flowNode, position);
 			nodes.push(node);
 			edges.push(...nodeEdges);
 			continue;

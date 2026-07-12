@@ -8,7 +8,6 @@ import {
 	FormItem,
 	FormLabel,
 } from "@repo/ui/components/form";
-import { Input } from "@repo/ui/components/input";
 import {
 	Select,
 	SelectContent,
@@ -16,6 +15,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@repo/ui/components/select";
+import { Slider } from "@repo/ui/components/slider";
 import { Switch } from "@repo/ui/components/switch";
 import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import type { UseFormReturn } from "react-hook-form";
@@ -91,15 +91,14 @@ export function AudioSection({ form }: { form: UseFormReturn<AgentFormValues> })
 							name="audio.thinkingSoundVolume"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Volume ({field.value})</FormLabel>
+									<FormLabel>Volume ({Math.round((field.value ?? 0) * 100)}%)</FormLabel>
 									<FormControl>
-										<Input
-											type="number"
-											step={0.05}
+										<Slider
 											min={0}
 											max={1}
-											{...field}
-											onChange={(e) => field.onChange(Number(e.target.value))}
+											step={0.05}
+											value={[field.value ?? 0]}
+											onValueChange={(v) => field.onChange(v[0])}
 										/>
 									</FormControl>
 								</FormItem>
@@ -156,15 +155,14 @@ export function AudioSection({ form }: { form: UseFormReturn<AgentFormValues> })
 							name="audio.ambientSound.volume"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Volume ({field.value})</FormLabel>
+									<FormLabel>Volume ({Math.round((field.value ?? 0) * 100)}%)</FormLabel>
 									<FormControl>
-										<Input
-											type="number"
-											step={0.05}
+										<Slider
 											min={0}
 											max={1}
-											{...field}
-											onChange={(e) => field.onChange(Number(e.target.value))}
+											step={0.05}
+											value={[field.value ?? 0]}
+											onValueChange={(v) => field.onChange(v[0])}
 										/>
 									</FormControl>
 								</FormItem>

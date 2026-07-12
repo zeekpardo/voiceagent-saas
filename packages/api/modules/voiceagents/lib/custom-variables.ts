@@ -68,8 +68,7 @@ function readVariableValues(
  * Call sites (every place a call/session is born SaaS-side must merge here):
  *   - apps/saas/app/api/triggers/voice-call/[token]/route.ts  (CRM trigger)
  *   - packages/api/modules/voiceagents/procedures/sessions.ts (builder test session)
- *   - TODO: the widget dispatch route (apps/saas/app/api/widget/**, on the
- *     widget-infra branch) must call mergeCustomVariables the same way once merged.
+ *   - apps/saas/app/api/widget/session/route.ts               (embeddable widget)
  *
  * @param config       the agent config (holds `customVariables` definitions)
  * @param mapping      the per-source VoiceAgentSource row (holds `variableValues`)

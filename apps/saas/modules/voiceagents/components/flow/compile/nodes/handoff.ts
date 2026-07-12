@@ -17,6 +17,9 @@ export function compileHandoffNode(
 	const say = node.data.say?.trim();
 	const holdSeconds = node.data.holdSeconds;
 	const generate = node.data.generate === true;
+	// "announced" is the default and stays IMPLICIT (omitted) so existing handoffs
+	// compile byte-identically; only "seamless" is emitted.
+	const seamless = node.data.mode === "seamless";
 
 	const flowNode: EngineFlowNode = {
 		id: node.id,
@@ -30,12 +33,16 @@ export function compileHandoffNode(
 		exits: [],
 	};
 
-	// Only emit `handoff` when say or holdSeconds is actually set — omit the key
-	// entirely otherwise so the engine falls back to its own defaults.
-	// `generate` only matters alongside a say, and is emitted only when true so
-	// verbatim announcements stay byte-identical to their pre-feature form.
-	if (say || holdSeconds !== undefined) {
+	// Only emit `handoff` when say/holdSeconds is set OR the mode is seamless —
+	// omit the key entirely otherwise so the engine falls back to its own
+	// (announced) defaults. `generate` only matters alongside a say, and is
+	// emitted only when true so verbatim announcements stay byte-identical to
+	// their pre-feature form.
+	if (say || holdSeconds !== undefined || seamless) {
 		const handoff: NonNullable<EngineFlowNode["handoff"]> = {};
+		if (seamless) {
+			handoff.mode = "seamless";
+		}
 		if (say) {
 			handoff.say = say;
 			if (generate) {
@@ -63,6 +70,7 @@ export function decompileHandoffNode(
 			data: {
 				title: flowNode.name ?? flowNode.id,
 				handoffAgentId: flowNode.handoffAgentId,
+				...(flowNode.handoff?.mode === "seamless" ? { mode: "seamless" as const } : {}),
 				say: flowNode.handoff?.say,
 				...(flowNode.handoff?.generate ? { generate: true } : {}),
 				holdSeconds: flowNode.handoff?.holdSeconds,

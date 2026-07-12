@@ -35,6 +35,10 @@ export function HandoffNodeEditor({
 	const patch = usePatch<HandoffNodeData>(nodeId, data, onChange);
 	const { data: agents, isLoading } = useAgentsQuery();
 
+	// Default "announced" preserves the pre-mode behavior (bridge + music +
+	// target greeting). "seamless" hides the bridge/music entirely.
+	const mode = data.mode ?? "announced";
+
 	// Exclude the current agent (no self-handoff) from the pickable targets.
 	const options = (agents ?? []).filter((agent) => agent.id !== agentId);
 	// A previously-picked target that has since been deleted / is no longer listed
@@ -80,59 +84,95 @@ export function HandoffNodeEditor({
 
 			<div className="gap-1.5 flex flex-col">
 				<Label className="gap-1.5 flex items-center">
-					Announcement
+					Handoff style
 					<InfoHint>
-						Spoken by the CURRENT agent, in its own voice, right before the hold music. Supports{" "}
-						{"{{variables}}"}; leave empty to jump straight to the music.
+						Announced: the current agent sends a brief hand-off message, then the target agent opens
+						with its own greeting. Seamless: the target just continues the same conversation — no
+						hand-off message, no self-introduction.
 					</InfoHint>
 				</Label>
-				<Textarea
-					rows={2}
-					value={data.say ?? ""}
-					onChange={(e) => patch({ say: e.target.value })}
-					placeholder="One moment — connecting you with our valuation specialist."
-				/>
-				<div className="gap-3 mt-1 p-2.5 flex items-center rounded-lg border">
-					<Switch
-						id={`handoff-generate-${nodeId}`}
-						checked={!!data.generate}
-						onCheckedChange={(on) => patch({ generate: on })}
-					/>
-					<label htmlFor={`handoff-generate-${nodeId}`} className="min-w-0 cursor-pointer">
-						<span className="text-sm block">Use AI to generate a response</span>
-						<span className="text-xs block opacity-60">
-							Off: spoken exactly as written. On: the announcement above guides an AI-generated line
-							that varies each time, in the caller's language.
-						</span>
-					</label>
-				</div>
+				<Select
+					value={mode}
+					onValueChange={(value) => patch({ mode: value as HandoffNodeData["mode"] })}
+				>
+					<SelectTrigger>
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="announced">Announced — bridge, then the target greets</SelectItem>
+						<SelectItem value="seamless">Seamless — the target continues silently</SelectItem>
+					</SelectContent>
+				</Select>
 			</div>
 
-			<div className="gap-1.5 flex flex-col">
-				<Label className="gap-1.5 flex items-center">
-					Hold music (seconds)
-					<InfoHint>
-						How long hold music plays before the target agent picks up, in its own voice. Leave
-						empty to use the default (3s); set to 0 to disable hold music entirely.
-					</InfoHint>
-				</Label>
-				<Input
-					type="number"
-					min={0}
-					max={30}
-					step={1}
-					value={data.holdSeconds ?? ""}
-					onChange={(e) => {
-						const raw = e.target.value;
-						if (raw === "") {
-							patch({ holdSeconds: undefined });
-							return;
-						}
-						patch({ holdSeconds: Math.max(0, Math.min(30, Number(raw))) });
-					}}
-					placeholder="3 (default)"
-				/>
-			</div>
+			{mode === "announced" ? (
+				<>
+					<div className="gap-1.5 flex flex-col">
+						<Label className="gap-1.5 flex items-center">
+							Hand-off message
+							<InfoHint>
+								A brief "hold tight" bridge sent by the CURRENT agent right before the swap (e.g.
+								"One moment — passing you to {"{{agent_name}}"}"). Supports {"{{variables}}"},
+								including {"{{agent_name}}"} (the target agent's name). Leave empty to jump straight
+								to the target. The target's opening line comes from its own entry greeting.
+							</InfoHint>
+						</Label>
+						<Textarea
+							rows={2}
+							value={data.say ?? ""}
+							onChange={(e) => patch({ say: e.target.value })}
+							placeholder="One moment — passing you to {{agent_name}}."
+						/>
+						<div className="gap-3 mt-1 p-2.5 flex items-center rounded-lg border">
+							<Switch
+								id={`handoff-generate-${nodeId}`}
+								checked={!!data.generate}
+								onCheckedChange={(on) => patch({ generate: on })}
+							/>
+							<label htmlFor={`handoff-generate-${nodeId}`} className="min-w-0 cursor-pointer">
+								<span className="text-sm block">Use AI to generate a response</span>
+								<span className="text-xs block opacity-60">
+									Off: sent exactly as written. On: the message above guides an AI-generated line
+									that varies each time, in the contact's language.
+								</span>
+							</label>
+						</div>
+					</div>
+
+					<div className="gap-1.5 flex flex-col">
+						<Label className="gap-1.5 flex items-center">
+							Hold music (seconds)
+							<span className="text-xs opacity-50">(voice only)</span>
+							<InfoHint>
+								Voice only — on SMS/text there is no hold music. How long hold music plays before
+								the target agent picks up. Leave empty to use the default (3s); set to 0 to disable
+								hold music entirely.
+							</InfoHint>
+						</Label>
+						<Input
+							type="number"
+							min={0}
+							max={30}
+							step={1}
+							value={data.holdSeconds ?? ""}
+							onChange={(e) => {
+								const raw = e.target.value;
+								if (raw === "") {
+									patch({ holdSeconds: undefined });
+									return;
+								}
+								patch({ holdSeconds: Math.max(0, Math.min(30, Number(raw))) });
+							}}
+							placeholder="3 (default)"
+						/>
+					</div>
+				</>
+			) : (
+				<p className="text-xs opacity-50">
+					Seamless: no hand-off message and no hold music — the target agent picks up the same
+					conversation without introducing itself.
+				</p>
+			)}
 
 			<ChannelSelector value={data.channels} onChange={(channels) => patch({ channels })} />
 		</>

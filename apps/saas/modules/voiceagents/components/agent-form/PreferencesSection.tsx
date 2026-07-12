@@ -127,6 +127,27 @@ export function PreferencesSection({
 							</FormItem>
 						)}
 					/>
+
+					{/* Keep talking after objectives are done — opt-in, great for
+					    text/SMS upsell/rapport conversations. */}
+					<FormField
+						control={form.control}
+						name="continueConversation"
+						render={({ field }) => (
+							<FormItem className="p-3 flex items-center justify-between rounded-lg border">
+								<div className="pr-3">
+									<FormLabel>Keep the conversation going</FormLabel>
+									<FormDescription>
+										After the agent has gathered everything it needs, keep a natural rapport/upsell
+										conversation going instead of ending — great for text/SMS. Off by default.
+									</FormDescription>
+								</div>
+								<FormControl>
+									<Switch checked={!!field.value} onCheckedChange={field.onChange} />
+								</FormControl>
+							</FormItem>
+						)}
+					/>
 				</CardContent>
 			</Card>
 

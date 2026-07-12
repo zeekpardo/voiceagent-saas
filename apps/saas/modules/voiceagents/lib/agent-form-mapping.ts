@@ -43,6 +43,10 @@ export function toFormValues(agent?: GatewayAgent): AgentConfigInput {
 		// them — the Variables panel is the only editor, but every save carries them.
 		customVariables: Array.isArray(c.customVariables) ? c.customVariables : [],
 		greeting: c.greeting ?? "",
+		// Default false/absent = engine ends the conversation once objectives are
+		// met (unchanged existing behavior for agents that never set this).
+		continueConversation:
+			typeof c.continueConversation === "boolean" ? c.continueConversation : false,
 		language: c.language ?? "en",
 		channels: {
 			mode: c.channels?.mode === "voice" || c.channels?.mode === "text" ? c.channels.mode : "both",

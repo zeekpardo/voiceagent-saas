@@ -2,6 +2,7 @@ import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
 import { gatewayFetch } from "../lib/gateway";
+import { requireOwnedConversation } from "../lib/require-owned-resource";
 
 /** One engine event on a room-less text conversation — same shape as
  * GatewayCallEvent (the AI-logs drawer renders both). */
@@ -19,7 +20,8 @@ export const getConversationEvents = protectedProcedure
 		summary: "Get a conversation's engine events",
 	})
 	.input(z.object({ id: z.string() }))
-	.handler(async ({ input }) => {
+	.handler(async ({ input, context }) => {
+		await requireOwnedConversation(context.session, input.id);
 		const { events } = await gatewayFetch<{
 			conversation_id: string;
 			events: GatewayConversationEvent[];

@@ -1,7 +1,11 @@
 import z from "zod";
 
+import { listOrganizationAgentIds } from "@repo/database";
+
 import { protectedProcedure } from "../../../orpc/procedures";
+import { requireActiveOrganizationId } from "../../sources/lib/org";
 import { gatewayFetch } from "../lib/gateway";
+import { requireOwnedCall } from "../lib/require-owned-resource";
 
 export interface GatewayCall {
 	id: string;
@@ -28,15 +32,42 @@ export const listCalls = protectedProcedure
 		summary: "List calls",
 	})
 	.input(z.object({ agentId: z.string().optional(), limit: z.number().int().max(200).optional() }))
-	.handler(async ({ input }) => {
-		const params = new URLSearchParams();
-		if (input.agentId) params.set("agent_id", input.agentId);
-		params.set("limit", String(input.limit ?? 50));
-		const { calls } = await gatewayFetch<{ calls: GatewayCall[] }>(
-			"GET",
-			`/v1/calls?${params.toString()}`,
+	.handler(async ({ input, context }) => {
+		// Tenant isolation: the engine gateway is org-agnostic, so scope calls to the
+		// agents the caller's active organization owns (same rule as listAgents).
+		const organizationId = requireActiveOrganizationId(context.session);
+		const ownedAgentIds = await listOrganizationAgentIds(organizationId);
+		const limit = input.limit ?? 50;
+
+		const fetchForAgent = async (agentId: string): Promise<GatewayCall[]> => {
+			const params = new URLSearchParams({ agent_id: agentId, limit: String(limit) });
+			const { calls } = await gatewayFetch<{ calls: GatewayCall[] }>(
+				"GET",
+				`/v1/calls?${params.toString()}`,
+			);
+			return calls;
+		};
+
+		// A specific agent is only listable when the caller's org owns it.
+		if (input.agentId) {
+			if (!ownedAgentIds.includes(input.agentId)) {
+				return [];
+			}
+			return fetchForAgent(input.agentId);
+		}
+
+		// All of the org's agents: the gateway filters by a single agent_id, so fan
+		// out over the owned agents and merge newest-first.
+		if (ownedAgentIds.length === 0) {
+			return [];
+		}
+		const perAgent = await Promise.all(
+			ownedAgentIds.map((id) => fetchForAgent(id).catch(() => [] as GatewayCall[])),
 		);
-		return calls;
+		return perAgent
+			.flat()
+			.sort((a, b) => b.created_at.localeCompare(a.created_at))
+			.slice(0, limit);
 	});
 
 export interface GatewayCallEvent {
@@ -53,7 +84,8 @@ export const getCallEvents = protectedProcedure
 		summary: "Get a call's engine events",
 	})
 	.input(z.object({ id: z.string() }))
-	.handler(async ({ input }) => {
+	.handler(async ({ input, context }) => {
+		await requireOwnedCall(context.session, input.id);
 		const { events } = await gatewayFetch<{ call_id: string; events: GatewayCallEvent[] }>(
 			"GET",
 			`/v1/calls/${encodeURIComponent(input.id)}/events`,
@@ -69,11 +101,12 @@ export const getTranscript = protectedProcedure
 		summary: "Get a call transcript",
 	})
 	.input(z.object({ id: z.string() }))
-	.handler(async ({ input }) =>
-		gatewayFetch<{
+	.handler(async ({ input, context }) => {
+		await requireOwnedCall(context.session, input.id);
+		return gatewayFetch<{
 			call_id: string;
 			turns: { role: string; text: string; ts?: number }[];
 			summary: string | null;
 			extracted: Record<string, string> | null;
-		}>("GET", `/v1/calls/${encodeURIComponent(input.id)}/transcript`),
-	);
+		}>("GET", `/v1/calls/${encodeURIComponent(input.id)}/transcript`);
+	});

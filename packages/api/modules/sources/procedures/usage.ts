@@ -46,7 +46,7 @@ export const sourceUsage = protectedProcedure
 		try {
 			const data = await gatewayFetch<GatewayUsageResponse>(
 				"GET",
-				`/v1/usage?${params.toString()}`,
+				`/v1/usage/by-group?${params.toString()}`,
 			);
 			const group = data.groups.find((g) => g.group_ref === input.sourceId);
 			return usageFromGroup(group);
@@ -89,7 +89,7 @@ export const usageSummary = protectedProcedure
 		try {
 			const data = await gatewayFetch<GatewayUsageResponse>(
 				"GET",
-				`/v1/usage?${params.toString()}`,
+				`/v1/usage/by-group?${params.toString()}`,
 			);
 			return { rows: bucketUsageByOrgSources(data.groups, sourceRefs), unavailable: false };
 		} catch {

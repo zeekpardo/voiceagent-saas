@@ -311,3 +311,16 @@ export function useCallEventsQuery(callId: string | null) {
 		enabled: !!callId,
 	});
 }
+
+export const conversationEventsQueryKey = (conversationId: string) =>
+	["voiceagents", "conversation-events", conversationId] as const;
+
+/** A room-less text conversation's raw engine events (ai.turn, tool.*,
+ * http.request, …) — the omnichannel analogue of {@link useCallEventsQuery}. */
+export function useConversationEventsQuery(conversationId: string | null) {
+	return useQuery({
+		queryKey: conversationEventsQueryKey(conversationId ?? "none"),
+		queryFn: () => orpcClient.voiceagents.conversations.events({ id: conversationId! }),
+		enabled: !!conversationId,
+	});
+}

@@ -114,6 +114,12 @@ export const flowInput = z.object({
 							required: z.boolean().optional(),
 							maxAttempts: z.number().int().min(1).max(10).optional(),
 							sensitivity: z.number().min(0).max(100).optional(),
+							// Engine defaults this true. When true, the engine may silently
+							// auto-complete the objective from contactState (e.g. carried
+							// over from a prior agent in a handoff) with no CRM write and no
+							// question asked. Authors default this off in the builder so a
+							// handoff specialist re-asks/re-verifies unless explicitly opted in.
+							skipIfKnown: z.boolean().optional(),
 						}),
 					)
 					.optional(),

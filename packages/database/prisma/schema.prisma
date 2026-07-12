@@ -410,6 +410,12 @@ model Persona {
   styles         String[]     @default([])
   /// custom behavior instructions, appended verbatim as `## HOW TO RESPOND`
   howToRespond   String       @default("") @db.Text
+  /// reusable guardrail rules, compiled verbatim as `## GUARDRAILS`
+  guardrails     String?      @db.Text
+  /// default TTS voice id for agents using this persona (maps to config.tts voice)
+  ttsVoice       String?
+  /// default respond LLM model id, e.g. "openai/gpt-4o" (provider derivable from the id); maps to config.llm.model / config.models.respond
+  llmModel       String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

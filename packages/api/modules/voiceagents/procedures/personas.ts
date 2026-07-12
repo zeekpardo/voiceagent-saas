@@ -31,6 +31,9 @@ export const personaInput = z.object({
 	themeColor: z.string().regex(HEX_COLOR, "Must be a hex color").nullish(),
 	styles: z.array(z.string().min(1).max(40)).max(3).default([]),
 	howToRespond: z.string().max(4000).default(""),
+	guardrails: z.string().max(4000).nullish(),
+	ttsVoice: z.string().max(120).nullish(),
+	llmModel: z.string().max(120).nullish(),
 });
 
 export type PersonaInput = z.infer<typeof personaInput>;
@@ -44,6 +47,9 @@ export interface PersonaDTO {
 	themeColor: string | null;
 	styles: string[];
 	howToRespond: string;
+	guardrails: string | null;
+	ttsVoice: string | null;
+	llmModel: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 }
@@ -56,6 +62,9 @@ function toDTO(row: {
 	themeColor: string | null;
 	styles: string[];
 	howToRespond: string;
+	guardrails: string | null;
+	ttsVoice: string | null;
+	llmModel: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 }): PersonaDTO {
@@ -67,6 +76,9 @@ function toDTO(row: {
 		themeColor: row.themeColor,
 		styles: row.styles,
 		howToRespond: row.howToRespond,
+		guardrails: row.guardrails,
+		ttsVoice: row.ttsVoice,
+		llmModel: row.llmModel,
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
 	};

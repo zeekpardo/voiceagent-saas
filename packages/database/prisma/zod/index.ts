@@ -114,7 +114,7 @@ export type VoiceAgentSourceScalarFieldEnum = z.infer<typeof VoiceAgentSourceSca
 
 // File: PersonaScalarFieldEnum.schema.ts
 
-export const PersonaScalarFieldEnumSchema = z.enum(['id', 'organizationId', 'name', 'internalDescription', 'avatarUrl', 'themeColor', 'styles', 'howToRespond', 'createdAt', 'updatedAt'])
+export const PersonaScalarFieldEnumSchema = z.enum(['id', 'organizationId', 'name', 'internalDescription', 'avatarUrl', 'themeColor', 'styles', 'howToRespond', 'guardrails', 'ttsVoice', 'llmModel', 'createdAt', 'updatedAt'])
 
 export type PersonaScalarFieldEnum = z.infer<typeof PersonaScalarFieldEnumSchema>;
 
@@ -481,6 +481,9 @@ export const PersonaSchema = z.object({
   themeColor: z.string().nullish(),
   styles: z.array(z.string()),
   howToRespond: z.string(),
+  guardrails: z.string().nullish(),
+  ttsVoice: z.string().nullish(),
+  llmModel: z.string().nullish(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

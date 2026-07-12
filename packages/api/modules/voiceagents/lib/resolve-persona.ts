@@ -21,5 +21,12 @@ export async function resolvePersona(
 	if (!persona) {
 		return null;
 	}
-	return { name: persona.name, styles: persona.styles, howToRespond: persona.howToRespond };
+	return {
+		name: persona.name,
+		styles: persona.styles,
+		howToRespond: persona.howToRespond,
+		guardrails: persona.guardrails,
+		ttsVoice: persona.ttsVoice,
+		llmModel: persona.llmModel,
+	};
 }

@@ -191,6 +191,7 @@ export function AgentDetail({ agentId }: { agentId: string }) {
 						agent={agent}
 						onAddNodeReady={handleAddNodeReady}
 						onOpenActions={openActions}
+						onOpenPersonas={() => setActivePanel("personas")}
 						trace={trace}
 						traceLive={callState.live}
 					/>

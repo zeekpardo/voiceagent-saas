@@ -6,6 +6,7 @@ import { Skeleton } from "@repo/ui/components/skeleton";
 import { toastError, toastSuccess, toastWarning } from "@repo/ui/components/toast";
 import { useConfirmationAlert } from "@shared/components/ConfirmationAlertProvider";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
+import { agentPersonaId } from "@voiceagents/lib/personas-api";
 import { useMemo, useState } from "react";
 
 import type { FlowTrace } from "../../hooks/use-flow-trace";
@@ -43,6 +44,7 @@ export function FlowTab({
 	agent,
 	onAddNodeReady,
 	onOpenActions,
+	onOpenPersonas,
 	trace,
 	traceLive,
 }: {
@@ -51,6 +53,9 @@ export function FlowTab({
 	onAddNodeReady?: (addNode: ((kind: FlowPaletteKind) => void) | null) => void;
 	/** Opens the Actions aside from the canvas' "Add node" button. */
 	onOpenActions?: () => void;
+	/** Opens the Personas aside — used to guide the user when publish is blocked
+	 *  because no persona is attached (Persona v2: a persona is required). */
+	onOpenPersonas?: () => void;
 	/** Live test-call trace: nodes/edges to glow on the canvas. */
 	trace?: FlowTrace;
 	/** Whether the traced call is still live (false dims the remaining trace). */
@@ -196,6 +201,17 @@ export function FlowTab({
 	};
 
 	const handlePublish = async () => {
+		// Persona v2: a persona is required to publish. It defines the agent's
+		// identity, tone, and guardrails, so we block publishing without one and
+		// point the user straight at the Personas panel to attach or create one.
+		if (!agentPersonaId(agent)) {
+			toastError(
+				"Attach a persona to publish",
+				"A persona defines this agent's identity, tone, and guardrails. Open the Personas panel to attach or create one.",
+			);
+			onOpenPersonas?.();
+			return;
+		}
 		try {
 			const published = await publishMutation.mutateAsync();
 			toastSuccess(`Published — agent is now v${published.version}`);

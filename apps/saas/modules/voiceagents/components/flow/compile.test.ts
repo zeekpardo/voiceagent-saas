@@ -1733,6 +1733,33 @@ describe("transfer nodes", () => {
 		});
 	});
 
+	it("auto-marks a transfer node voice-only without any author-set channels", () => {
+		// The author sets NOTHING channel-related on makeTransferDoc's transfer.
+		const { flow } = compileCanvas(makeTransferDoc(), []);
+		expect(flow.nodes.find((n) => n.id === "t1")?.channels).toEqual(["voice"]);
+	});
+
+	it("forces voice-only even if a transfer somehow carries a text channels mark", () => {
+		// Defensive: a transfer is voice-only BY NATURE, regardless of stored data.
+		const { flow } = compileCanvas(
+			makeTransferDoc({ channels: ["text"] } as Partial<TransferNodeData>),
+			[],
+		);
+		expect(flow.nodes.find((n) => n.id === "t1")?.channels).toEqual(["voice"]);
+	});
+
+	it("text-prune drops the auto voice-only transfer and splices its predecessor to the Next target", () => {
+		const flow = compileCanvas(makeTransferDoc(), []).flow;
+		const text = pruneFlowForChannel(flow, "text");
+		// t1 is gone on text; a1 → a2 splices straight through the transfer.
+		expect(text.nodes.some((n) => n.id === "t1")).toBe(false);
+		expect(text.nodes.find((n) => n.id === "a1")?.exits[0]?.target).toBe("a2");
+		// Voice keeps the transfer intact.
+		const voice = pruneFlowForChannel(flow, "voice");
+		expect(voice.nodes.some((n) => n.id === "t1")).toBe(true);
+		expect(voice.nodes.find((n) => n.id === "a1")?.exits[0]?.target).toBe("t1");
+	});
+
 	it("compiles a warm transfer with mode, target, and waitSeconds", () => {
 		const { flow } = compileCanvas(
 			makeTransferDoc({ mode: "warm", target: "+1 (555) 123-4567", waitSeconds: 45 }),

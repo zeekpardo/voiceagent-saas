@@ -184,7 +184,11 @@ export function FlowNodeShell({
 
 			{channelChip && channelChip.length === 1 && (
 				<span
-					title={channelChip[0] === "voice" ? "Voice sessions only" : "Text sessions only"}
+					title={
+						channelChip[0] === "voice"
+							? "Voice only — skipped on SMS/text sessions"
+							: "Text only — skipped on voice calls"
+					}
 					className="-top-2 -left-2 gap-0.5 px-1 shadow-sm font-medium absolute flex items-center rounded-full border bg-background py-px text-[10px] text-muted-foreground"
 				>
 					{channelChip[0] === "voice" ? (

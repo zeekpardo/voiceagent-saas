@@ -52,7 +52,7 @@ export { newAggressionScenarioData, newScenarioNodeData } from "./nodes/scenario
 export { newSetFieldNodeData } from "./nodes/set-field";
 export { newStatementNodeData } from "./nodes/statement";
 export { newStopRespondingNodeData } from "./nodes/stop-responding";
-export { newTransferNodeData } from "./nodes/transfer";
+export { newTransferNodeData, TRANSFER_FAILED_EXIT_NAME } from "./nodes/transfer";
 
 /**
  * The channels a canvas node compiles onto, or undefined when it runs on both

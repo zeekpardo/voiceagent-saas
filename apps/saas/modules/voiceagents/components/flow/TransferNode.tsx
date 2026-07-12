@@ -4,12 +4,13 @@ import type { Node, NodeProps } from "@xyflow/react";
 import { PhoneCallIcon, PhoneForwardedIcon, PhoneOutgoingIcon } from "lucide-react";
 
 import type { TransferNodeData } from "./flow-types";
-import { TRANSFER_NEXT_HANDLE_ID } from "./flow-types";
+import { TRANSFER_FAILED_HANDLE_ID, TRANSFER_NEXT_HANDLE_ID } from "./flow-types";
 import { FlowNodeShell, nodeTraceProps } from "./FlowNodeShell";
 
 export type TransferRFNode = Node<TransferNodeData, "transfer">;
 
-const SOURCE_HANDLES = [{ id: TRANSFER_NEXT_HANDLE_ID, name: "Connects to" }];
+const NEXT_HANDLE = { id: TRANSFER_NEXT_HANDLE_ID, name: "Connects to" };
+const NOT_CONNECTED_HANDLE = { id: TRANSFER_FAILED_HANDLE_ID, name: "Not connected" };
 
 /** Small corner glyph per mode — "simulated" is the original look (no badge). */
 const MODE_BADGE = {
@@ -28,6 +29,10 @@ export function TransferNode({ id, data, selected }: NodeProps<TransferRFNode>) 
 	const mode = data.mode ?? "simulated";
 	const modeBadge = mode === "simulated" ? undefined : MODE_BADGE[mode];
 	const BadgeIcon = modeBadge?.icon;
+	// Warm transfers can fail (no answer / declined) — expose a second "Not
+	// connected" source handle so the call can continue along its own branch.
+	const sourceHandles =
+		mode === "warm" ? [NEXT_HANDLE, NOT_CONNECTED_HANDLE] : [NEXT_HANDLE];
 	return (
 		<FlowNodeShell
 			id={id}
@@ -39,7 +44,7 @@ export function TransferNode({ id, data, selected }: NodeProps<TransferRFNode>) 
 			tileClassName="bg-gradient-to-br from-teal-500 to-cyan-500"
 			handleClassName="!bg-cyan-500"
 			targetHandleClassName="!bg-teal-500"
-			sourceHandles={SOURCE_HANDLES}
+			sourceHandles={sourceHandles}
 			channels={["voice"]}
 			{...nodeTraceProps(data)}
 			badge={

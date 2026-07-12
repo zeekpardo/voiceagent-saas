@@ -78,16 +78,9 @@ const ACTION_SECTIONS: ActionSection[] = [
 				tileClassName: AGENT_TILE,
 			},
 			{
-				kind: "transfer",
-				title: "Transfer",
-				subtitle: "Hold music, then a different voice takes over",
-				icon: PhoneForwardedIcon,
-				tileClassName: TRANSFER_TILE,
-			},
-			{
 				kind: "transfer_human",
 				title: "Forward to a Person",
-				subtitle: "Warm-transfer the caller to a real person's phone",
+				subtitle: "Connect the caller to a real person's phone",
 				icon: PhoneForwardedIcon,
 				tileClassName: TRANSFER_TILE,
 			},

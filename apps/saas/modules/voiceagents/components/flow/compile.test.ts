@@ -15,6 +15,7 @@ import {
 	sectionsToInstructions,
 	textToTiptapDoc,
 	tiptapToText,
+	TRANSFER_FAILED_EXIT_NAME,
 	validateFlowDoc,
 } from "./compile";
 import type {
@@ -35,6 +36,7 @@ import {
 	START_HANDLE_ID,
 	START_NODE_ID,
 	STATEMENT_NEXT_HANDLE_ID,
+	TRANSFER_FAILED_HANDLE_ID,
 	TRANSFER_NEXT_HANDLE_ID,
 	TRUE_HANDLE_ID,
 } from "./flow-types";
@@ -1839,6 +1841,109 @@ describe("transfer nodes", () => {
 		const recompiled = compileCanvas(rebuilt, []).flow;
 		expect(recompiled.nodes.map((n) => [n.id, n.kind, n.transfer, n.exits])).toEqual(
 			original.nodes.map((n) => [n.id, n.kind, n.transfer, n.exits]),
+		);
+	});
+
+	it("emits a 'Not Connected' exit when a warm transfer's failure handle is wired", () => {
+		const doc = makeTransferDoc({ mode: "warm", target: "+15551234567" });
+		// Add a fallback node the "Not connected" handle routes to.
+		doc.nodes.push({
+			id: "fallback",
+			type: "agent",
+			position: { x: 700, y: 300 },
+			data: {
+				title: "Fallback",
+				sections: [{ id: "s3", body: sectionBody([{ type: "text", text: "Take a message." }]) }],
+				entryMessage: "",
+				exits: [],
+				toolIds: [],
+			},
+		});
+		doc.edges.push({
+			id: "e4",
+			source: "t1",
+			sourceHandle: TRANSFER_FAILED_HANDLE_ID,
+			target: "fallback",
+		});
+
+		const { flow } = compileCanvas(doc, []);
+		const t1 = flow.nodes.find((n) => n.id === "t1");
+		expect(t1?.exits).toEqual([
+			{ name: "Next", description: "Continue after the transfer", target: "a2" },
+			{
+				name: TRANSFER_FAILED_EXIT_NAME,
+				description: "The person didn't answer or declined the transfer",
+				target: "fallback",
+			},
+		]);
+		// The join key must match the engine's string exactly.
+		expect(TRANSFER_FAILED_EXIT_NAME).toBe("Not Connected");
+	});
+
+	it("omits the 'Not Connected' exit when the failure handle is unwired (call ends)", () => {
+		const { flow } = compileCanvas(makeTransferDoc({ mode: "warm", target: "+15551234567" }), []);
+		const t1 = flow.nodes.find((n) => n.id === "t1");
+		expect(t1?.exits).toEqual([
+			{ name: "Next", description: "Continue after the transfer", target: "a2" },
+		]);
+	});
+
+	it("never emits a 'Not Connected' exit for simulated or cold transfers", () => {
+		for (const mode of ["simulated", "cold"] as const) {
+			const doc = makeTransferDoc(
+				mode === "cold" ? { mode, target: "+15551234567" } : { mode },
+			);
+			// Even if a stray failure edge exists, non-warm modes ignore it.
+			doc.edges.push({
+				id: "e4",
+				source: "t1",
+				sourceHandle: TRANSFER_FAILED_HANDLE_ID,
+				target: "a2",
+			});
+			const { flow } = compileCanvas(doc, []);
+			const t1 = flow.nodes.find((n) => n.id === "t1");
+			expect(t1?.exits.some((e) => e.name === TRANSFER_FAILED_EXIT_NAME)).toBe(false);
+		}
+	});
+
+	it("round-trips a warm transfer's 'Not Connected' branch flow → canvas → flow", () => {
+		const doc = makeTransferDoc({ mode: "warm", target: "+15551234567" });
+		doc.nodes.push({
+			id: "fallback",
+			type: "agent",
+			position: { x: 700, y: 300 },
+			data: {
+				title: "Fallback",
+				sections: [{ id: "s3", body: sectionBody([{ type: "text", text: "Take a message." }]) }],
+				entryMessage: "",
+				exits: [],
+				toolIds: [],
+			},
+		});
+		doc.edges.push({
+			id: "e4",
+			source: "t1",
+			sourceHandle: TRANSFER_FAILED_HANDLE_ID,
+			target: "fallback",
+		});
+
+		const original = compileCanvas(doc, []).flow;
+		const rebuilt = canvasFromFlow(original);
+
+		// The failure edge is restored on the "Not connected" handle.
+		const failureEdge = rebuilt.edges.find(
+			(e) => e.source === "t1" && e.sourceHandle === TRANSFER_FAILED_HANDLE_ID,
+		);
+		expect(failureEdge?.target).toBe("fallback");
+		const nextEdge = rebuilt.edges.find(
+			(e) => e.source === "t1" && e.sourceHandle === TRANSFER_NEXT_HANDLE_ID,
+		);
+		expect(nextEdge?.target).toBe("a2");
+
+		expect(validateFlowDoc(rebuilt)).toEqual([]);
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		expect(recompiled.nodes.map((n) => [n.id, n.kind, n.exits])).toEqual(
+			original.nodes.map((n) => [n.id, n.kind, n.exits]),
 		);
 	});
 });

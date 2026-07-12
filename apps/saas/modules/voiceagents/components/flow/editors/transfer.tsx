@@ -21,9 +21,9 @@ import { TitleInput, usePatch } from "./shared";
 const KEEP_VOICE = "__keep__";
 
 const MODE_OPTIONS: { value: TransferMode; label: string }[] = [
-	{ value: "simulated", label: "Simulated" },
-	{ value: "warm", label: "Warm" },
-	{ value: "cold", label: "Cold" },
+	{ value: "warm", label: "Connect to a person (waits for pickup)" },
+	{ value: "cold", label: "Forward the call and drop off" },
+	{ value: "simulated", label: "Simulated hand-off (demo — no real phone)" },
 ];
 
 export function TransferNodeEditor({
@@ -50,9 +50,10 @@ export function TransferNodeEditor({
 				<Label className="gap-1.5 flex items-center">
 					Mode
 					<InfoHint>
-						Simulated hands off in-session with an announcement, hold music, and a new voice — no
-						SIP trunk needed. Warm dials the target and merges the caller in once it's answered.
-						Cold blind-forwards the caller's SIP leg to the target and the agent drops.
+						"Connect to a person" dials the target and merges the caller in once someone picks up
+						— the caller waits on hold while it rings. "Forward the call and drop off" blind-
+						forwards the caller to the target and the agent leaves. "Simulated hand-off" is a demo
+						only — an announcement, hold music, and a new voice in-session, with no real phone call.
 					</InfoHint>
 				</Label>
 				<Select value={mode} onValueChange={(value) => patch({ mode: value as TransferMode })}>
@@ -185,6 +186,20 @@ export function TransferNodeEditor({
 						<p className="text-xs opacity-50">
 							Spoken before dialing. Supports {"{{variables}}"}; leave empty to skip straight to the
 							transfer.
+						</p>
+					</div>
+
+					<div className="gap-1.5 flex flex-col">
+						<Label className="gap-1.5 flex items-center">
+							"Not connected" branch
+							<InfoHint>
+								If the person doesn't answer or declines, the call continues along this branch;
+								leave it unwired and the call ends.
+							</InfoHint>
+						</Label>
+						<p className="text-xs opacity-50">
+							Wire the node's "Not connected" handle on the canvas to keep the caller moving when
+							the transfer isn't picked up. Leave it unwired and the call ends there.
 						</p>
 					</div>
 				</>

@@ -5,7 +5,11 @@ import {
 } from "../compile/nodes/transfer";
 import { TransferNodeEditor } from "../editors/transfer";
 import type { TransferCanvasNodeDoc, TransferNodeData } from "../flow-types";
-import { transferNodeDataSchema, TRANSFER_NEXT_HANDLE_ID } from "../flow-types";
+import {
+	transferNodeDataSchema,
+	TRANSFER_FAILED_HANDLE_ID,
+	TRANSFER_NEXT_HANDLE_ID,
+} from "../flow-types";
 import { TransferNode } from "../TransferNode";
 import { defineKind } from "./types";
 
@@ -17,13 +21,21 @@ export const transferKind = defineKind<TransferNodeData>({
 		<TransferNodeEditor nodeId={nodeId} data={data as TransferNodeData} onChange={onChange} />
 	),
 	sheetMeta: {
-		title: "Edit Transfer",
+		title: "Forward to a Person",
 		description:
-			"A simulated warm hand-off: an optional announcement, hold music, then the connected node continues with a new voice.",
+			"Connect the caller to a real person's phone. It dials the target and merges the caller in once someone picks up; wire the \"Not connected\" branch to keep the call going if no one answers.",
 	},
 	newData: () => newTransferNodeData(),
-	sourceHandles: () => new Set([TRANSFER_NEXT_HANDLE_ID]),
-	edgeLabel: () => undefined,
+	sourceHandles: (data) => {
+		const handles = new Set([TRANSFER_NEXT_HANDLE_ID]);
+		// The "Not connected" failure branch only exists for warm transfers.
+		if ((data.mode ?? "simulated") === "warm") {
+			handles.add(TRANSFER_FAILED_HANDLE_ID);
+		}
+		return handles;
+	},
+	edgeLabel: (_data, sourceHandle) =>
+		sourceHandle === TRANSFER_FAILED_HANDLE_ID ? "Not connected" : undefined,
 	compile: (node, { targetOf }) => ({
 		node: compileTransferNode(node as TransferCanvasNodeDoc & { data: TransferNodeData }, targetOf),
 	}),

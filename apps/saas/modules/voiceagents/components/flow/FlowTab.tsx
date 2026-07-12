@@ -25,6 +25,7 @@ import {
 	compileCanvas,
 	ensureGreeter,
 	extractVariableNames,
+	flowSoundnessWarnings,
 	newCanvas,
 	validateFlowDoc,
 } from "./compile";
@@ -178,10 +179,13 @@ export function FlowTab({
 		}
 		const baseToolIds = Array.isArray(config.toolIds) ? (config.toolIds as string[]) : [];
 		const { flow, toolIds, greeting, greetingGenerate } = compileCanvas(doc, baseToolIds);
-		// Non-blocking: warn when the text-pruned flow would be unsound (e.g. the
-		// entry node is voice-only, so text sessions have nowhere to start). Voice
-		// still ships — the author just needs a text-reachable entry.
-		const textWarnings = channelPruneWarnings(flow, "text");
+		// Non-blocking soundness warnings. Two families:
+		//  - channelPruneWarnings: the text-pruned flow would be unsound (e.g. the
+		//    entry node is voice-only, so text sessions have nowhere to start).
+		//  - flowSoundnessWarnings: e.g. a warm transfer reachable only via an
+		//    automatic transition, which the engine degrades to a blind cold REFER.
+		// The draft still saves — the author just needs to fix the flagged path.
+		const warnings = [...flowSoundnessWarnings(doc), ...channelPruneWarnings(flow, "text")];
 		try {
 			await saveDraftMutation.mutateAsync({
 				flow,
@@ -190,8 +194,8 @@ export function FlowTab({
 				greeting,
 				greetingGenerate,
 			});
-			if (textWarnings.length > 0) {
-				toastWarning("Saved — text channel needs attention", textWarnings.join("\n"));
+			if (warnings.length > 0) {
+				toastWarning("Saved — needs attention", warnings.join("\n"));
 			} else {
 				toastSuccess("Draft saved");
 			}

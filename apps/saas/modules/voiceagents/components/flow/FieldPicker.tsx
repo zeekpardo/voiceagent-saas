@@ -508,10 +508,15 @@ export function FieldPickerTextarea({
 		});
 	}, [fieldFocus, id]);
 
-	const isEmpty = useEditorState({
+	const editorIsEmpty = useEditorState({
 		editor,
 		selector: ({ editor: instance }) => instance?.isEmpty ?? true,
 	});
+	// `editor.isEmpty` goes stale after an external hydration (setContent runs
+	// with emitUpdate:false, so useEditorState never re-fires) — which left the
+	// placeholder overlapping real content until the first click. Gate on the
+	// controlled value too so a hydrated non-empty field never shows it.
+	const isEmpty = editorIsEmpty && value.trim().length === 0;
 
 	return (
 		<div className="relative w-full">

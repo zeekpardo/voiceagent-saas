@@ -39,7 +39,7 @@ export {
 } from "./text";
 export { MENTION_CHAR_EXIT, MENTION_CHAR_TOOL, MENTION_CHAR_VARIABLE } from "./text";
 export { channelPruneWarnings, pruneFlowForChannel } from "./channels";
-export { validateFlowDoc } from "./validate";
+export { flowSoundnessWarnings, validateFlowDoc } from "./validate";
 export { newAgentNodeData } from "./nodes/agent";
 export { newBookingNodeData } from "./nodes/booking";
 export { newConversationNodeData } from "./nodes/conversation";

@@ -1,4 +1,4 @@
-import type { CanvasDoc } from "../flow-types";
+import type { CanvasDoc, FlowNodeKind, TransferNodeData } from "../flow-types";
 import { START_NODE_ID } from "../flow-types";
 import { FLOW_KIND_LIST } from "../kinds";
 
@@ -79,4 +79,66 @@ export function validateFlowDoc(doc: CanvasDoc): string[] {
 	}
 
 	return errors;
+}
+
+/**
+ * Source node kinds whose outgoing edges are *model-callable* exits — the agent
+ * (or conversation node) picks an exit, or a scenario fires its jump. These are
+ * the only transitions the engine can start an attended (warm) transfer from
+ * (the exit-tool path). Every other inbound path — an objective/statement/action
+ * "Next" auto-advance, a branch router, a booking outcome, the greeter — reaches
+ * a node automatically, with no function-tool context, so the engine silently
+ * degrades a warm transfer to a blind cold SIP REFER.
+ */
+const MODEL_CALLABLE_SOURCE_KINDS: ReadonlySet<FlowNodeKind> = new Set([
+	"agent",
+	"conversation",
+	"scenario",
+]);
+
+/**
+ * Non-blocking soundness warnings surfaced as a toast on save (distinct from
+ * validateFlowDoc's hard errors). Empty array = nothing to flag.
+ *
+ * Today it catches the warm-transfer footgun: a `mode:"warm"` transfer node
+ * reachable ONLY via automatic transitions. The engine can run the real
+ * attended WarmTransferTask only when the node is reached from a model-callable
+ * exit/scenario; reached automatically it falls back to a blind cold transfer,
+ * which the author never asked for. If at least one inbound edge comes from a
+ * model-callable source the author has a working path, so we stay quiet.
+ */
+export function flowSoundnessWarnings(doc: CanvasDoc): string[] {
+	const warnings: string[] = [];
+	const kindById = new Map(doc.nodes.map((n) => [n.id, n.type]));
+	for (const node of doc.nodes) {
+		if (node.type !== "transfer") {
+			continue;
+		}
+		const data = node.data as TransferNodeData | undefined;
+		if ((data?.mode ?? "simulated") !== "warm") {
+			continue;
+		}
+		const inbound = doc.edges.filter((edge) => edge.target === node.id);
+		// No inbound edges = unreachable; that's a structural concern, not this one.
+		if (inbound.length === 0) {
+			continue;
+		}
+		const reachableByAgent = inbound.some((edge) => {
+			const sourceKind = kindById.get(edge.source);
+			return (
+				sourceKind !== undefined &&
+				MODEL_CALLABLE_SOURCE_KINDS.has(sourceKind as FlowNodeKind)
+			);
+		});
+		if (!reachableByAgent) {
+			const label = data?.title?.trim() || node.id;
+			warnings.push(
+				`Warm transfer "${label}" to a person must be triggered by the agent ` +
+					`(e.g. a scenario like "caller asks for a human" or an exit condition), ` +
+					`not reached as an automatic next step — otherwise it falls back to a ` +
+					`blind (cold) transfer.`,
+			);
+		}
+	}
+	return warnings;
 }

@@ -7,6 +7,7 @@ import {
 	compileCanvas,
 	ensureGreeter,
 	extractVariableNames,
+	flowSoundnessWarnings,
 	newCanvas,
 	newFullAddressObjectiveData,
 	prettifyVariable,
@@ -2252,6 +2253,127 @@ describe("channelPruneWarnings", () => {
 		const flow = compileCanvas(doc, []).flow;
 		expect(channelPruneWarnings(flow, "text")).toEqual([]);
 		expect(pruneFlowForChannel(flow, "text").entry).toBe("a2");
+	});
+});
+
+function warmTransferNode(id: string, title = "To a human"): CanvasDoc["nodes"][number] {
+	return {
+		id,
+		type: "transfer",
+		position: { x: 0, y: 0 },
+		data: {
+			title,
+			say: "",
+			mode: "warm",
+			holdSeconds: 0,
+			target: "+15551234567",
+		} satisfies TransferNodeData,
+	};
+}
+
+describe("flowSoundnessWarnings — warm transfer reachability", () => {
+	it("warns when a warm transfer is reachable only via an automatic (non-agent) transition", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				statementNode("s1", "Hold on"),
+				warmTransferNode("t1", "Escalate"),
+			],
+			edges: [
+				{ id: "e1", source: "s1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "t1" },
+			],
+		};
+		const warnings = flowSoundnessWarnings(doc);
+		expect(warnings.length).toBe(1);
+		expect(warnings[0]).toContain("Escalate");
+		expect(warnings[0]).toContain("blind (cold) transfer");
+	});
+
+	it("does not warn when a warm transfer is reachable from an agent exit", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				agentNode("a1", "Qualify", [{ id: "x1", name: "human", description: "asks for a person" }]),
+				warmTransferNode("t1"),
+			],
+			edges: [{ id: "e1", source: "a1", sourceHandle: "x1", target: "t1" }],
+		};
+		expect(flowSoundnessWarnings(doc)).toEqual([]);
+	});
+
+	it("does not warn when a warm transfer is reachable from a scenario jump", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				{
+					id: "sc1",
+					type: "scenario",
+					position: { x: 0, y: 0 },
+					data: { title: "Human requested", description: "caller asks for a human" },
+				},
+				warmTransferNode("t1"),
+			],
+			edges: [{ id: "e1", source: "sc1", sourceHandle: SCENARIO_JUMP_HANDLE_ID, target: "t1" }],
+		};
+		expect(flowSoundnessWarnings(doc)).toEqual([]);
+	});
+
+	it("does not warn when at least one inbound path is agent-triggered (mixed reachability)", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				statementNode("s1", "Hold on"),
+				agentNode("a1", "Qualify", [{ id: "x1", name: "human", description: "asks for a person" }]),
+				warmTransferNode("t1"),
+			],
+			edges: [
+				{ id: "e1", source: "s1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "t1" },
+				{ id: "e2", source: "a1", sourceHandle: "x1", target: "t1" },
+			],
+		};
+		expect(flowSoundnessWarnings(doc)).toEqual([]);
+	});
+
+	it("does not warn for a cold transfer reached automatically (only warm degrades)", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				statementNode("s1", "Hold on"),
+				{
+					id: "t1",
+					type: "transfer",
+					position: { x: 0, y: 0 },
+					data: {
+						title: "Cold forward",
+						say: "",
+						mode: "cold",
+						holdSeconds: 0,
+						target: "+15551234567",
+					} satisfies TransferNodeData,
+				},
+			],
+			edges: [
+				{ id: "e1", source: "s1", sourceHandle: STATEMENT_NEXT_HANDLE_ID, target: "t1" },
+			],
+		};
+		expect(flowSoundnessWarnings(doc)).toEqual([]);
+	});
+
+	it("does not warn for an unreachable warm transfer (no inbound edges)", () => {
+		const doc: CanvasDoc = {
+			version: 1,
+			nodes: [
+				{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+				warmTransferNode("t1"),
+			],
+			edges: [],
+		};
+		expect(flowSoundnessWarnings(doc)).toEqual([]);
 	});
 });
 

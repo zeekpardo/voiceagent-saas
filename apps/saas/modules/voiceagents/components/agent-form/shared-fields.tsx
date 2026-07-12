@@ -1,15 +1,7 @@
 "use client";
 
-import {
-	GUARDRAILS_MAX_CHARS,
-	RECOMMENDED_RESPONSE_STYLE,
-	RESPONSE_STYLE_MAX_CHARS,
-} from "@repo/api/modules/voiceagents/lib/persona-prompt";
-import { cn } from "@repo/ui";
-import { Button } from "@repo/ui/components/button";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
-import { Textarea } from "@repo/ui/components/textarea";
 import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { InfoIcon, XIcon } from "lucide-react";
@@ -196,120 +188,14 @@ export function InstructionsField({
 	);
 }
 
-/**
- * Job-specific guardrails. Stored raw on the config (round-trips like personaId)
- * and compiled into the prompt's `## GUARDRAILS` block on top of an always-on
- * safety baseline — so this field is purely additive rules for THIS job.
+/*
+ * Persona v2: the per-agent Guardrails and Response Style fields were retired
+ * from the form. Their content now lives on the attached persona (authored in
+ * the Personas panel) and compile sources ## GUARDRAILS / ## HOW TO RESPOND from
+ * the persona. The `guardrails` / `responseStyle` config keys remain tolerated by
+ * the input schema so older configs round-trip; they are simply no longer authored
+ * here.
  */
-export function GuardrailsField({ form }: AgentFormFieldProps) {
-	return (
-		<FormField
-			control={form.control}
-			name="guardrails"
-			render={({ field }) => (
-				<FormItem>
-					<div className="flex items-center justify-between">
-						<FormLabel className="gap-1.5 flex items-center">
-							Guardrails
-							<InfoHint>
-								Limits on what the agent will discuss or do. Baseline safety guardrails are always
-								applied — add rules specific to this job.
-							</InfoHint>
-						</FormLabel>
-						<span
-							className={cn(
-								"text-xs text-muted-foreground tabular-nums",
-								(field.value?.length ?? 0) > GUARDRAILS_MAX_CHARS && "text-destructive",
-							)}
-						>
-							{field.value?.length ?? 0}/{GUARDRAILS_MAX_CHARS}
-						</span>
-					</div>
-					<FormControl>
-						<Textarea
-							rows={3}
-							maxLength={GUARDRAILS_MAX_CHARS}
-							className="max-h-72 field-sizing-content"
-							placeholder="Never quote exact pricing — say the team will confirm. Don't discuss competitors."
-							value={field.value ?? ""}
-							onChange={field.onChange}
-							onBlur={field.onBlur}
-							name={field.name}
-							ref={field.ref}
-						/>
-					</FormControl>
-					<FormMessage />
-				</FormItem>
-			)}
-		/>
-	);
-}
-
-/**
- * Response Style — a free-text phrasing/tone directive injected into EVERY
- * generated message (voice + text, every node) as a `## RESPONSE STYLE` block.
- * Distinct from persona (identity/character): this governs HOW replies are
- * phrased. Stored RAW on the config and read live by the engine; blank injects
- * nothing, so existing agents are unchanged until they opt in. The "Use
- * recommended" button fills a strong starter the author can then edit or clear.
- */
-export function ResponseStyleField({ form }: AgentFormFieldProps) {
-	return (
-		<FormField
-			control={form.control}
-			name="responseStyle"
-			render={({ field }) => (
-				<FormItem>
-					<div className="flex items-center justify-between">
-						<FormLabel className="gap-1.5 flex items-center">
-							Response style
-							<InfoHint>
-								How the agent phrases its replies — tone, variety, and pacing — applied to every
-								generated message. Leave blank to keep the default voice. This is separate from the
-								persona's identity.
-							</InfoHint>
-						</FormLabel>
-						<Button
-							type="button"
-							variant="link"
-							size="sm"
-							className="p-0 text-xs h-auto"
-							onClick={() =>
-								form.setValue("responseStyle", RECOMMENDED_RESPONSE_STYLE, { shouldDirty: true })
-							}
-						>
-							Use recommended
-						</Button>
-					</div>
-					<FormControl>
-						<Textarea
-							rows={3}
-							maxLength={RESPONSE_STYLE_MAX_CHARS}
-							className="max-h-72 field-sizing-content"
-							placeholder={RECOMMENDED_RESPONSE_STYLE}
-							value={field.value ?? ""}
-							onChange={field.onChange}
-							onBlur={field.onBlur}
-							name={field.name}
-							ref={field.ref}
-						/>
-					</FormControl>
-					<div className="flex items-center justify-between">
-						<FormMessage />
-						<span
-							className={cn(
-								"text-xs ml-auto text-muted-foreground tabular-nums",
-								(field.value?.length ?? 0) > RESPONSE_STYLE_MAX_CHARS && "text-destructive",
-							)}
-						>
-							{field.value?.length ?? 0}/{RESPONSE_STYLE_MAX_CHARS}
-						</span>
-					</div>
-				</FormItem>
-			)}
-		/>
-	);
-}
 
 /** Read-only note: caller/CRM details are injected automatically per call. */
 export function UserInfoNote() {

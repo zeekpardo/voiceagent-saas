@@ -27,7 +27,8 @@ interface AgentFormProps {
 	 * Which slice of the form to render. The form always hydrates and submits
 	 * the FULL config regardless of variant, so saving one slice never loses
 	 * the other's fields.
-	 * - "job": Instructions, Guardrails (Greeting is owned by the Greeter node).
+	 * - "job": the agent's Goal (tone + guardrails now live on the persona; the
+	 *   Greeting is owned by the Greeter node).
 	 * - "settings": Identity/Persona, Voice/Model, Conversation dynamics.
 	 * - "preferences": post-call CRM outputs (summarize, summary field, call note)
 	 *   and word rules (prohibited words).

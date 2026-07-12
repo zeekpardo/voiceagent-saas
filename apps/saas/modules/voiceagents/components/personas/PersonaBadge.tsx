@@ -1,14 +1,18 @@
 "use client";
 
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
+import { SparklesIcon } from "lucide-react";
 
 import { agentPersonaId, usePersonasQuery } from "../../lib/personas-api";
 import { PersonaAvatar } from "./PersonaAvatar";
 
 /**
  * Compact badge for the builder header showing the agent's attached persona
- * (avatar + name). Renders nothing when no persona is attached. Clicking it
- * opens the Personas aside via `onClick`.
+ * (avatar + name). Clicking it opens the Personas aside via `onClick`.
+ *
+ * Persona v2 makes a persona REQUIRED to publish, so when none is attached this
+ * renders a clear "Attach a persona" prompt (rather than nothing) to keep the
+ * affordance prominent and guide the user to the Personas panel.
  */
 export function PersonaBadge({ agent, onClick }: { agent: GatewayAgent; onClick?: () => void }) {
 	const { data: personas } = usePersonasQuery();
@@ -16,7 +20,17 @@ export function PersonaBadge({ agent, onClick }: { agent: GatewayAgent; onClick?
 	const persona = personas?.find((p) => p.id === attachedId);
 
 	if (!persona) {
-		return null;
+		return (
+			<button
+				type="button"
+				onClick={onClick}
+				title="Attach a persona — required to publish"
+				className="gap-1.5 py-1 pr-3 pl-2.5 flex items-center rounded-full border border-dashed text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+			>
+				<SparklesIcon className="size-3.5" />
+				Attach a persona
+			</button>
+		);
 	}
 
 	return (

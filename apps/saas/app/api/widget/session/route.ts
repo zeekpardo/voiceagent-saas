@@ -1,14 +1,17 @@
+import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
+import { resolveSourceIdForAgent } from "@repo/api/modules/crm/lib/resolve-source";
 import {
 	allowedSessionChannels,
 	isChannelAllowed,
 	readChannelMode,
 } from "@repo/api/modules/voiceagents/lib/channel-mode";
+import { mergeCustomVariables } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import { createRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { isOriginAllowed, verifyWidgetToken } from "@repo/api/modules/voiceagents/lib/widget-token";
 import { auth } from "@repo/auth";
-import { getOrganizationMembership } from "@repo/database";
+import { getAgentSource, getOrganizationMembership } from "@repo/database";
 
 /**
  * Public, token-gated session starter for the embeddable widget. An anonymous
@@ -170,15 +173,37 @@ export async function POST(req: Request): Promise<Response> {
 		);
 	}
 
+	// Account-context hydration: resolve the widget agent's connected Source (an
+	// agent with exactly one ENABLED attached Source resolves unambiguously — see
+	// resolveSourceIdForAgent) and pull its CRM account context (location_*,
+	// customValue.*) plus this source's Job Flow Variable overrides, mirroring the
+	// builder test-session and CRM-trigger paths. Best-effort throughout: a CRM
+	// hiccup, an unattached source, or a missing mapping must never fail or block
+	// starting a widget session — it just means the widget behaves like today.
+	const sourceId = await resolveSourceIdForAgent({ agentId: identity.agentId }).catch(() => null);
+	const [provider, mapping] = await Promise.all([
+		sourceId ? resolveCrmProvider(sourceId).catch(() => null) : Promise.resolve(null),
+		sourceId ? getAgentSource(identity.agentId, sourceId).catch(() => null) : Promise.resolve(null),
+	]);
+	const accountContext = provider
+		? await provider.getAccountContext().catch(() => ({}) as Record<string, string>)
+		: ({} as Record<string, string>);
+
 	const visitor = body.visitor ?? {};
-	const variables: Record<string, string> = {};
+	const visitorVariables: Record<string, string> = {};
 	if (typeof visitor.name === "string" && visitor.name.trim()) {
-		variables.caller_name = visitor.name.trim();
-		variables.visitor_name = visitor.name.trim();
+		visitorVariables.caller_name = visitor.name.trim();
+		visitorVariables.visitor_name = visitor.name.trim();
 	}
 	if (typeof visitor.email === "string" && visitor.email.trim()) {
-		variables.visitor_email = visitor.email.trim();
+		visitorVariables.visitor_email = visitor.email.trim();
 	}
+	// CRM account context is the base; explicit visitor name/email always win —
+	// same precedence sessions.ts and the trigger route use for runtime variables.
+	const runtimeVariables = { ...accountContext, ...visitorVariables };
+	// Fold in per-source Job Flow Variable overrides/defaults (lowest precedence —
+	// runtimeVariables above always wins).
+	const variables = mergeCustomVariables(agentConfig, mapping, runtimeVariables);
 
 	try {
 		const session = await gatewayFetch<{

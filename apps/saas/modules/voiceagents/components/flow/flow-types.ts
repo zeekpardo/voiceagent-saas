@@ -372,6 +372,13 @@ export interface HandoffNodeData {
 	title: string;
 	/** The target published agent this node hands the live call off to (agent id). */
 	handoffAgentId?: string;
+	/**
+	 * How the swap presents. "announced" (default): the SOURCE agent sends the
+	 * `say` bridge, then the TARGET agent opens with its own entry greeting (and,
+	 * on voice, the hold music covers the swap). "seamless": the target just
+	 * continues — no bridge, no self-intro, no music. Absent = announced.
+	 */
+	mode?: "seamless" | "announced";
 	/** Announcement spoken by the SOURCE agent right before the hold music. Supports {{variables}}. */
 	say?: string;
 	/** When false/absent (default): `say` is spoken VERBATIM. When true: `say` is
@@ -593,6 +600,8 @@ export interface EngineFlowNode {
 	handoffAgentId?: string;
 	/** handoff-only: optional announcement (source agent's voice) + hold music before the target takes over. */
 	handoff?: {
+		/** How the swap presents; absent = "announced" (the pre-mode default). */
+		mode?: "seamless" | "announced";
 		say?: string;
 		/** When true, `say` is a direction the source agent generates the announcement from. */
 		generate?: boolean;
@@ -770,6 +779,7 @@ export const transferNodeDataSchema = z.object({
 export const handoffNodeDataSchema = z.object({
 	title: z.string(),
 	handoffAgentId: z.string().optional(),
+	mode: z.enum(["seamless", "announced"]).optional(),
 	say: z.string().optional(),
 	generate: z.boolean().optional(),
 	holdSeconds: z.number().optional(),

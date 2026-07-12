@@ -1564,6 +1564,40 @@ describe("handoff nodes", () => {
 		const h1 = flow.nodes.find((n) => n.id === "h1");
 		expect(h1?.handoff).toEqual({ say: "One moment." });
 	});
+
+	it("omits handoff.mode for the announced default (unchanged shape)", () => {
+		const { flow } = compileCanvas(makeHandoffDoc({ mode: "announced", say: "One moment." }), []);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toEqual({ say: "One moment." });
+	});
+
+	it("emits handoff.mode=seamless even with no say or holdSeconds", () => {
+		const { flow } = compileCanvas(makeHandoffDoc({ mode: "seamless" }), []);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toEqual({ mode: "seamless" });
+	});
+
+	it("emits handoff.mode=seamless alongside a say/holdSeconds and round-trips it", () => {
+		const { flow } = compileCanvas(
+			makeHandoffDoc({ mode: "seamless", say: "Passing you over.", holdSeconds: 0 }),
+			[],
+		);
+		const h1 = flow.nodes.find((n) => n.id === "h1");
+		expect(h1?.handoff).toEqual({ mode: "seamless", say: "Passing you over.", holdSeconds: 0 });
+
+		const rebuilt = canvasFromFlow(flow);
+		const rebuiltH1 = rebuilt.nodes.find((n) => n.id === "h1");
+		expect(rebuiltH1?.type).toBe("handoff");
+		if (rebuiltH1?.type === "handoff") {
+			expect(rebuiltH1.data?.mode).toBe("seamless");
+		}
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		expect(recompiled.nodes.find((n) => n.id === "h1")?.handoff).toEqual({
+			mode: "seamless",
+			say: "Passing you over.",
+			holdSeconds: 0,
+		});
+	});
 });
 
 /** Start → a1 agent (exit → s1 stop_responding). s1 is a leaf: no outgoing edge. */

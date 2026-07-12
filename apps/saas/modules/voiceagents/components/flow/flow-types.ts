@@ -58,7 +58,8 @@ export type FlowNodeKind =
 	| "set_field"
 	| "modify_tags"
 	| "booking"
-	| "handoff";
+	| "handoff"
+	| "stop_responding";
 
 /**
  * A delivery channel a flow (or an individual node) can run on. A node with no
@@ -116,6 +117,7 @@ export const FLOW_PALETTE_KINDS = [
 	"set_field",
 	"modify_tags",
 	"handoff",
+	"stop_responding",
 ] as const;
 
 /**
@@ -383,6 +385,11 @@ export interface HandoffNodeData {
 	[key: string]: unknown;
 }
 
+export interface StopRespondingNodeData {
+	title: string;
+	[key: string]: unknown;
+}
+
 export type FlowNodeData =
 	| GreeterNodeData
 	| AgentNodeData
@@ -394,6 +401,7 @@ export type FlowNodeData =
 	| ScenarioNodeData
 	| TransferNodeData
 	| HandoffNodeData
+	| StopRespondingNodeData
 	| SetFieldNodeData
 	| ModifyTagsNodeData
 	| BookingNodeData;
@@ -475,6 +483,13 @@ export interface HandoffCanvasNodeDoc {
 	data?: HandoffNodeData;
 }
 
+export interface StopRespondingCanvasNodeDoc {
+	id: string;
+	type: "stop_responding";
+	position: { x: number; y: number };
+	data?: StopRespondingNodeData;
+}
+
 export interface SetFieldCanvasNodeDoc {
 	id: string;
 	type: "set_field";
@@ -508,6 +523,7 @@ export type CanvasNodeDoc =
 	| ScenarioCanvasNodeDoc
 	| TransferCanvasNodeDoc
 	| HandoffCanvasNodeDoc
+	| StopRespondingCanvasNodeDoc
 	| SetFieldCanvasNodeDoc
 	| ModifyTagsCanvasNodeDoc
 	| BookingCanvasNodeDoc;
@@ -544,7 +560,15 @@ export interface EngineFlowNode {
 	 * "statement" nodes speak statement.say and immediately continue (at most one exit).
 	 * "transfer" nodes announce, play hold music, then continue with a new voice.
 	 */
-	kind?: "agent" | "router" | "statement" | "transfer" | "set_field" | "modify_tags" | "handoff";
+	kind?:
+		| "agent"
+		| "router"
+		| "statement"
+		| "transfer"
+		| "set_field"
+		| "modify_tags"
+		| "handoff"
+		| "stop_responding";
 	router?: { condition: string };
 	statement?: { say: string; generate?: boolean };
 	/** `toolId` names the engine tool that writes the field (self-describing —
@@ -752,6 +776,10 @@ export const handoffNodeDataSchema = z.object({
 	channels: z.array(z.enum(["voice", "text"])).optional(),
 });
 
+export const stopRespondingNodeDataSchema = z.object({
+	title: z.string(),
+});
+
 export const setFieldNodeDataSchema = z.object({
 	title: z.string(),
 	field: z.string(),
@@ -805,7 +833,16 @@ export const engineFlowSchema = z.object({
 			id: z.string(),
 			name: z.string().optional(),
 			kind: z
-				.enum(["agent", "router", "statement", "transfer", "set_field", "modify_tags"])
+				.enum([
+					"agent",
+					"router",
+					"statement",
+					"transfer",
+					"set_field",
+					"modify_tags",
+					"handoff",
+					"stop_responding",
+				])
 				.optional(),
 			router: z.object({ condition: z.string() }).optional(),
 			statement: z.object({ say: z.string() }).optional(),

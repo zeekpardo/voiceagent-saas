@@ -23,9 +23,20 @@ export const flowInput = z.object({
 				// statement.say and immediately continue. "transfer" nodes announce,
 				// play hold music, then continue with a new voice. "handoff" nodes hand
 				// the live call off to a different published agent (one-way, carrying
-				// context). Default is "agent".
+				// context). "stop_responding" nodes park the contact — the agent stops
+				// responding but the session keeps listening (never hangs up on its own;
+				// scenarios can re-engage). Default is "agent".
 				kind: z
-					.enum(["agent", "router", "statement", "transfer", "set_field", "modify_tags", "handoff"])
+					.enum([
+						"agent",
+						"router",
+						"statement",
+						"transfer",
+						"set_field",
+						"modify_tags",
+						"handoff",
+						"stop_responding",
+					])
 					.optional(),
 				router: z.object({ condition: z.string().min(1) }).optional(),
 				statement: z

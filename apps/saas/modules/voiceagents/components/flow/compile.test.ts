@@ -1566,6 +1566,76 @@ describe("handoff nodes", () => {
 	});
 });
 
+/** Start → a1 agent (exit → s1 stop_responding). s1 is a leaf: no outgoing edge. */
+function makeStopRespondingDoc(): CanvasDoc {
+	return {
+		version: 1,
+		nodes: [
+			{ id: START_NODE_ID, type: "start", position: { x: 0, y: 0 } },
+			{
+				id: "a1",
+				type: "agent",
+				position: { x: 100, y: 0 },
+				data: {
+					title: "Intake",
+					sections: [{ id: "s1", body: sectionBody([{ type: "text", text: "Greet." }]) }],
+					entryMessage: "",
+					exits: [{ id: "x1", name: "park", description: "Nothing more to do — park the contact" }],
+					toolIds: [],
+				},
+			},
+			{
+				id: "sr1",
+				type: "stop_responding",
+				position: { x: 400, y: 0 },
+				data: { title: "Park the contact" },
+			},
+		],
+		edges: [
+			{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
+			{ id: "e2", source: "a1", sourceHandle: "x1", target: "sr1" },
+			// sr1 is a leaf — no outgoing edge (the contact parks here).
+		],
+	};
+}
+
+describe("stop_responding nodes", () => {
+	it("compiles a stop_responding node into kind stop_responding with no exits", () => {
+		const { flow } = compileCanvas(makeStopRespondingDoc(), []);
+		const sr1 = flow.nodes.find((n) => n.id === "sr1");
+		expect(sr1?.kind).toBe("stop_responding");
+		expect(sr1?.name).toBe("Park the contact");
+		// A leaf/terminal node with no forward exits and no config.
+		expect(sr1?.exits).toEqual([]);
+		expect(sr1?.toolIds).toEqual([]);
+		// The engine requires instructions min 1 even though it never becomes an agent.
+		expect((sr1?.instructions.length ?? 0) > 0).toBe(true);
+	});
+
+	it("validates a well-formed stop_responding doc", () => {
+		expect(validateFlowDoc(withGreeter(makeStopRespondingDoc()))).toEqual([]);
+	});
+
+	it("flags a stop_responding node with no name", () => {
+		const doc = makeStopRespondingDoc();
+		const sr1 = doc.nodes.find((n) => n.id === "sr1");
+		if (sr1?.type === "stop_responding" && sr1.data) {
+			sr1.data.title = "";
+		}
+		const errors = validateFlowDoc(withGreeter(doc));
+		expect(errors.some((e) => e.includes("needs a name"))).toBe(true);
+	});
+
+	it("round-trips stop_responding nodes flow → canvas → flow", () => {
+		const original = compileCanvas(makeStopRespondingDoc(), []).flow;
+		const rebuilt = canvasFromFlow(original);
+		const recompiled = compileCanvas(rebuilt, []).flow;
+		const sr1 = recompiled.nodes.find((n) => n.id === "sr1");
+		expect(sr1?.kind).toBe("stop_responding");
+		expect(sr1?.exits).toEqual([]);
+	});
+});
+
 /** Start → a1 agent → t1 transfer (Next → a2 agent). */
 function makeTransferDoc(data: Partial<TransferNodeData> = {}): CanvasDoc {
 	return {

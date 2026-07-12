@@ -24,18 +24,28 @@ import type { AgentFormValues } from "../../lib/agent-form-mapping";
 import { GreetingField } from "./shared-fields";
 
 /** "Conversation dynamics" card: greeting, turn-taking, timeouts, and
- *  AI-disclosure compliance. The greeting lives here for single (non-flow)
- *  agents; flow agents set it on the Greeter node instead. */
-export function ConversationDynamicsSection({ form }: { form: UseFormReturn<AgentFormValues> }) {
+ *  AI-disclosure compliance. The greeting field only renders for non-flow
+ *  agents; flow agents set it on the Greeter node instead, so it's hidden here
+ *  to avoid two editors fighting over the same `config.greeting` key (see
+ *  AgentForm.tsx's `isFlowAgent` + submit-time strip). */
+export function ConversationDynamicsSection({
+	form,
+	isFlowAgent = false,
+}: {
+	form: UseFormReturn<AgentFormValues>;
+	isFlowAgent?: boolean;
+}) {
 	return (
 		<Card>
 			<CardHeader>
 				<CardTitle>Conversation dynamics</CardTitle>
 			</CardHeader>
 			<CardContent className="gap-4 @xl:grid-cols-2 grid">
-				<div className="@xl:col-span-2">
-					<GreetingField form={form} />
-				</div>
+				{!isFlowAgent && (
+					<div className="@xl:col-span-2">
+						<GreetingField form={form} />
+					</div>
+				)}
 				<FormField
 					control={form.control}
 					name="turnDetection.preemptiveGeneration"

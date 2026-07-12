@@ -40,16 +40,26 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 	const router = useRouter();
 	const createMutation = useCreateAgentMutation();
 	const updateMutation = useUpdateAgentMutation(agent?.id ?? "");
+	// The most reliable "is this a flow agent?" signal: a non-empty config.flow
+	// written by the canvas compiler (see AgentsTable.tsx's TypePill for the same
+	// check). Undefined for the create page, where no flow exists yet.
+	const isFlowAgent = Boolean(
+		(agent?.config as { flow?: { nodes?: unknown[] } } | undefined)?.flow,
+	);
 
 	const form = useForm({
 		resolver: zodResolver(agentConfigInput),
 		defaultValues: toFormValues(agent),
 	});
 	const onSubmit = form.handleSubmit(async (values) => {
-		// For flow agents the Greeter node owns config.greeting, so the Job panel
-		// must not submit greeting — dropping it keeps it out of the PATCH body so
-		// the gateway preserves whatever the flow last wrote.
-		const payload = variant === "job" ? { ...values, greeting: undefined } : values;
+		// For flow agents the Greeter node owns config.greeting (+ greetingGenerate),
+		// so no settings-form save may clobber it. The Job panel never showed a
+		// greeting field at all, so it always strips defensively; Conversation
+		// Dynamics (settings/create form) only needs to strip once the agent is
+		// actually flow-based — the field stays visible (and authoritative) for the
+		// legacy non-flow case, so its value should still round-trip there.
+		const stripGreeting = variant === "job" || isFlowAgent;
+		const payload = stripGreeting ? { ...values, greeting: undefined } : values;
 		try {
 			if (agent) {
 				await updateMutation.mutateAsync(payload);
@@ -104,7 +114,7 @@ export function AgentForm({ agent, variant }: AgentFormProps) {
 			<form onSubmit={onSubmit} className="gap-6 @container flex flex-col">
 				<IdentityPersonaSection form={form} variant={variant} agentId={agent?.id} />
 				<VoiceModelSection form={form} />
-				<ConversationDynamicsSection form={form} />
+				<ConversationDynamicsSection form={form} isFlowAgent={isFlowAgent} />
 				<AudioSection form={form} />
 
 				<div className="gap-3 flex justify-end">

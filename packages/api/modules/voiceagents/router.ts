@@ -14,6 +14,7 @@ import {
 import { createAgent, deleteAgent, getAgent, listAgents, updateAgent } from "./procedures/agents";
 import { getCallEvents, getTranscript, listCalls } from "./procedures/calls";
 import { listContactFieldOptionsProcedure } from "./procedures/contact-fields";
+import { getConversationEvents } from "./procedures/conversations";
 import {
 	discardDraft,
 	getDraft,
@@ -72,6 +73,9 @@ export const voiceagentsRouter = {
 		list: listCalls,
 		transcript: getTranscript,
 		events: getCallEvents,
+	},
+	conversations: {
+		events: getConversationEvents,
 	},
 	numbers: {
 		list: listNumbers,

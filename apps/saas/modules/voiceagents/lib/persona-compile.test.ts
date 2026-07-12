@@ -166,8 +166,31 @@ describe("toGatewayConfig postCall", () => {
 	});
 });
 
-describe("toGatewayConfig responseStyle", () => {
-	it("rides RAW onto the gateway config and is NOT compiled into instructions", () => {
+describe("toGatewayConfig responseStyle (folded into HOW TO RESPOND)", () => {
+	it("folds responseStyle into the persona's HOW TO RESPOND and stops sending it raw", () => {
+		const compiled = toGatewayConfig(
+			agentConfigInput.parse({
+				name: "Test Agent",
+				goal: "Book the caller an appointment.",
+				responseStyle: "Keep it warm and vary your phrasing.",
+			}),
+			{ name: "Ava", styles: ["warm"], howToRespond: "Confirm the time twice." },
+		);
+		// No longer rides RAW on the config, and the engine's RESPONSE STYLE block
+		// is never emitted (we stop sending config.responseStyle).
+		expect((compiled as { responseStyle?: string }).responseStyle).toBeUndefined();
+		expect(compiled.instructions).not.toContain("## RESPONSE STYLE");
+		// Absorbed into HOW TO RESPOND alongside the persona's howToRespond
+		// (persona phrasing first, then the job's response-style text).
+		expect(compiled.instructions).toContain("## HOW TO RESPOND");
+		expect(compiled.instructions).toContain("Confirm the time twice.");
+		expect(compiled.instructions).toContain("Keep it warm and vary your phrasing.");
+		expect(compiled.instructions.indexOf("Confirm the time twice.")).toBeLessThan(
+			compiled.instructions.indexOf("Keep it warm and vary your phrasing."),
+		);
+	});
+
+	it("emits a HOW TO RESPOND block from responseStyle even without a persona", () => {
 		const compiled = toGatewayConfig(
 			agentConfigInput.parse({
 				name: "Test Agent",
@@ -176,17 +199,144 @@ describe("toGatewayConfig responseStyle", () => {
 			}),
 			null,
 		);
-		expect((compiled as { responseStyle?: string }).responseStyle).toBe(
-			"Keep it warm and vary your phrasing.",
-		);
-		// Distinct from guardrails/goal: never folded into the composed prompt.
-		expect(compiled.instructions).not.toContain("Keep it warm and vary your phrasing.");
-		expect(compiled.instructions).not.toContain("## RESPONSE STYLE");
+		expect((compiled as { responseStyle?: string }).responseStyle).toBeUndefined();
+		expect(compiled.instructions).toContain("## HOW TO RESPOND");
+		expect(compiled.instructions).toContain("Keep it warm and vary your phrasing.");
+		// No persona → no identity/personality, just the standalone tone directive.
+		expect(compiled.instructions).not.toContain("## IDENTITY");
 	});
 
-	it("is absent when the agent sets no responseStyle (existing agents unchanged)", () => {
+	it("emits no HOW TO RESPOND block when neither persona nor responseStyle is set", () => {
 		const compiled = toGatewayConfig(baseConfig, null);
 		expect((compiled as { responseStyle?: string }).responseStyle).toBeUndefined();
+		expect(compiled.instructions).not.toContain("## HOW TO RESPOND");
+	});
+});
+
+describe("toGatewayConfig guardrails (persona-first, per-agent fallback)", () => {
+	it("sources GUARDRAILS from the persona when present", () => {
+		const compiled = toGatewayConfig(baseConfig, {
+			name: "Ava",
+			styles: ["warm"],
+			howToRespond: "",
+			guardrails: "Never share pricing over the phone.",
+		});
+		expect(compiled.instructions).toContain("## GUARDRAILS");
+		expect(compiled.instructions).toContain("Never share pricing over the phone.");
+	});
+
+	it("appends the per-agent guardrails AFTER the persona's when both are set", () => {
+		const compiled = toGatewayConfig(
+			{ ...baseConfig, guardrails: "No competitor talk." },
+			{
+				name: "Ava",
+				styles: ["warm"],
+				howToRespond: "",
+				guardrails: "Never share pricing.",
+			},
+		);
+		const text = compiled.instructions;
+		expect(text).toContain("Never share pricing.");
+		expect(text).toContain("No competitor talk.");
+		expect(text.indexOf("Never share pricing.")).toBeLessThan(
+			text.indexOf("No competitor talk."),
+		);
+	});
+
+	it("falls back to the per-agent guardrails when the persona has none (unchanged)", () => {
+		const compiled = toGatewayConfig(
+			{ ...baseConfig, guardrails: "No competitor talk." },
+			{ name: "Ava", styles: ["warm"], howToRespond: "" },
+		);
+		expect(compiled.instructions).toContain("No competitor talk.");
+	});
+});
+
+describe("toGatewayConfig persona voice/model (channel-aware)", () => {
+	const persona = {
+		name: "Ava",
+		styles: ["warm"],
+		howToRespond: "",
+		ttsVoice: "elevenlabs/EXAVITQu4vr4xnSDxMaL",
+		llmModel: "openai/gpt-4o",
+	};
+
+	it("maps persona ttsVoice + llmModel onto config.tts/config.llm for a voice agent", () => {
+		const input = agentConfigInput.parse({
+			name: "A",
+			goal: "Help the caller.",
+			channels: { mode: "voice" },
+		});
+		const compiled = toGatewayConfig(input, persona);
+		// "provider/voiceId" sets both the provider and the voice.
+		expect(compiled.tts.provider).toBe("elevenlabs");
+		expect(compiled.tts.voice).toBe("EXAVITQu4vr4xnSDxMaL");
+		expect(compiled.llm.model).toBe("openai/gpt-4o");
+	});
+
+	it("maps them for a 'both' agent as well", () => {
+		const input = agentConfigInput.parse({
+			name: "A",
+			goal: "Help the caller.",
+			channels: { mode: "both" },
+		});
+		const compiled = toGatewayConfig(input, persona);
+		expect(compiled.tts.voice).toBe("EXAVITQu4vr4xnSDxMaL");
+		expect(compiled.llm.model).toBe("openai/gpt-4o");
+	});
+
+	it("SKIPS voice/model mapping for a text-only agent (text path never uses them)", () => {
+		const input = agentConfigInput.parse({
+			name: "A",
+			goal: "Help the caller.",
+			channels: { mode: "text" },
+		});
+		const compiled = toGatewayConfig(input, persona);
+		// Config keeps its defaults — persona voice/model never applied to text.
+		expect(compiled.tts.provider).toBe("xai");
+		expect(compiled.tts.voice).toBe("ara");
+		expect(compiled.llm.model).toBe("grok-4-fast");
+	});
+
+	it("lets a per-agent explicit voice/model override the persona default", () => {
+		const input = agentConfigInput.parse({
+			name: "A",
+			goal: "Help the caller.",
+			channels: { mode: "voice" },
+			tts: { provider: "deepgram", voice: "aura-2-thalia-en" },
+			llm: { model: "openai/gpt-5" },
+		});
+		const compiled = toGatewayConfig(input, persona);
+		expect(compiled.tts.provider).toBe("deepgram");
+		expect(compiled.tts.voice).toBe("aura-2-thalia-en");
+		expect(compiled.llm.model).toBe("openai/gpt-5");
+	});
+
+	it("maps a bare voice id onto the voice field while keeping the provider", () => {
+		const input = agentConfigInput.parse({
+			name: "A",
+			goal: "Help the caller.",
+			channels: { mode: "voice" },
+		});
+		const compiled = toGatewayConfig(input, { ...persona, ttsVoice: "eve" });
+		expect(compiled.tts.voice).toBe("eve");
+		expect(compiled.tts.provider).toBe("xai");
+	});
+
+	it("is a no-op when the persona carries no ttsVoice/llmModel (additive)", () => {
+		const input = agentConfigInput.parse({
+			name: "A",
+			goal: "Help the caller.",
+			channels: { mode: "voice" },
+		});
+		const compiled = toGatewayConfig(input, {
+			name: "Ava",
+			styles: ["warm"],
+			howToRespond: "",
+		});
+		expect(compiled.tts.provider).toBe("xai");
+		expect(compiled.tts.voice).toBe("ara");
+		expect(compiled.llm.model).toBe("grok-4-fast");
 	});
 });
 

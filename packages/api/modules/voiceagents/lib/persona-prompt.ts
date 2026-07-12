@@ -208,6 +208,23 @@ function joinNaturally(items: string[]): string {
 }
 
 /**
+ * The `## HOW TO RESPOND` block on its own — used when there is response-style
+ * text but NO persona attached (no identity/personality to anchor it, but the
+ * tone directive still belongs in the prompt). Returns "" when empty. Bounded by
+ * the persona budget so it never crowds out the flow's own instructions.
+ */
+export function howToRespondPrompt(body: string): string {
+	const text = body.trim();
+	if (!text) {
+		return "";
+	}
+	const header = "## HOW TO RESPOND\n";
+	const budget = PERSONA_PROMPT_MAX_CHARS - header.length;
+	const trimmed = text.length > budget ? `${text.slice(0, budget - 1).trimEnd()}…` : text;
+	return `${header}${trimmed}`;
+}
+
+/**
  * Compile a persona into its `## IDENTITY` / `## PERSONALITY` / `## HOW TO
  * RESPOND` blocks. Capped at PERSONA_PROMPT_MAX_CHARS: the free-text
  * `## HOW TO RESPOND` section is trimmed first (it is the only unbounded part),
@@ -249,24 +266,55 @@ export function personaPrompt(persona: PersonaPromptInput): string {
  *
  *   persona (## IDENTITY / ## PERSONALITY / ## HOW TO RESPOND)
  *     → ## GOAL       (the job's overarching objective — `goal`)
- *     → ## GUARDRAILS  (always-on safety baseline + optional custom lines)
+ *     → ## GUARDRAILS  (persona guardrails + optional per-agent lines + safety baseline)
  *     → ## VOICE STYLE (output rules — applied to every agent)
  *
- * The guardrails baseline and the voice-style block apply even when there is no
- * persona. `goal` is the builder's job text (config.instructions); it renders
- * under the GOAL heading exactly once here — the single funnel both single
- * agents and flow agents pass through (toGatewayConfig), so the section is
- * never duplicated.
+ * Persona-v2 consolidation (Phase 1b):
+ *
+ *  - `## HOW TO RESPOND` ABSORBS the per-agent Response Style. The persona's
+ *    `howToRespond` and the agent's `responseStyle` collapse into ONE tone
+ *    directive (persona phrasing first, then the job's response-style text). The
+ *    SaaS therefore stops sending `config.responseStyle`, so the engine's raw
+ *    `## RESPONSE STYLE` block evaluates empty (harmless — see toGatewayConfig).
+ *    When there is response-style text but no persona, the block still renders
+ *    on its own via `howToRespondPrompt`.
+ *  - `## GUARDRAILS` prefers the persona's reusable `guardrails`; the per-agent
+ *    job-specific `guardrails` are APPENDED after them (both optional). Falling
+ *    back to the per-agent value keeps existing personaless agents unchanged.
+ *
+ * The guardrails safety baseline and the voice-style block apply even when there
+ * is no persona. `goal` is the builder's job text (config.instructions); it
+ * renders under the GOAL heading exactly once here — the single funnel both
+ * single agents and flow agents pass through (toGatewayConfig), so the section
+ * is never duplicated.
  */
 export function composeInstructions(
 	goal: string,
 	persona?: PersonaPromptInput | null,
 	guardrails?: string | null,
+	responseStyle?: string | null,
 ): string {
+	// HOW TO RESPOND = persona.howToRespond + per-agent responseStyle (one directive).
+	const howToRespond = [persona?.howToRespond, responseStyle]
+		.map((s) => s?.trim())
+		.filter(Boolean)
+		.join("\n\n");
+
+	// GUARDRAILS = persona.guardrails first, then per-agent job-specific lines.
+	const combinedGuardrails =
+		[persona?.guardrails, guardrails]
+			.map((s) => s?.trim())
+			.filter(Boolean)
+			.join("\n\n") || null;
+
+	const identityBlock = persona
+		? personaPrompt({ ...persona, howToRespond })
+		: howToRespondPrompt(howToRespond);
+
 	return [
-		persona ? personaPrompt(persona) : "",
+		identityBlock,
 		goalPrompt(goal),
-		guardrailsPrompt(guardrails),
+		guardrailsPrompt(combinedGuardrails),
 		baselineVoiceRealism(),
 	]
 		.filter(Boolean)

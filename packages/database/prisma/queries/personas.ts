@@ -26,6 +26,9 @@ export async function createPersona(data: {
 	themeColor?: string | null;
 	styles?: string[];
 	howToRespond?: string;
+	guardrails?: string | null;
+	ttsVoice?: string | null;
+	llmModel?: string | null;
 }) {
 	return db.persona.create({ data });
 }
@@ -40,6 +43,9 @@ export async function updatePersona(
 		themeColor?: string | null;
 		styles?: string[];
 		howToRespond?: string;
+		guardrails?: string | null;
+		ttsVoice?: string | null;
+		llmModel?: string | null;
 	},
 ) {
 	// Scope the write to the owning org: updateMany returns count, never leaks rows.

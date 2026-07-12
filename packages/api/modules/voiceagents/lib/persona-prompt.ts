@@ -25,6 +25,12 @@ export interface PersonaPromptInput {
 	name: string;
 	styles: string[];
 	howToRespond: string;
+	/** reusable guardrail rules; compiled as `## GUARDRAILS` (Phase 1b). Null/absent = none. */
+	guardrails?: string | null;
+	/** default TTS voice id; mapped onto config.tts voice at save time (Phase 1b). */
+	ttsVoice?: string | null;
+	/** default respond LLM model id (e.g. "openai/gpt-4o"); mapped onto config.llm/models (Phase 1b). */
+	llmModel?: string | null;
 }
 
 /** Total persona prompt is capped so it never crowds out the flow's own

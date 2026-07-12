@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-07-12
+
+Voice-agent platform run (2026-07-11 → 2026-07-12): builder parity, Widget Studio, omnichannel logs, and SMS optimization. All items merged and deployed.
+
+### Fixes and improvements
+
+#### Flow builder
+
+- **Edge corruption fixed**: editing an Objective, Set-field, Modify-tags, or Booking node no longer deletes its continuation edge (was silently corrupting published flows).
+- **Field picker overhaul**: CloseBot-style GHL field picker on objective/statement/etc. nodes, moved into the node-editor rail drawer, with Contact, Source, Location, and GHL Custom Values groups (collapsed by default), pill-style tokens, and an `@` variable tool in the Goal and Greeter fields. Picker placeholder no longer overlaps hydrated content.
+- **"Use AI to generate a response" toggle** added to Statement, Handoff-say, and Greeter nodes (default verbatim).
+- **Node-result variables**: a "Nodes" picker group exposing `<Node>.Result` / `.Attempts` / `.Succeeded`.
+- **Agent Handoff mode**: per-handoff Seamless / Announced selection (channel-aware — no music on SMS); the target's entry-node Entry message is spoken as the handoff opening line.
+
+### Added
+
+#### Voice agents
+
+- **Stop Responding node kind** — parks the conversation; scenarios can re-engage it.
+- **Per-agent Response Style** directive injected into every generation (voice and text).
+- **"Keep the conversation going" toggle** (per-agent, default off) — enters the Conversation node's reason-driven open chat after objectives complete; disengage/opt-out aware.
+- **AI logs drawer** on the call-detail view (`ai.turn` / `tool` / `http` rows with provider, model, and prompt+completion tokens, JSON view, filters), reused across the omnichannel conversation-log surface.
+
+#### Website Widget Studio
+
+- Unsaved-changes guard, card-style → bubble fallback when the host element is missing, live interactive in-Studio preview with owner-gated same-origin session testing, accent-color theming fix, and CRM account-context hydration (`{{location_business_name}}`, etc.) in widget sessions.
+
+#### SMS / omnichannel
+
+- **Per-channel optimized backend from one flow**: SMS auto voice-strips (runs the text-pruned flow; transfer nodes splice through), gets an SMS-native "texting style" directive + soft length cap, and a uniform response context (persona + business info + goal + Response Style + rolling summary) on every prompt.
+- **Async-messaging inbound**: STOP/opt-out compliance (`ai off` tag + inbound gating + opt-back-in), rapid-burst debounce, inbound MMS handling, and outbound send pacing.
+
+### Changed
+
+#### AI models
+
+- **Multi-model matrix (per role × channel)**: text respond → Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`); judge → GPT-5-mini; summary → gpt-4.1-nano (text) / gpt-4o-mini (voice); router → gpt-4o-mini. Gated on `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` with graceful fallback; explicit per-agent/per-node overrides win.
+
 ## 2026-06-30
 
 ### Changed

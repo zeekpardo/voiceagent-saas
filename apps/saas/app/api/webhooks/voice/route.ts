@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { seenVoiceEventIds } from "@repo/api/modules/crm/lib/ghl-webhook";
 import { type CallCompletedEvent, syncCallToCrm } from "@repo/api/modules/crm/lib/sync";
 import { runTextFallback } from "@repo/api/modules/crm/lib/text-fallback";
+import { decryptSourceSecret } from "@repo/api/modules/sources/lib/config-crypto";
 import { db } from "@repo/database";
 
 /**
@@ -35,7 +36,8 @@ export async function POST(req: Request): Promise<Response> {
 	}
 
 	const ok = verify(
-		webhook.secret,
+		// Stored sealed at rest; legacy plaintext rows pass through unchanged.
+		decryptSourceSecret(webhook.secret),
 		req.headers.get("x-voice-timestamp"),
 		req.headers.get("x-voice-signature"),
 		raw,

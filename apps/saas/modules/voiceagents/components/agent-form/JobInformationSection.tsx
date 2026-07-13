@@ -4,14 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui/components/ca
 import type { UseFormReturn } from "react-hook-form";
 
 import type { AgentFormValues } from "../../lib/agent-form-mapping";
-import { InstructionsField, UserInfoNote } from "./shared-fields";
+import { GuardrailsField, InstructionsField, UserInfoNote } from "./shared-fields";
 
-/** The "job" variant's card: the per-agent Goal (the job) plus a read-only note
- *  about auto-injected caller/CRM details. Tone and guardrails now live on the
- *  attached persona (Personas panel) — the per-agent Response Style and Guardrails
- *  fields were retired in Persona v2. Prohibited words moved to the Preferences
- *  panel (word rules). The connect-time greeting is owned by the flow's Greeter
- *  node (canvas), not this panel. */
+/** The "job" variant's card: the per-agent Goal (the job) and Guardrails, plus a
+ *  read-only note about auto-injected caller/CRM details. Tone/response style now
+ *  lives on the attached persona (Personas panel); Guardrails are a per-agent
+ *  config field authored here. Prohibited words moved to the Preferences panel
+ *  (word rules). The connect-time greeting is owned by the flow's Greeter node
+ *  (canvas), not this panel. */
 export function JobInformationSection({
 	form,
 	agentId,
@@ -26,6 +26,7 @@ export function JobInformationSection({
 			</CardHeader>
 			<CardContent className="gap-4 flex flex-col">
 				<InstructionsField form={form} agentId={agentId} />
+				<GuardrailsField form={form} />
 				<UserInfoNote />
 			</CardContent>
 		</Card>

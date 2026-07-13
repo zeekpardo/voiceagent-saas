@@ -20,17 +20,18 @@
  */
 
 /** The persona fields prompt compilation reads. A subset of the DB row so both
- *  the procedures and tests (and the UI) can build one without the full model. */
+ *  the procedures and tests (and the UI) can build one without the full model.
+ *
+ *  Persona v2 partial reversal (Phase 3b): the persona no longer contributes
+ *  guardrails or voice/model. Guardrails are sourced from the per-agent
+ *  `guardrails` config, and voice/model from the agent's own `tts`/`llm` config.
+ *  The persona keeps its identity/tone layer only (name / styles / howToRespond).
+ *  The DB columns `guardrails`/`ttsVoice`/`llmModel` are retained (vestigial) but
+ *  are neither read here nor settable via the persona procedures. */
 export interface PersonaPromptInput {
 	name: string;
 	styles: string[];
 	howToRespond: string;
-	/** reusable guardrail rules; compiled as `## GUARDRAILS` (Phase 1b). Null/absent = none. */
-	guardrails?: string | null;
-	/** default TTS voice id; mapped onto config.tts voice at save time (Phase 1b). */
-	ttsVoice?: string | null;
-	/** default respond LLM model id (e.g. "openai/gpt-4o"); mapped onto config.llm/models (Phase 1b). */
-	llmModel?: string | null;
 }
 
 /** Total persona prompt is capped so it never crowds out the flow's own
@@ -269,21 +270,24 @@ export function personaPrompt(persona: PersonaPromptInput): string {
  *     → ## GUARDRAILS  (persona guardrails + optional per-agent lines + safety baseline)
  *     → ## VOICE STYLE (output rules — applied to every agent)
  *
- * Persona-v2 consolidation (Phase 3a — persona is the single source of truth):
+ * Persona v2 partial reversal (Phase 3b):
  *
- *  - When a **persona IS attached**, the persona is the SOLE source of tone and
- *    rules: `## HOW TO RESPOND` comes from `persona.howToRespond` ONLY (the
- *    per-agent `responseStyle` is NOT appended) and `## GUARDRAILS` comes from
- *    `persona.guardrails` ONLY (the per-agent `guardrails` are NOT appended).
- *    This is the compile-precedence fix for the Phase 2 migration, which COPIES
- *    each agent's `guardrails`/`responseStyle` ONTO its new persona — appending
- *    both would render that text twice. The SaaS still stops sending
- *    `config.responseStyle`, so the engine's raw `## RESPONSE STYLE` block
- *    evaluates empty (harmless — see toGatewayConfig).
- *  - When there is **NO persona**, behavior is unchanged: the per-agent
- *    `responseStyle` renders as a standalone `## HOW TO RESPOND` via
- *    `howToRespondPrompt`, and the per-agent `guardrails` feed `## GUARDRAILS`.
- *    Personaless agents therefore compile byte-identically to before.
+ *  - `## GUARDRAILS` ALWAYS come from the per-agent `guardrails` argument — the
+ *    single source of truth — whether or not a persona is attached. The persona
+ *    contributes NO guardrails (the persona's `guardrails` DB column is vestigial
+ *    and no longer read). The Phase 2 migration copies each persona's guardrails
+ *    back onto its attached agents' `config.guardrails`, so guardrails behavior
+ *    is preserved after this switch (see backfill-persona-guardrails).
+ *  - `## HOW TO RESPOND` still comes from `persona.howToRespond` ONLY when a
+ *    persona IS attached (the per-agent `responseStyle` is NOT appended — the
+ *    Phase 2 migration copied it onto the persona, so appending both would render
+ *    the tone text twice). The SaaS still stops sending `config.responseStyle`,
+ *    so the engine's raw `## RESPONSE STYLE` block evaluates empty (harmless —
+ *    see toGatewayConfig).
+ *  - When there is **NO persona**, the per-agent `responseStyle` renders as a
+ *    standalone `## HOW TO RESPOND` via `howToRespondPrompt`; guardrails feed
+ *    `## GUARDRAILS` exactly as above. Personaless agents compile byte-identically
+ *    to before.
  *
  * The guardrails safety baseline and the voice-style block apply even when there
  * is no persona. `goal` is the builder's job text (config.instructions); it
@@ -297,12 +301,12 @@ export function composeInstructions(
 	guardrails?: string | null,
 	responseStyle?: string | null,
 ): string {
-	// Persona is the single source of truth when attached: tone comes from
-	// persona.howToRespond only, rules from persona.guardrails only. With no
-	// persona, fall back to the per-agent responseStyle/guardrails (unchanged).
+	// Tone: persona.howToRespond when a persona is attached, else the per-agent
+	// responseStyle (unchanged). Guardrails: ALWAYS the per-agent guardrails —
+	// the persona no longer contributes any (Phase 3b partial reversal).
 	const howToRespond = persona ? (persona.howToRespond ?? "") : (responseStyle ?? "");
 
-	const combinedGuardrails = (persona ? persona.guardrails : guardrails)?.trim() || null;
+	const combinedGuardrails = guardrails?.trim() || null;
 
 	const identityBlock = persona
 		? personaPrompt({ ...persona, howToRespond })

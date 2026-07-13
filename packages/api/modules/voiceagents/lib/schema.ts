@@ -199,67 +199,6 @@ const FIELD_WRITE_TOOL_NAME = "update_contact";
 const TAG_WRITE_TOOL_NAME = "add_tag";
 
 /**
- * Schema defaults for the voice `tts`/`llm` config (mirror the `.default(...)`s
- * in agentConfigInput). A persona's voice/model default is applied only when the
- * agent left these fields at their default — i.e. the operator did NOT explicitly
- * pick a voice/model — so a per-agent explicit choice always wins (Phase 1b).
- */
-const DEFAULT_TTS_PROVIDER = "xai";
-const DEFAULT_TTS_VOICE = "ara";
-const DEFAULT_LLM_MODEL = "grok-4-fast";
-
-/**
- * Known TTS provider ids (mirror TTS_PROVIDERS in the voice-catalog). A persona's
- * `ttsVoice` may be stored as "provider/voiceId" so the compiler can set BOTH the
- * provider and the voice (voice ids like ElevenLabs/Cartesia are opaque, so the
- * provider can't be inferred from the id alone); a bare id sets only the voice
- * and keeps the agent's provider.
- */
-const TTS_PROVIDER_IDS = new Set(["xai", "cartesia", "elevenlabs", "deepgram", "rime", "inworld"]);
-
-type TtsConfig = AgentConfigInput["tts"];
-type LlmConfig = AgentConfigInput["llm"];
-
-/**
- * Apply a persona's default TTS voice onto the agent's `tts` config (VOICE-only —
- * the caller gates this by channel). A per-agent explicit voice (a non-default
- * provider/voice) wins; otherwise the persona default fills in. The persona voice
- * may be "provider/voiceId" (sets both) or a bare id (sets voice, keeps provider).
- */
-function applyPersonaVoice(tts: TtsConfig, ttsVoice?: string | null): TtsConfig {
-	const voice = ttsVoice?.trim();
-	if (!voice) {
-		return tts;
-	}
-	const agentPickedVoice = tts.provider !== DEFAULT_TTS_PROVIDER || tts.voice !== DEFAULT_TTS_VOICE;
-	if (agentPickedVoice) {
-		return tts;
-	}
-	const slash = voice.indexOf("/");
-	if (slash > 0 && TTS_PROVIDER_IDS.has(voice.slice(0, slash))) {
-		return { ...tts, provider: voice.slice(0, slash), voice: voice.slice(slash + 1) };
-	}
-	return { ...tts, voice };
-}
-
-/**
- * Apply a persona's default respond model onto the agent's `llm` config (the
- * VOICE respond model — the caller gates this by channel; the text/SMS convo-
- * runner picks its own model). A per-agent explicit model wins; otherwise the
- * persona default fills in. Model ids already carry their provider prefix.
- */
-function applyPersonaModel(llm: LlmConfig, llmModel?: string | null): LlmConfig {
-	const model = llmModel?.trim();
-	if (!model) {
-		return llm;
-	}
-	if (llm.model !== DEFAULT_LLM_MODEL) {
-		return llm;
-	}
-	return { ...llm, model };
-}
-
-/**
  * Reshape the builder config into the engine payload.
  *
  * `persona` (resolved from input.personaId by the caller — this function has no
@@ -273,29 +212,21 @@ function applyPersonaModel(llm: LlmConfig, llmModel?: string | null): LlmConfig 
  * alongside personaId/guardrails so the builder round-trips the raw text without
  * re-wrapping. The engine only ever reads the resulting `instructions`.
  *
- * Persona-v2 (Phase 1b):
+ * Persona v2 partial reversal (Phase 3b):
  *  - `responseStyle` is FOLDED into the composed `## HOW TO RESPOND` block and is
  *    no longer sent RAW on the config — so the engine's `## RESPONSE STYLE` block
  *    goes empty (intended, harmless; the engine is unchanged). It's destructured
  *    out below so `...rest` doesn't re-add it.
- *  - Channel-aware voice mapping: the persona's `ttsVoice` → `config.tts` voice
- *    and `llmModel` → the VOICE respond model (`config.llm.model`). These are
- *    voice-agent fields, so they are applied only for voice/both agents; a
- *    TEXT-ONLY agent (`channels.mode === "text"`) skips them entirely (the text
- *    path never uses TTS and its respond model is picked by the convo-runner —
- *    Claude Sonnet per the model matrix). A per-agent explicit override wins.
+ *  - The persona no longer contributes voice/model: the agent's own `tts`/`llm`
+ *    config is authoritative and rides through verbatim (via `...rest`). Guardrails
+ *    likewise come from the per-agent `guardrails` field only (see
+ *    composeInstructions). The persona is now purely an identity/tone layer.
  */
 export function toGatewayConfig(input: AgentConfigInput, persona?: PersonaPromptInput | null) {
 	const { postCall, stt, goal, responseStyle, ...rest } = input;
 	const rawGoal = goal ?? "";
-	// Voice-only persona fields: never map them onto a text-only agent.
-	const isTextOnly = rest.channels?.mode === "text";
-	const tts = isTextOnly ? rest.tts : applyPersonaVoice(rest.tts, persona?.ttsVoice);
-	const llm = isTextOnly ? rest.llm : applyPersonaModel(rest.llm, persona?.llmModel);
 	return {
 		...rest,
-		tts,
-		llm,
 		goal: rawGoal,
 		instructions: composeInstructions(rawGoal, persona, input.guardrails, responseStyle),
 		// Self-describing config: name the tools the engine invokes for its

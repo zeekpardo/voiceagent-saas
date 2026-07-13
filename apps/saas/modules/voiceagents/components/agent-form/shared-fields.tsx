@@ -2,6 +2,7 @@
 
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@repo/ui/components/form";
 import { Input } from "@repo/ui/components/input";
+import { Textarea } from "@repo/ui/components/textarea";
 import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { InfoIcon, XIcon } from "lucide-react";
@@ -188,14 +189,43 @@ export function InstructionsField({
 	);
 }
 
-/*
- * Persona v2: the per-agent Guardrails and Response Style fields were retired
- * from the form. Their content now lives on the attached persona (authored in
- * the Personas panel) and compile sources ## GUARDRAILS / ## HOW TO RESPOND from
- * the persona. The `guardrails` / `responseStyle` config keys remain tolerated by
- * the input schema so older configs round-trip; they are simply no longer authored
- * here.
+/** Max length for the per-agent Guardrails field (mirrors schema `guardrails.max(3000)`). */
+const GUARDRAILS_MAX = 3000;
+
+/**
+ * Per-agent Guardrails: safety/behavior rules compiled into `## GUARDRAILS` on
+ * top of the always-on safety baseline. Lives on `config.guardrails` (the
+ * `responseStyle` / tone directive still comes from the attached persona).
  */
+export function GuardrailsField({ form }: AgentFormFieldProps) {
+	return (
+		<FormField
+			control={form.control}
+			name="guardrails"
+			render={({ field }) => (
+				<FormItem>
+					<FormLabel className="gap-1.5 flex items-center">
+						Guardrails
+						<InfoHint>
+							Safety/behavior rules compiled into every response, on top of the always-on safety
+							baseline.
+						</InfoHint>
+					</FormLabel>
+					<FormControl>
+						<Textarea
+							rows={4}
+							maxLength={GUARDRAILS_MAX}
+							placeholder="Never provide medical, legal, or financial advice. Don't discuss pricing outside the approved range. If the caller asks for a human, offer to transfer or escalate."
+							{...field}
+							value={field.value ?? ""}
+						/>
+					</FormControl>
+					<FormMessage />
+				</FormItem>
+			)}
+		/>
+	);
+}
 
 /** Read-only note: caller/CRM details are injected automatically per call. */
 export function UserInfoNote() {

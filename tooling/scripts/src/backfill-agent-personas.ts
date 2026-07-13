@@ -130,25 +130,24 @@ async function main() {
 		// personas), so there is nothing to carry → the new persona starts with none.
 		const styles: string[] = [];
 
+		// The persona is now an identity/tone layer only (Phase 3b partial
+		// reversal): guardrails live on the per-agent config, not the persona.
 		const personaInput: PersonaPromptInput = {
 			name,
 			styles,
 			howToRespond: responseStyle,
-			guardrails: guardrails || null,
-			ttsVoice: null,
-			llmModel: null,
 		};
 
-		// Equivalence: current compile (no persona) vs Phase-3 compile (persona,
-		// per-agent responseStyle/guardrails retired). Isolates the migration's
-		// only effect on the same compiler.
+		// Equivalence: current compile (no persona) vs post-reversal compile
+		// (persona for identity/tone, guardrails still from the per-agent config).
+		// Isolates the migration's only effect on the same compiler.
 		const beforeCompiled = composeInstructions(
 			goal,
 			null,
 			guardrails || null,
 			responseStyle || null,
 		);
-		const afterCompiled = composeInstructions(goal, personaInput, null, null);
+		const afterCompiled = composeInstructions(goal, personaInput, guardrails || null, null);
 		const { added, removed } = diffLines(beforeCompiled, afterCompiled);
 
 		const guardrailsPreserved = guardrails === "" || afterCompiled.includes(guardrails);

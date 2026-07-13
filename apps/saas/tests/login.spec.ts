@@ -8,15 +8,9 @@ test.describe("login page", () => {
 		await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
 		await expect(page.getByText("Please enter your credentials to sign in.")).toBeVisible();
 
-		// Login mode switch (Magic link / Password)
-		await expect(page.getByRole("tab", { name: "Magic link" })).toBeVisible();
-		await expect(page.getByRole("tab", { name: "Password" })).toBeVisible();
-
-		// Email field
+		// Password login is the only credential mode (magic-link removed) — the mode
+		// switch is gone and the email + password fields render directly.
 		await expect(page.getByRole("textbox", { name: /email/i })).toBeVisible();
-
-		// Switch to password mode so password-specific UI is visible
-		await page.getByRole("tab", { name: "Password" }).click();
 
 		// Password field and forgot password link
 		const passwordInput = page.locator('input[autocomplete="current-password"]');
@@ -37,24 +31,17 @@ test.describe("login page", () => {
 		await expect(page.getByText("Don't have an account yet?")).toHaveCount(0);
 	});
 
-	test("should switch between magic link and password auth modes", async ({ page }) => {
+	test("magic-link login is not offered (backdoor removed)", async ({ page }) => {
 		await page.goto("/login");
 
-		const passwordInput = page.locator('input[autocomplete="current-password"]');
+		// The magic-link auth mode was removed (its /sign-in/magic-link endpoint
+		// self-signed-up users, bypassing invite-only gating). Assert no trace of it
+		// in the UI so it can't silently regress.
+		await expect(page.getByRole("tab", { name: "Magic link" })).toHaveCount(0);
+		await expect(page.getByRole("button", { name: "Send magic link" })).toHaveCount(0);
 
-		// Ensure password mode: click Password tab then assert
-		await page.getByRole("tab", { name: "Password" }).click();
+		// Password login remains fully functional.
 		await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
-		await expect(passwordInput).toBeVisible();
-
-		// Switch to magic link mode
-		await page.getByRole("tab", { name: "Magic link" }).click();
-		await expect(page.getByRole("button", { name: "Send magic link" })).toBeVisible();
-		await expect(passwordInput).toBeHidden();
-
-		// Switch back to password mode
-		await page.getByRole("tab", { name: "Password" }).click();
-		await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
-		await expect(passwordInput).toBeVisible();
+		await expect(page.locator('input[autocomplete="current-password"]')).toBeVisible();
 	});
 });

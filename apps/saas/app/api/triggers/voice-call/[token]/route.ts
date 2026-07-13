@@ -16,6 +16,7 @@ import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import { createRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { getAgentSource, getSourceById, listSourcePhoneNumbers } from "@repo/database";
+import { errMessage } from "@repo/utils";
 
 /**
  * CRM workflow → voice call. Drop this URL into a workflow webhook action
@@ -305,7 +306,7 @@ export async function POST(
 				{ status: 201 },
 			);
 		} catch (err) {
-			console.error("[voice-trigger] text-mode conversation start failed:", err);
+			console.error("[voice-trigger] text-mode conversation start failed:", errMessage(err));
 			return Response.json({ error: (err as Error).message }, { status: 502 });
 		}
 	}
@@ -351,7 +352,7 @@ export async function POST(
 		});
 		return Response.json({ queued: true, call_id: call.id, to: phone }, { status: 201 });
 	} catch (err) {
-		console.error("[voice-trigger] outbound call dispatch failed:", err);
+		console.error("[voice-trigger] outbound call dispatch failed:", errMessage(err));
 		return Response.json({ error: (err as Error).message }, { status: 502 });
 	}
 }

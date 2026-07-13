@@ -5,6 +5,7 @@ import { type CallCompletedEvent, syncCallToCrm } from "@repo/api/modules/crm/li
 import { runTextFallback } from "@repo/api/modules/crm/lib/text-fallback";
 import { decryptSourceSecret } from "@repo/api/modules/sources/lib/config-crypto";
 import { db } from "@repo/database";
+import { errMessage } from "@repo/utils";
 
 /**
  * Voice engine events in (call.completed). HMAC-verified with the secret the
@@ -83,12 +84,12 @@ export async function POST(req: Request): Promise<Response> {
 				console.info(`[text-fallback] call ${event.call_id}: skipped — ${fallback.skipped}`);
 			}
 		} catch (err) {
-			console.error(`[text-fallback] call ${event.call_id} failed:`, err);
+			console.error(`[text-fallback] call ${event.call_id} failed:`, errMessage(err));
 		}
 
 		return Response.json({ received: true, ...result, ...(fallback ? { fallback } : {}) });
 	} catch (err) {
-		console.error(`[crm-sync] call ${event.call_id} failed:`, err);
+		console.error(`[crm-sync] call ${event.call_id} failed:`, errMessage(err));
 		const status = (err as { status?: number }).status;
 		// 4xx from the CRM (bad token, missing contact) won't heal on retry — ack it.
 		if (typeof status === "number" && status < 500 && status !== 429) {

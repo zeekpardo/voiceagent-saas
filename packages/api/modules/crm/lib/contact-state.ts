@@ -1,4 +1,5 @@
 import { getAgentSource } from "@repo/database";
+import { errMessage } from "@repo/utils";
 
 import { customFieldVariableName, humanizeKey, type MappingEntry } from "./field-mapping";
 import { resolveCrmProvider } from "./resolve";
@@ -170,7 +171,7 @@ export async function buildContactState(input: {
 			value: values[key] ?? null,
 		}));
 	} catch (err) {
-		console.warn("[contact-state] could not build; dispatching without it:", err);
+		console.warn("[contact-state] could not build; dispatching without it:", errMessage(err));
 		return undefined;
 	}
 }

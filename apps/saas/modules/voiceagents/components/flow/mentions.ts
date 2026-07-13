@@ -17,7 +17,7 @@ import {
 	MENTION_CHAR_VARIABLE,
 	prettifyVariable,
 	sanitizeExitName,
-} from "./compile";
+} from "./compile/text";
 import type { FlowNodeKind } from "./flow-types";
 
 /**

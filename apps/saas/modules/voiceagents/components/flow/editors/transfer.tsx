@@ -14,7 +14,7 @@ import {
 import { Textarea } from "@repo/ui/components/textarea";
 import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 
-import { VOICE_GROUPS } from "../../AgentForm";
+import { VOICE_GROUPS } from "../../../lib/voice-catalog";
 import type { FlowNodeData, TransferMode, TransferNodeData } from "../flow-types";
 import { TitleInput, usePatch } from "./shared";
 

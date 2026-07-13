@@ -29,7 +29,7 @@ import {
 } from "react";
 
 import { useAgentQuery } from "../../lib/api";
-import { MENTION_CHAR_VARIABLE, prettifyVariable, textToTiptapDoc, tiptapToText } from "./compile";
+import { MENTION_CHAR_VARIABLE, prettifyVariable, textToTiptapDoc, tiptapToText } from "./compile/text";
 import { useFieldFocus } from "./field-focus-context";
 import { useFlowNodes } from "./flow-nodes-context";
 import {

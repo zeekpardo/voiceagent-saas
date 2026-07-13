@@ -6,7 +6,7 @@ import { Label } from "@repo/ui/components/label";
 import { Switch } from "@repo/ui/components/switch";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
-import { makeId } from "../compile";
+import { makeId } from "../compile/text";
 import { FieldPickerInput, FieldPickerTextarea } from "../FieldPicker";
 import type { ConversationNodeData, FlowNodeData } from "../flow-types";
 import { ExitTagConditions, TitleInput, usePatch } from "./shared";

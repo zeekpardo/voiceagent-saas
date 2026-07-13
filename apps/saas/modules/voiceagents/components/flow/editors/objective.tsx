@@ -7,7 +7,7 @@ import { InfoHint } from "@voiceagents/components/shared/InfoHint";
 import { useContactFieldsQuery } from "@voiceagents/lib/contact-fields-api";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
-import { makeId } from "../compile";
+import { makeId } from "../compile/text";
 import { ContactWriteFieldCombobox } from "../ContactWriteFieldCombobox";
 import {
 	fieldOptionsFor,

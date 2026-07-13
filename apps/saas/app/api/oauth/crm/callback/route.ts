@@ -4,6 +4,12 @@ import { getCrmRegistration } from "@repo/api/modules/crm/lib/resolve";
 import { ensureVoiceWebhook } from "@repo/api/modules/crm/lib/webhook-registration";
 import { sealSourceConfig } from "@repo/api/modules/sources/lib/config-crypto";
 import { createSource } from "@repo/database";
+import { getBaseUrl } from "@repo/utils";
+
+// The popup and its opener are both this app, so target the app's own origin
+// explicitly instead of "*" — prevents the OAUTH_CALLBACK_COMPLETE message from
+// being delivered to any other document that might have opened this window.
+const appOrigin = new URL(getBaseUrl(process.env.NEXT_PUBLIC_SAAS_URL, 3000)).origin;
 
 /**
  * Neutral CRM OAuth callback (the popup lands here). The path deliberately
@@ -19,7 +25,7 @@ function popupResponse(success: boolean, error?: string): Response {
 		`<!doctype html><html><body style="font-family:system-ui;text-align:center;padding-top:80px">
 			<p>${success ? "✅ Connected — you can close this window." : `❌ ${error ?? "Connection failed"}`}</p>
 			<script>
-				if (window.opener) { window.opener.postMessage(${payload}, "*"); }
+				if (window.opener) { window.opener.postMessage(${payload}, ${JSON.stringify(appOrigin)}); }
 				setTimeout(() => window.close(), ${success ? 800 : 4000});
 			</script>
 		</body></html>`,

@@ -32,9 +32,9 @@ test.describe("login page", () => {
 		// Passkey button
 		await expect(page.getByRole("button", { name: "Login with passkey" })).toBeVisible();
 
-		// Sign up link
-		await expect(page.getByRole("link", { name: /Create an account/ })).toBeVisible();
-		await expect(page.getByText("Don't have an account yet?")).toBeVisible();
+		// Sign up is disabled (invite-only) — the create-account link is hidden.
+		await expect(page.getByRole("link", { name: /Create an account/ })).toHaveCount(0);
+		await expect(page.getByText("Don't have an account yet?")).toHaveCount(0);
 	});
 
 	test("should switch between magic link and password auth modes", async ({ page }) => {

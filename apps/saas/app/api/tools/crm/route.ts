@@ -11,6 +11,7 @@ import {
 	executeUpdateContact,
 	resolveContactId,
 } from "@repo/api/modules/crm/lib/contact-tools";
+import { seenToolSignatures } from "@repo/api/modules/crm/lib/ghl-webhook";
 import { type HttpTraceEntry, withHttpTrace } from "@repo/api/modules/crm/lib/http-trace";
 import { GhlApiError } from "@repo/api/modules/crm/lib/providers/ghl-client";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
@@ -102,6 +103,13 @@ export async function POST(req: Request): Promise<Response> {
 	);
 	if (!ok) {
 		return Response.json({ error: "invalid signature" }, { status: 401 });
+	}
+
+	// Replay guard: a re-sent signed invocation reuses its signature (HMAC over
+	// timestamp+body). Drop duplicates within the signature-validity window.
+	const signature = req.headers.get("x-voice-signature");
+	if (signature && seenToolSignatures.add(signature)) {
+		return toolResult({ ok: true, duplicate: true });
 	}
 
 	// Trace every outbound CRM HTTP exchange this invocation makes and attach

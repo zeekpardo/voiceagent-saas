@@ -391,9 +391,10 @@
 			target: (a.target && String(a.target).trim()) || "#voice-widget",
 			cardSize: a.cardSize,
 		};
-		// The embed app fetches the same config by id for its own appearance; we
-		// only forward the id and token (token lets it start a session without a
-		// second round-trip).
+		// Forward only the widget id. The embed app (served from our origin)
+		// resolves the session token server-side from this same id, so the token
+		// never travels through the public, wildcard-CORS config endpoint or the
+		// iframe URL. (config.token is still tolerated for older cached responses.)
 		var query =
 			"widgetId=" +
 			encodeURIComponent(widgetId) +

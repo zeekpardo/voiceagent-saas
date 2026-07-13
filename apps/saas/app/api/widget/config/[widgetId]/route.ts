@@ -3,14 +3,18 @@ import { getEnabledSourceWidget } from "@repo/database";
 
 /**
  * PUBLIC config-by-ID endpoint for the embeddable widget. The loader
- * (/widget.js, data-widget-id path) and the embed app both GET this to learn a
- * widget's appearance / targeting / behavior + session token WITHOUT the
- * customer re-pasting their snippet — editing a widget goes live here.
+ * (/widget.js, data-widget-id path) GETs this to learn a widget's appearance /
+ * targeting / behavior WITHOUT the customer re-pasting their snippet — editing a
+ * widget goes live here.
  *
- * The payload is not secret: the token is the same public capability that lives
- * in snippets today, and origin pinning still gates actual sessions. So it's
- * fully CORS-open (Access-Control-Allow-Origin: *) and cacheable for 60s.
- * Disabled or missing widgets 404 (indistinguishably).
+ * The payload is intentionally NON-secret render config only — it does NOT
+ * include the session token. Because this endpoint is fully CORS-open
+ * (Access-Control-Allow-Origin: *), anything it returns is readable cross-origin
+ * by anyone who learns the widgetId; the token is the credential the
+ * origin-pinned /api/widget/session route accepts, so it must not travel through
+ * a wildcard-CORS response. The iframe (/widget/embed) resolves the token
+ * server-side from the same widgetId on our own origin instead. Response is
+ * cacheable for 60s. Disabled or missing widgets 404 (indistinguishably).
  */
 
 const CORS: Record<string, string> = {

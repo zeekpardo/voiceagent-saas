@@ -12,7 +12,7 @@ export const listSourcesProcedure = protectedProcedure
 		summary: "List sources connected to the active organization",
 	})
 	.handler(async ({ context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const sources = await listSources(organizationId);
 		return sources.map((source) => ({
 			id: source.id,

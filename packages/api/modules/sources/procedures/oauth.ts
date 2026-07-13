@@ -16,7 +16,7 @@ export const sourceOauthUrl = protectedProcedure
 	})
 	.input(z.object({ providerType: z.string().min(1) }))
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const registration = getCrmRegistration(input.providerType);
 		if (!registration?.oauth || registration.authType !== "oauth") {
 			throw new ORPCError("BAD_REQUEST", {

@@ -68,7 +68,7 @@ export const listContactFieldOptionsProcedure = protectedProcedure
 			await requireOwnedAgent(context.session, input.agentId);
 			sourceId = await resolveSourceIdForAgent({ agentId: input.agentId });
 		} else {
-			const organizationId = requireActiveOrganizationId(context.session);
+			const organizationId = await requireActiveOrganizationId(context.session);
 			const sources = await listSources(organizationId);
 			sourceId = sources[0]?.id ?? null;
 		}

@@ -24,7 +24,7 @@ export const connectSource = protectedProcedure
 		}),
 	)
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 
 		const registration = getCrmRegistration(input.providerType);
 		if (!registration) {

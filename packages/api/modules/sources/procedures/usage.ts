@@ -72,7 +72,7 @@ export const usageSummary = protectedProcedure
 	})
 	.input(z.object({ days: z.number().int().positive().max(365).optional() }))
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const membership = await getOrganizationMembership(organizationId, context.user.id);
 		const isOrgAdmin =
 			context.user.role === "admin" || membership?.role === "owner" || membership?.role === "admin";

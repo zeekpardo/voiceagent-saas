@@ -121,30 +121,31 @@ describe("config-crypto with a configured key", () => {
 	});
 });
 
-describe("config-crypto without a key (dev passthrough)", () => {
+describe("config-crypto without a key", () => {
 	beforeEach(() => {
 		delete process.env[ENV_KEY];
-		// vitest runs with NODE_ENV=test, so this is the dev/non-prod branch.
 		vi.spyOn(console, "warn").mockImplementation(() => {});
 	});
 	afterEach(() => {
+		delete process.env.ALLOW_PLAINTEXT_SECRETS;
 		vi.restoreAllMocks();
 	});
 
-	it("stores secrets as plaintext and round-trips them", () => {
+	it("stores secrets as plaintext and round-trips them ONLY when explicitly opted in", () => {
+		process.env.ALLOW_PLAINTEXT_SECRETS = "1";
 		const sealed = sealSourceConfig({ accessToken: "abc" });
 		expect(sealed.accessToken).toBe("abc");
 		expect(openSourceConfig(sealed).accessToken).toBe("abc");
 	});
 
-	it("throws in production when the key is missing", () => {
-		const prev = process.env.NODE_ENV;
-		vi.stubEnv("NODE_ENV", "production");
-		try {
-			expect(() => encryptSourceSecret("abc")).toThrow(/SOURCE_ENCRYPTION_KEY is required/);
-		} finally {
-			vi.stubEnv("NODE_ENV", prev ?? "test");
-		}
+	it("fails closed (throws) when the key is missing and plaintext is not opted in", () => {
+		// This is the key safety property: no ALLOW_PLAINTEXT_SECRETS opt-in and no
+		// key must NEVER silently store a CRM token in cleartext — regardless of NODE_ENV.
+		delete process.env.ALLOW_PLAINTEXT_SECRETS;
+		expect(() => encryptSourceSecret("abc")).toThrow(/SOURCE_ENCRYPTION_KEY is required/);
+		expect(() => sealSourceConfig({ accessToken: "abc" })).toThrow(
+			/SOURCE_ENCRYPTION_KEY is required/,
+		);
 	});
 
 	it("refuses to silently expose an encrypted secret when the key is missing", () => {

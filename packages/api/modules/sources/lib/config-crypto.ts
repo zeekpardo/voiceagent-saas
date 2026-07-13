@@ -50,32 +50,40 @@ function decodeKey(raw: string): Buffer {
 }
 
 /**
- * The active encryption key, or `null` when none is configured. In production a
- * missing key is fatal (throws); in dev it returns null after a one-time warn so
- * callers fall back to plaintext passthrough.
+ * The active encryption key, or `null` when none is configured. Callers decide what
+ * a missing key means: the WRITE path (encryptSourceSecret) fails closed unless
+ * plaintext is explicitly opted into, while the READ path keeps legacy plaintext
+ * working and raises a specific error only for an encrypted value it cannot open.
  */
 function resolveKey(): Buffer | null {
 	const raw = process.env.SOURCE_ENCRYPTION_KEY?.trim();
 	if (raw) return decodeKey(raw);
-
-	if (process.env.NODE_ENV === "production") {
-		throw new Error(
-			"SOURCE_ENCRYPTION_KEY is required in production to protect CRM tokens at rest. Generate one with: openssl rand -base64 32",
-		);
-	}
-	if (!warnedMissingKey) {
-		warnedMissingKey = true;
-		console.warn(
-			"[source-config-crypto] SOURCE_ENCRYPTION_KEY is not set — CRM secrets are stored in PLAINTEXT (dev only). Set it before any multi-tenant / production deploy.",
-		);
-	}
 	return null;
 }
 
-/** Encrypt a single secret string. Dev without a key → returns the plaintext. */
+/**
+ * Encrypt a single secret string. Fails CLOSED when no key is configured: it throws
+ * UNLESS the operator explicitly opted into plaintext with ALLOW_PLAINTEXT_SECRETS=1
+ * (local dev only). Keying this off an explicit opt-in rather than NODE_ENV avoids
+ * the failure mode where a deploy with NODE_ENV unset / "staging" / stripped by the
+ * platform silently stores CRM OAuth tokens (account-takeover creds) in cleartext.
+ */
 export function encryptSourceSecret(plain: string): string {
 	const key = resolveKey();
-	if (!key) return plain;
+	if (!key) {
+		if (process.env.ALLOW_PLAINTEXT_SECRETS === "1") {
+			if (!warnedMissingKey) {
+				warnedMissingKey = true;
+				console.warn(
+					"[source-config-crypto] SOURCE_ENCRYPTION_KEY is not set and ALLOW_PLAINTEXT_SECRETS=1 — CRM secrets are stored in PLAINTEXT. Dev only; never set this in production.",
+				);
+			}
+			return plain;
+		}
+		throw new Error(
+			"SOURCE_ENCRYPTION_KEY is required to protect CRM tokens at rest. Generate one with: openssl rand -base64 32 (or set ALLOW_PLAINTEXT_SECRETS=1 for local dev only).",
+		);
+	}
 
 	const iv = randomBytes(12);
 	const cipher = createCipheriv(ALGORITHM, key, iv);

@@ -1,7 +1,7 @@
 import type { AuthConfig } from "./types";
 
 export const config = {
-	enableSignup: true,
+	enableSignup: false,
 	enableMagicLink: true,
 	enableSocialLogin: false,
 	enablePasskeys: true,

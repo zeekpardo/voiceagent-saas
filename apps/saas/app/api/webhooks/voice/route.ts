@@ -51,7 +51,7 @@ export async function POST(req: Request): Promise<Response> {
 	// signature-validity window). The engine sends a unique X-Voice-Event-Id;
 	// fall back to the signature when absent.
 	const replayKey = req.headers.get("x-voice-event-id") ?? req.headers.get("x-voice-signature");
-	if (replayKey && seenVoiceEventIds.add(replayKey)) {
+	if (replayKey && (await seenVoiceEventIds.add(replayKey))) {
 		return Response.json({ ok: true, duplicate: true });
 	}
 

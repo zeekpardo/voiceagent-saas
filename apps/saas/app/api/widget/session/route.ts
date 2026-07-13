@@ -7,7 +7,7 @@ import {
 } from "@repo/api/modules/voiceagents/lib/channel-mode";
 import { mergeCustomVariables } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
-import { createRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
+import { createSharedRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { isOriginAllowed, verifyWidgetToken } from "@repo/api/modules/voiceagents/lib/widget-token";
 import { auth } from "@repo/auth";
@@ -31,9 +31,11 @@ import { getAgentSource, getOrganizationMembership } from "@repo/database";
  * This static route wins over the /api/[[...rest]] oRPC catch-all.
  */
 
-// Sliding-window limits (single-instance — see rate-limit.ts caveat).
-const perIpLimiter = createRateLimiter(5, 10 * 60 * 1000); // 5 starts / 10 min
-const perTokenLimiter = createRateLimiter(20, 60 * 60 * 1000); // 20 starts / hour
+// Fixed-window limits, shared across instances via Redis when REDIS_URL is set
+// (else per-instance in-memory — see rate-limit.ts). Distinct namespaces so the
+// per-IP and per-token counters never collide in the shared store.
+const perIpLimiter = createSharedRateLimiter("widget:ip", 5, 10 * 60 * 1000); // 5 starts / 10 min
+const perTokenLimiter = createSharedRateLimiter("widget:token", 20, 60 * 60 * 1000); // 20 / hour
 
 interface WidgetSessionBody {
 	token?: string;
@@ -190,8 +192,8 @@ export async function POST(req: Request): Promise<Response> {
 	const ip = clientIp(req);
 	const ipLimit = studioOwner
 		? { allowed: true as const, retryAfterSeconds: 0 }
-		: perIpLimiter.check(`ip:${ip}`);
-	const tokenLimit = ipLimit.allowed ? perTokenLimiter.check(`token:${token}`) : ipLimit;
+		: await perIpLimiter.check(`ip:${ip}`);
+	const tokenLimit = ipLimit.allowed ? await perTokenLimiter.check(`token:${token}`) : ipLimit;
 	if (!ipLimit.allowed || !tokenLimit.allowed) {
 		const retryAfter = Math.max(ipLimit.retryAfterSeconds, tokenLimit.retryAfterSeconds);
 		return Response.json(

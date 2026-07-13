@@ -8,6 +8,7 @@
 		"type-check": "tsc --noEmit"
 	},
 	"dependencies": {
+		"ioredis": "^5.9.0",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

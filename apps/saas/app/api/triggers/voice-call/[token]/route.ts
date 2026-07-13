@@ -13,7 +13,7 @@ import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
 import { readChannelMode } from "@repo/api/modules/voiceagents/lib/channel-mode";
 import { mergeCustomVariables } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
-import { createRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
+import { createSharedRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { getAgentSource, getSourceById, listSourcePhoneNumbers } from "@repo/database";
 import { errMessage } from "@repo/utils";
@@ -32,24 +32,27 @@ import { errMessage } from "@repo/utils";
 
 /**
  * Abuse guards for this PUBLIC, paid endpoint (each accepted hit = a real PSTN
- * call + LLM spend). All three are in-memory / per-instance for now — a good
- * first line of defence, but on a multi-instance deploy each container counts
- * independently, so the effective ceilings are roughly value × instances. Move
- * to a shared store (Redis INCR+EXPIRE / durable object) before treating any of
- * these as a hard quota (tracked as plan item 7). See rate-limit.ts caveat.
+ * call + LLM spend). Shared across instances via Redis when REDIS_URL is set
+ * (atomic INCR+EXPIRE), so the ceilings hold on a multi-instance deploy; with no
+ * REDIS_URL they fall back to per-instance in-memory. See rate-limit.ts.
  */
 
 // Per-token burst limits, keyed on the signed token. Sized for real GHL
 // workflow bursts (a campaign fanning out) while capping a runaway loop or an
-// abusive replay of a leaked URL.
-const perTokenMinuteLimiter = createRateLimiter(10, 60 * 1000); // 10 / min / token
-const perTokenHourLimiter = createRateLimiter(100, 60 * 60 * 1000); // 100 / hour / token
+// abusive replay of a leaked URL. Distinct namespaces so the minute and hour
+// counters (same token key) never collide in the shared store.
+const perTokenMinuteLimiter = createSharedRateLimiter("voicecall:token:min", 10, 60 * 1000); // 10 / min
+const perTokenHourLimiter = createSharedRateLimiter("voicecall:token:hr", 100, 60 * 60 * 1000); // 100 / hour
 
 // Per-org rolling-24h ceiling on trigger-placed outbound calls. Resolved from
 // the (trusted, token-verified) sourceId's organization. A named constant so
-// it's easy to tune; the sliding window reuses the same limiter primitive.
+// it's easy to tune; the fixed window reuses the same limiter primitive.
 const ORG_DAILY_OUTBOUND_CAP = 500;
-const orgDailyLimiter = createRateLimiter(ORG_DAILY_OUTBOUND_CAP, 24 * 60 * 60 * 1000);
+const orgDailyLimiter = createSharedRateLimiter(
+	"voicecall:org:day",
+	ORG_DAILY_OUTBOUND_CAP,
+	24 * 60 * 60 * 1000,
+);
 
 interface TriggerPayload {
 	phone?: string;
@@ -129,8 +132,10 @@ export async function POST(
 	// URL can burst normally but can't flood the paid outbound path (minute cap
 	// stops loops, hour cap stops sustained abuse). Checked before any DB/gateway
 	// work so a flood is shed cheaply.
-	const minuteLimit = perTokenMinuteLimiter.check(`token:${token}`);
-	const hourLimit = minuteLimit.allowed ? perTokenHourLimiter.check(`token:${token}`) : minuteLimit;
+	const minuteLimit = await perTokenMinuteLimiter.check(`token:${token}`);
+	const hourLimit = minuteLimit.allowed
+		? await perTokenHourLimiter.check(`token:${token}`)
+		: minuteLimit;
 	if (!minuteLimit.allowed || !hourLimit.allowed) {
 		const retryAfter = Math.max(minuteLimit.retryAfterSeconds, hourLimit.retryAfterSeconds);
 		return Response.json(
@@ -328,7 +333,7 @@ export async function POST(
 			{ status: 503 },
 		);
 	}
-	const dailyLimit = orgDailyLimiter.check(`org:${organizationId}`);
+	const dailyLimit = await orgDailyLimiter.check(`org:${organizationId}`);
 	if (!dailyLimit.allowed) {
 		return Response.json(
 			{ error: "daily outbound call limit reached for this account" },

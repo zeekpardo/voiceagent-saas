@@ -44,10 +44,6 @@ export const BOOKING_FAILED_HANDLE_ID = "failed";
 /** The single "Jump to" source handle on a scenario node. */
 export const SCENARIO_JUMP_HANDLE_ID = "jump";
 
-/** Wrap-up modes for a conversation node when its goal is exhausted. */
-export const CONVERSATION_WRAP_UP_END_CALL = "end_call";
-export const CONVERSATION_WRAP_UP_EXIT = "exit";
-
 /** dataTransfer type used when dragging an action from the palette onto the canvas. */
 export const FLOW_NODE_DRAG_TYPE = "application/x-voiceagent-flow-node";
 
@@ -255,27 +251,18 @@ export interface ObjectiveNodeData {
 }
 
 /**
- * A Conversation node (CloseBot's "Keeping the Conversation Going"): objective-less,
- * tool-less, open-ended. The model self-drives discovery from the conversation
- * reason + optional talking-point hints, then wraps up explicitly (end the call or
- * take a named exit) instead of relying on emergent self-closure.
+ * A Conversation node (CloseBot's "Keeping the Conversation Going"): a terminal,
+ * objective-less, tool-less "keep chatting" stage. It runs off the agent-level
+ * fields (Goal/business info, response style, words-to-avoid); the only per-node
+ * knob is an optional Extra Prompt with extra guidance for this stage. No exits,
+ * no wrap-up — it chats until the call/thread ends.
  */
 export interface ConversationNodeData {
 	title: string;
-	/** What this conversation is for — drives the open-ended probing. */
-	reason: string;
-	/** Optional talking-point hints the model may weave in. */
-	hints: string[];
-	/** Editable exits (same shape as an agent node's). */
-	exits: FlowExitDoc[];
-	/** Explicit closure: end the call, or take one of this node's exits. */
-	wrapUpMode: "end_call" | "exit";
-	/** When wrapUpMode === "exit", the id of the exit to take on wrap-up. */
-	wrapUpExitId?: string;
+	/** Optional extra guidance for this stage (rich text w/ @-mention variables). */
+	extraPrompt?: string;
 	/** Advanced: cap the time spent in this node before wrapping up. */
 	maxDurationSeconds?: number;
-	/** Per-flow: this node catches every unconnected exit (CloseBot parity). Max one per flow. */
-	isDefault?: boolean;
 	[key: string]: unknown;
 }
 
@@ -632,8 +619,10 @@ export interface EngineFlowNode {
 	objectives?: EngineFlowObjective[];
 	/**
 	 * Conversation-node config (node kind stays "agent" on the wire). When present,
-	 * the engine runs an objective-less, open-ended discovery loop driven by
-	 * `reason` + `hints`, closing per `wrapUp` (end the call or take a named exit).
+	 * the engine runs a terminal "keep chatting" stage off the agent-level fields;
+	 * the optional `reason` carries the SaaS Extra Prompt. `wrapUp` is always
+	 * `{mode:"end_call"}`. Legacy nodes may still carry `hints`/`wrapUp:{mode:"exit"}`
+	 * (read for decompile back-compat only).
 	 */
 	conversation?: EngineFlowConversation;
 	/**
@@ -648,12 +637,12 @@ export interface EngineFlowNode {
 }
 
 export interface EngineFlowConversation {
-	/** What this conversation is for — drives open-ended probing. */
-	reason: string;
-	/** Optional talking-point hints. */
+	/** Optional extra guidance for this stage (SaaS Extra Prompt). */
+	reason?: string;
+	/** Legacy talking-point hints (read-only for decompile back-compat). */
 	hints?: string[];
-	/** Explicit closure behavior. `exit` names one of the node's exits. */
-	wrapUp: { mode: "end_call" } | { mode: "exit"; exit: string };
+	/** Closure behavior. Always `{mode:"end_call"}`; `exit` is legacy-only. */
+	wrapUp?: { mode: "end_call" } | { mode: "exit"; exit: string };
 	/** Optional cap on time spent in this node. */
 	maxDurationSeconds?: number;
 }
@@ -748,13 +737,8 @@ export const objectiveNodeDataSchema = z.object({
 
 export const conversationNodeDataSchema = z.object({
 	title: z.string(),
-	reason: z.string(),
-	hints: z.array(z.string()).default([]),
-	exits: z.array(flowExitSchema).default([]),
-	wrapUpMode: z.enum(["end_call", "exit"]).default("end_call"),
-	wrapUpExitId: z.string().optional(),
+	extraPrompt: z.string().optional(),
 	maxDurationSeconds: z.number().optional(),
-	isDefault: z.boolean().optional(),
 });
 
 export const trueFalseNodeDataSchema = z.object({
@@ -940,12 +924,17 @@ export const engineFlowSchema = z.object({
 				.optional(),
 			conversation: z
 				.object({
-					reason: z.string(),
+					// reason/hints/wrapUp are all optional so a NEW terminal node
+					// (reason-only) AND a legacy node (hints + wrapUp:{mode:"exit"})
+					// both parse for decompile.
+					reason: z.string().optional(),
 					hints: z.array(z.string()).optional(),
-					wrapUp: z.union([
-						z.object({ mode: z.literal("end_call") }),
-						z.object({ mode: z.literal("exit"), exit: z.string() }),
-					]),
+					wrapUp: z
+						.union([
+							z.object({ mode: z.literal("end_call") }),
+							z.object({ mode: z.literal("exit"), exit: z.string() }),
+						])
+						.optional(),
 					maxDurationSeconds: z.number().optional(),
 				})
 				.optional(),

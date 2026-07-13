@@ -4,6 +4,7 @@ import { getCrmRegistration } from "@repo/api/modules/crm/lib/resolve";
 import { ensureVoiceWebhook } from "@repo/api/modules/crm/lib/webhook-registration";
 import { sealSourceConfig } from "@repo/api/modules/sources/lib/config-crypto";
 import { createSource } from "@repo/database";
+import { errMessage } from "@repo/utils";
 import { getBaseUrl } from "@repo/utils";
 
 // The popup and its opener are both this app, so target the app's own origin
@@ -64,12 +65,12 @@ export async function GET(req: Request): Promise<Response> {
 
 		// Register the live in-call CRM tools (best-effort — the connection works without them).
 		await ensureCrmLiveTools(verified.userId).catch((err) => {
-			console.warn("[crm-oauth] live tool registration failed:", err);
+			console.warn("[crm-oauth] live tool registration failed:", errMessage(err));
 		});
 
 		return popupResponse(true);
 	} catch (err) {
-		console.error(`[crm-oauth] ${verified.providerType} callback failed:`, err);
+		console.error(`[crm-oauth] ${verified.providerType} callback failed:`, errMessage(err));
 		return popupResponse(false, err instanceof Error ? err.message : "Connection failed");
 	}
 }

@@ -74,6 +74,11 @@ export const auth = betterAuth({
 			"/two-factor/verify-backup-code": { window: 60, max: 5 },
 			// Signup + email-dispatch (invite-gated, but throttle to prevent email-bombing)
 			"/sign-up/email": { window: 300, max: 5 },
+			// The reset-request endpoint that DISPATCHES emails. better-auth's
+			// authClient.requestPasswordReset() posts to /request-password-reset;
+			// /forget-password is only the legacy alias. Both are keyed so the
+			// email-send is throttled regardless of which the client calls.
+			"/request-password-reset": { window: 300, max: 3 },
 			"/forget-password": { window: 300, max: 3 },
 			"/reset-password": { window: 300, max: 5 },
 			"/send-verification-email": { window: 300, max: 3 },
@@ -249,18 +254,31 @@ export const auth = betterAuth({
 			});
 		},
 	},
-	socialProviders: {
-		google: {
-			clientId: process.env.GOOGLE_CLIENT_ID as string,
-			clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-			scope: ["email", "profile"],
-		},
-		github: {
-			clientId: process.env.GITHUB_CLIENT_ID as string,
-			clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-			scope: ["user:email"],
-		},
-	},
+	// Social providers are registered ONLY when config.enableSocialLogin is true.
+	// The /sign-in/social + /callback/:provider endpoints self-create users in the
+	// OAuth callback, which invitationOnlyPlugin (it only guards /sign-up/email)
+	// does NOT cover — so leaving them registered on an invite-only instance is a
+	// self-signup bypass the moment GOOGLE_/GITHUB_CLIENT_ID is set. Gating the
+	// whole block off the config flag keeps the server in sync with the UI (which
+	// already hides the buttons when the flag is false). If you re-enable this,
+	// pair it with invite-gating (e.g. an OAuth-callback membership/invite check)
+	// the same way magic-link would need disableSignUp.
+	...(config.enableSocialLogin
+		? {
+				socialProviders: {
+					google: {
+						clientId: process.env.GOOGLE_CLIENT_ID as string,
+						clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+						scope: ["email", "profile"],
+					},
+					github: {
+						clientId: process.env.GITHUB_CLIENT_ID as string,
+						clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+						scope: ["user:email"],
+					},
+				},
+			}
+		: {}),
 	plugins: [
 		admin(),
 		passkey(),

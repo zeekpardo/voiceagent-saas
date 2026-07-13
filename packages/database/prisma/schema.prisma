@@ -146,6 +146,7 @@ model Organization {
   purchases          Purchase[]
   sources            Source[]
   agentOrganizations AgentOrganization[]
+  toolOrganizations  ToolOrganization[]
   personas           Persona[]
 
   @@unique([slug])
@@ -258,6 +259,17 @@ model AgentOrganization {
 
   @@index([organizationId])
   @@map("agent_organization")
+}
+
+model ToolOrganization {
+  /// gateway tool id (tool_…) — not an FK, tools live on the gateway
+  toolId         String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@map("tool_organization")
 }
 
 enum SourceStatus {

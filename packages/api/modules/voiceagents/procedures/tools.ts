@@ -1,6 +1,14 @@
+import { ORPCError } from "@orpc/server";
+import {
+	assignToolToOrganization,
+	deleteToolOrganization,
+	getToolOrganizationId,
+	listOrganizationToolIds,
+} from "@repo/database";
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
+import { requireActiveOrganizationId } from "../../sources/lib/org";
 import { gatewayFetch } from "../lib/gateway";
 import { requireOwnedAgent } from "../lib/require-owned-agent";
 
@@ -9,6 +17,10 @@ import { requireOwnedAgent } from "../lib/require-owned-agent";
  * call mid-conversation. The engine signs invocations with the per-tool
  * secret (returned once at creation); the endpoint returns { result } which
  * is fed back into the agent's reply.
+ *
+ * The engine gateway is org-agnostic (tools live under one project), so tenant
+ * ownership is tracked SaaS-side in `tool_organization` (mirrors
+ * `agent_organization`): createTool stamps it, list/delete scope by it.
  */
 
 export interface GatewayTool {
@@ -49,9 +61,11 @@ export const listTools = protectedProcedure
 		tags: ["Voice Agents"],
 		summary: "List tools",
 	})
-	.handler(async () => {
+	.handler(async ({ context }) => {
+		const organizationId = requireActiveOrganizationId(context.session);
+		const ownedIds = new Set(await listOrganizationToolIds(organizationId));
 		const { tools } = await gatewayFetch<{ tools: GatewayTool[] }>("GET", "/v1/tools");
-		return tools;
+		return tools.filter((t) => ownedIds.has(t.id));
 	});
 
 export const createTool = protectedProcedure
@@ -74,16 +88,19 @@ export const createTool = protectedProcedure
 			parameters: z.array(toolParameter).default([]),
 		}),
 	)
-	.handler(async ({ input }) =>
+	.handler(async ({ input, context }) => {
+		const organizationId = requireActiveOrganizationId(context.session);
 		// The signing secret comes back exactly once — surface it to the UI.
-		gatewayFetch<GatewayTool & { secret: string }>("POST", "/v1/tools", {
+		const tool = await gatewayFetch<GatewayTool & { secret: string }>("POST", "/v1/tools", {
 			name: input.name,
 			description: input.description,
 			json_schema: toJsonSchema(input.parameters),
 			endpoint_url: input.endpointUrl,
 			timeout_ms: input.timeoutMs,
-		}),
-	);
+		});
+		await assignToolToOrganization(tool.id, organizationId);
+		return tool;
+	});
 
 export const deleteTool = protectedProcedure
 	.route({
@@ -93,9 +110,18 @@ export const deleteTool = protectedProcedure
 		summary: "Delete a tool",
 	})
 	.input(z.object({ id: z.string() }))
-	.handler(async ({ input }) =>
-		gatewayFetch<{ deleted: boolean }>("DELETE", `/v1/tools/${encodeURIComponent(input.id)}`),
-	);
+	.handler(async ({ input, context }) => {
+		const organizationId = requireActiveOrganizationId(context.session);
+		if ((await getToolOrganizationId(input.id)) !== organizationId) {
+			throw new ORPCError("NOT_FOUND", { message: "Tool not found" });
+		}
+		const result = await gatewayFetch<{ deleted: boolean }>(
+			"DELETE",
+			`/v1/tools/${encodeURIComponent(input.id)}`,
+		);
+		await deleteToolOrganization(input.id);
+		return result;
+	});
 
 /** Attach/detach tools on an agent (partial config patch — bumps the version). */
 export const setAgentTools = protectedProcedure

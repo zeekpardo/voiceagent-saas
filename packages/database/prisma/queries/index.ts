@@ -5,5 +5,6 @@ export * from "./personas";
 export * from "./purchases";
 export * from "./source-widgets";
 export * from "./sources";
+export * from "./tool-organization";
 export * from "./users";
 export * from "./voice-engine-webhook";

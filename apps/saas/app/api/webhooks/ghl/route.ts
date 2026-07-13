@@ -28,6 +28,7 @@ import {
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
 import { findSourceByLocationId, listSourceAgentSources } from "@repo/database";
+import { errMessage } from "@repo/utils";
 
 /**
  * The inbound debounce holds the request open for the quiet window (~5s) before
@@ -168,13 +169,13 @@ export async function POST(req: Request): Promise<Response> {
 		const optOutIntent = classifyOptOut(payload.body ?? "");
 		if (optOutIntent === "opt_out") {
 			await provider.addContactTags(payload.contactId, [AI_OFF_TAG]).catch((err) => {
-				console.error("[ghl-webhook] failed to tag opt-out:", err);
+				console.error("[ghl-webhook] failed to tag opt-out:", errMessage(err));
 			});
 			return ack({ handled: true, optedOut: true, replied: false });
 		}
 		if (optOutIntent === "opt_in") {
 			await provider.removeContactTags(payload.contactId, [AI_OFF_TAG]).catch((err) => {
-				console.error("[ghl-webhook] failed to clear opt-out:", err);
+				console.error("[ghl-webhook] failed to clear opt-out:", errMessage(err));
 			});
 			return ack({ handled: true, optedIn: true, replied: false });
 		}
@@ -318,7 +319,7 @@ export async function POST(req: Request): Promise<Response> {
 		});
 	} catch (err) {
 		// Never make GHL retry on our own downstream failure — log and 200.
-		console.error("[ghl-webhook] inbound handling failed:", err);
+		console.error("[ghl-webhook] inbound handling failed:", errMessage(err));
 		return ack({ error: (err as Error).message });
 	}
 }

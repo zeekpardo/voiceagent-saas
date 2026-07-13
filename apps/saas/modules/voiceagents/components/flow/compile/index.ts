@@ -94,24 +94,10 @@ export function compileCanvas(
 		? (doc.edges.find((e) => e.source === greeter.id)?.target ?? "")
 		: (startEdge?.target ?? "");
 
-	// CloseBot parity: when a conversation node is designated the flow default,
-	// every dangling/unconnected exit falls back to it (instead of ending the
-	// call). The default node's own dangling exits are left alone (no self-loop).
-	const defaultConversationId = doc.nodes.find(
-		(n) => n.type === "conversation" && (n.data as { isDefault?: boolean } | undefined)?.isDefault,
-	)?.id;
-
-	// No outgoing edge → fall back to the default conversation node when one
-	// exists, otherwise omit target → the exit ends the call.
-	const targetOf = (nodeId: string, handleId: string) => {
-		const wired = doc.edges.find((e) => e.source === nodeId && e.sourceHandle === handleId)?.target;
-		if (wired) {
-			return wired;
-		}
-		return defaultConversationId && nodeId !== defaultConversationId
-			? defaultConversationId
-			: undefined;
-	};
+	// No outgoing edge → omit target → the exit ends the call. (Conversation
+	// nodes are now terminal, so there's no "default conversation" catch-all.)
+	const targetOf = (nodeId: string, handleId: string) =>
+		doc.edges.find((e) => e.source === nodeId && e.sourceHandle === handleId)?.target;
 
 	// Per-kind compile lives on each registry entry (kinds/*). Scenario nodes emit
 	// a global scenario (flow.scenarios); every other kind emits a flow node. Nodes

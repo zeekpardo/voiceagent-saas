@@ -762,8 +762,8 @@ describe("scenario nodes", () => {
 });
 
 /**
- * Start → a1 agent (exit "wrap" → cv1) → cv1 conversation
- * (exit "booked" → a2 agent; wraps up by taking that exit).
+ * Start → a1 agent (exit "wrap" → cv1) → cv1 conversation (terminal "keep
+ * chatting" stage — no exits, no wrap-up, just an optional Extra Prompt).
  */
 function makeConversationDoc(): CanvasDoc {
 	return {
@@ -788,37 +788,20 @@ function makeConversationDoc(): CanvasDoc {
 				position: { x: 400, y: 0 },
 				data: {
 					title: "Keep it going",
-					reason: "Real estate lead looking to sell or buy a property",
-					hints: ["Ask about timeline", "Ask what's motivating the move"],
-					exits: [{ id: "ce1", name: "booked", description: "The caller is ready to book" }],
-					wrapUpMode: "exit",
-					wrapUpExitId: "ce1",
+					extraPrompt: "Real estate lead looking to sell or buy a property",
 					maxDurationSeconds: 180,
-				},
-			},
-			{
-				id: "a2",
-				type: "agent",
-				position: { x: 700, y: 0 },
-				data: {
-					title: "Book",
-					sections: [{ id: "s2", body: sectionBody([{ type: "text", text: "Book it." }]) }],
-					entryMessage: "",
-					exits: [],
-					toolIds: [],
 				},
 			},
 		],
 		edges: [
 			{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" },
 			{ id: "e2", source: "a1", sourceHandle: "x1", target: "cv1" },
-			{ id: "e3", source: "cv1", sourceHandle: "ce1", target: "a2" },
 		],
 	};
 }
 
 describe("conversation nodes", () => {
-	it("compiles to an agent-on-the-wire node carrying the conversation contract", () => {
+	it("compiles to a terminal agent-on-the-wire node carrying the conversation contract", () => {
 		const { flow } = compileCanvas(makeConversationDoc(), []);
 		const cv = flow.nodes.find((n) => n.id === "cv1");
 		// Node kind stays "agent" on the wire — no `kind`, no objectives block.
@@ -826,55 +809,47 @@ describe("conversation nodes", () => {
 		expect(cv?.objectives).toBeUndefined();
 		expect(cv?.toolIds).toEqual([]);
 		expect(cv?.name).toBe("Keep it going");
+		// Extra Prompt rides on conversation.reason; wrapUp is always end_call.
 		expect(cv?.conversation).toEqual({
 			reason: "Real estate lead looking to sell or buy a property",
-			hints: ["Ask about timeline", "Ask what's motivating the move"],
-			wrapUp: { mode: "exit", exit: "booked" },
+			wrapUp: { mode: "end_call" },
 			maxDurationSeconds: 180,
 		});
-		// Exits compile as usual (wired handle → target).
-		expect(cv?.exits).toEqual([
-			{ name: "booked", description: "The caller is ready to book", target: "a2" },
-		]);
-		// instructions mirror reason + hints (engine schema requires min 1).
-		expect(cv?.instructions).toBe(
-			"Real estate lead looking to sell or buy a property\n\nTalking points:\n- Ask about timeline\n- Ask what's motivating the move",
-		);
+		// Terminal — always empty exits.
+		expect(cv?.exits).toEqual([]);
+		// instructions mirror the Extra Prompt (engine schema requires min 1).
+		expect(cv?.instructions).toBe("Real estate lead looking to sell or buy a property");
 	});
 
-	it("emits wrapUp end_call and drops hints when there are none", () => {
+	it("omits reason and falls back to a generic instruction when the Extra Prompt is empty", () => {
 		const doc = makeConversationDoc();
 		const cv = doc.nodes.find((n) => n.id === "cv1");
 		if (cv?.type === "conversation" && cv.data) {
-			cv.data.wrapUpMode = "end_call";
-			cv.data.wrapUpExitId = undefined;
-			cv.data.hints = [];
+			cv.data.extraPrompt = "   ";
 			cv.data.maxDurationSeconds = undefined;
 		}
 		const { flow } = compileCanvas(doc, []);
 		const compiled = flow.nodes.find((n) => n.id === "cv1");
 		expect(compiled?.conversation).toEqual({
-			reason: "Real estate lead looking to sell or buy a property",
-			hints: undefined,
+			reason: undefined,
 			wrapUp: { mode: "end_call" },
 			maxDurationSeconds: undefined,
 		});
+		expect(compiled?.instructions).toBe("Keep the conversation going.");
 	});
 
 	it("validates a well-formed conversation doc", () => {
 		expect(validateFlowDoc(withGreeter(makeConversationDoc()))).toEqual([]);
 	});
 
-	it("flags a missing reason and a wrap-up exit that points nowhere", () => {
+	it("flags a conversation node with no name", () => {
 		const doc = makeConversationDoc();
 		const cv = doc.nodes.find((n) => n.id === "cv1");
 		if (cv?.type === "conversation" && cv.data) {
-			cv.data.reason = "  ";
-			cv.data.wrapUpExitId = "does-not-exist";
+			cv.data.title = "  ";
 		}
 		const errors = validateFlowDoc(doc);
-		expect(errors.some((e) => e.includes("needs a conversation reason"))).toBe(true);
-		expect(errors.some((e) => e.includes("wraps up to an exit"))).toBe(true);
+		expect(errors.some((e) => e.includes("needs a name"))).toBe(true);
 	});
 
 	it("round-trips a conversation node flow → canvas → flow", () => {
@@ -884,13 +859,10 @@ describe("conversation nodes", () => {
 		const cv = rebuilt.nodes.find((n) => n.id === "cv1");
 		expect(cv?.type).toBe("conversation");
 		if (cv?.type === "conversation") {
-			expect(cv.data?.reason).toBe("Real estate lead looking to sell or buy a property");
-			expect(cv.data?.hints).toEqual(["Ask about timeline", "Ask what's motivating the move"]);
-			expect(cv.data?.wrapUpMode).toBe("exit");
+			expect(cv.data?.extraPrompt).toBe("Real estate lead looking to sell or buy a property");
 			expect(cv.data?.maxDurationSeconds).toBe(180);
-			// wrap-up exit is re-linked to the rebuilt "booked" exit id.
-			const bookedExit = cv.data?.exits.find((x) => x.name === "booked");
-			expect(cv.data?.wrapUpExitId).toBe(bookedExit?.id);
+			// Terminal — no exits, no wrap-up on the rebuilt data.
+			expect(cv.data?.exits).toBeUndefined();
 		}
 
 		expect(validateFlowDoc(rebuilt)).toEqual([]);
@@ -898,6 +870,48 @@ describe("conversation nodes", () => {
 		expect(
 			recompiled.nodes.map((n) => [n.id, n.kind, n.conversation, n.instructions, n.exits]),
 		).toEqual(original.nodes.map((n) => [n.id, n.kind, n.conversation, n.instructions, n.exits]));
+	});
+
+	it("decompiles a LEGACY conversation node (reason + hints + exits + wrapUp:exit) as terminal", () => {
+		// An OLD engine node still carries hints, a wired exit and wrapUp:{mode:"exit"}.
+		const legacyFlow = {
+			entry: "cv1",
+			nodes: [
+				{
+					id: "cv1",
+					name: "Old chat",
+					instructions: "Old instructions",
+					toolIds: [],
+					exits: [{ name: "booked", description: "Ready to book", target: "a2" }],
+					conversation: {
+						reason: "Legacy discovery reason",
+						hints: ["Ask about timeline"],
+						wrapUp: { mode: "exit" as const, exit: "booked" },
+						maxDurationSeconds: 120,
+					},
+				},
+				{
+					id: "a2",
+					name: "Book",
+					instructions: "Book it.",
+					toolIds: [],
+					exits: [],
+				},
+			],
+		};
+		const rebuilt = canvasFromFlow(legacyFlow);
+		const cv = rebuilt.nodes.find((n) => n.id === "cv1");
+		expect(cv?.type).toBe("conversation");
+		if (cv?.type === "conversation") {
+			// reason → extraPrompt; hints/exits/wrapUp dropped.
+			expect(cv.data?.extraPrompt).toBe("Legacy discovery reason");
+			expect(cv.data?.maxDurationSeconds).toBe(120);
+			expect(cv.data?.hints).toBeUndefined();
+			expect(cv.data?.exits).toBeUndefined();
+			expect(cv.data?.wrapUpMode).toBeUndefined();
+		}
+		// No exit edge is rebuilt from the legacy node (terminal).
+		expect(rebuilt.edges.some((e) => e.source === "cv1")).toBe(false);
 	});
 });
 
@@ -992,10 +1006,11 @@ describe("objective nodes", () => {
 });
 
 /**
- * Start → a1 agent with a single UNWIRED exit "wrap" + a default conversation
- * node cv1 (isDefault). The dangling exit must fall back to cv1 on compile.
+ * Start → a1 agent with a single UNWIRED exit "wrap". A dangling exit ends the
+ * call (there's no longer a "default conversation" catch-all — conversation
+ * nodes are terminal).
  */
-function makeDefaultExitDoc(isDefault: boolean): CanvasDoc {
+function makeDanglingExitDoc(): CanvasDoc {
 	return {
 		version: 1,
 		nodes: [
@@ -1012,62 +1027,19 @@ function makeDefaultExitDoc(isDefault: boolean): CanvasDoc {
 					toolIds: [],
 				},
 			},
-			{
-				id: "cv1",
-				type: "conversation",
-				position: { x: 400, y: 0 },
-				data: {
-					title: "Default chat",
-					reason: "Keep the lead engaged",
-					hints: [],
-					exits: [],
-					wrapUpMode: "end_call",
-					isDefault,
-				},
-			},
 		],
 		// a1's "wrap" exit is intentionally left unwired.
 		edges: [{ id: "e1", source: START_NODE_ID, sourceHandle: START_HANDLE_ID, target: "a1" }],
 	};
 }
 
-describe("default-conversation unconnected-exit semantics", () => {
-	it("wires a dangling exit to the designated default conversation node", () => {
-		const { flow } = compileCanvas(makeDefaultExitDoc(true), []);
-		const a1 = flow.nodes.find((n) => n.id === "a1");
-		expect(a1?.exits).toEqual([{ name: "wrap", description: "Core data captured", target: "cv1" }]);
-		// The default node's own (absent) exits are untouched — no self-loop.
-		const cv = flow.nodes.find((n) => n.id === "cv1");
-		expect(cv?.exits).toEqual([]);
-	});
-
-	it("leaves a dangling exit ending the call when no default node is designated", () => {
-		const { flow } = compileCanvas(makeDefaultExitDoc(false), []);
+describe("unconnected-exit semantics", () => {
+	it("leaves a dangling exit ending the call", () => {
+		const { flow } = compileCanvas(makeDanglingExitDoc(), []);
 		const a1 = flow.nodes.find((n) => n.id === "a1");
 		expect(a1?.exits).toEqual([
 			{ name: "wrap", description: "Core data captured", target: undefined },
 		]);
-	});
-
-	it("errors when two conversation nodes are marked default", () => {
-		const doc = makeDefaultExitDoc(true);
-		doc.nodes.push({
-			id: "cv2",
-			type: "conversation",
-			position: { x: 700, y: 0 },
-			data: {
-				title: "Second default",
-				reason: "Another loop",
-				hints: [],
-				exits: [],
-				wrapUpMode: "end_call",
-				isDefault: true,
-			},
-		});
-		const errors = validateFlowDoc(doc);
-		expect(errors.some((e) => e.includes("Only one conversation node can be the default"))).toBe(
-			true,
-		);
 	});
 });
 

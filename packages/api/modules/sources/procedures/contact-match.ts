@@ -1,22 +1,23 @@
+import { getSoleEnabledAgentSource } from "@repo/database";
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
 import type { CrmProvider } from "../../crm/lib/provider";
 import { resolveCrmProvider } from "../../crm/lib/resolve";
-import { resolveSourceIdForAgent } from "../../crm/lib/resolve-source";
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
+import { requireOwnedAgent } from "../../voiceagents/lib/require-owned-agent";
+import { requireOwnedSource } from "../lib/require-owned-source";
 
 /**
- * Resolve a call to its CRM contact for the inbox: by explicit contact id
- * when the call already carries one, otherwise by a LOOKUP-ONLY phone match
- * (never creates contacts). When a phone match lands and a callId is given,
- * the link is persisted onto the gateway call's metadata best-effort, so
- * historical calls auto-connect as they're viewed.
+ * Resolve a call to its CRM contact for the inbox: by explicit contact id when
+ * the call already carries one, otherwise by a LOOKUP-ONLY phone match (never
+ * creates contacts). When a phone match lands and a callId is given, the link
+ * is persisted onto the gateway call's metadata best-effort.
  *
- * Which Source's CRM to check: explicit sourceId wins; otherwise, when the
- * agent has exactly one enabled attached Source, that one is used
- * unambiguously. Agents monitoring multiple Sources must pass sourceId
- * explicitly (resolved from the call's metadata.source_id).
+ * Which Source's CRM to check: an explicit sourceId is used only after
+ * verifying the caller's org owns it; otherwise the agent's sole enabled
+ * attached Source is used (after verifying the caller owns the agent). Both
+ * gates prevent one org from reading another org's CRM contacts.
  */
 
 interface MatchedContact {
@@ -53,11 +54,19 @@ export const matchContact = protectedProcedure
 			agentId: z.string().optional(),
 		}),
 	)
-	.handler(async ({ input }): Promise<{ contact: MatchedContact | null }> => {
-		const sourceId = await resolveSourceIdForAgent({
-			explicitSourceId: input.sourceId,
-			agentId: input.agentId,
-		});
+	.handler(async ({ input, context }): Promise<{ contact: MatchedContact | null }> => {
+		// Resolve the Source under an ownership gate: an explicit sourceId must be
+		// owned by the caller's org; otherwise fall back to the owned agent's sole
+		// enabled source.
+		let sourceId: string | null = null;
+		if (input.sourceId) {
+			await requireOwnedSource(context.session, input.sourceId);
+			sourceId = input.sourceId;
+		} else if (input.agentId) {
+			await requireOwnedAgent(context.session, input.agentId);
+			const sole = await getSoleEnabledAgentSource(input.agentId);
+			sourceId = sole?.sourceId ?? null;
+		}
 		if (!sourceId) return { contact: null };
 
 		const provider = await resolveCrmProvider(sourceId);

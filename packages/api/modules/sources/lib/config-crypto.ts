@@ -129,6 +129,16 @@ function isEncryptedValue(value: unknown): value is string {
 }
 
 /**
+ * Idempotent seal for a single standalone secret string (not a Source config
+ * blob) — e.g. the HMAC signing secrets on VoiceEngineWebhook / CrmLiveTool.
+ * Already-sealed values pass through untouched, so re-sealing is safe and this
+ * cannot double-encrypt. Symmetric with `decryptSourceSecret` on the read side.
+ */
+export function sealSecret(value: string): string {
+	return isEncryptedValue(value) ? value : encryptSourceSecret(value);
+}
+
+/**
  * Encrypt the known secret fields of a Source config before it is written to the
  * DB. Idempotent: already-sealed values are left untouched, so re-sealing on
  * every write is safe. Non-secret fields pass through unchanged.

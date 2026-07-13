@@ -1,5 +1,6 @@
 import { getCrmLiveToolByName, upsertCrmLiveTool } from "@repo/database";
 
+import { sealSecret } from "../../sources/lib/config-crypto";
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
 
 /**
@@ -168,7 +169,8 @@ export async function ensureCrmLiveTools(
 			userId,
 			name: def.name,
 			toolId: created.id,
-			secret: created.secret,
+			// Seal the per-tool HMAC secret at rest; /api/tools/crm decrypts before verifying.
+			secret: sealSecret(created.secret),
 		});
 		result.push({ id: created.id, name: def.name, description: def.description });
 	}

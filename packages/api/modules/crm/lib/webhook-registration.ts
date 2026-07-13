@@ -1,5 +1,6 @@
 import { getVoiceEngineWebhook, saveVoiceEngineWebhook } from "@repo/database";
 
+import { sealSecret } from "../../sources/lib/config-crypto";
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
 
 /**
@@ -27,5 +28,6 @@ export async function ensureVoiceWebhook(): Promise<void> {
 		url,
 		event_filter: ["call.completed"],
 	});
-	await saveVoiceEngineWebhook({ url, secret: created.secret, gatewayId: created.id });
+	// Seal the HMAC signing secret at rest (AES-256-GCM); read path decrypts before verifying.
+	await saveVoiceEngineWebhook({ url, secret: sealSecret(created.secret), gatewayId: created.id });
 }

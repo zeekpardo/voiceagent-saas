@@ -16,6 +16,7 @@ import { type HttpTraceEntry, withHttpTrace } from "@repo/api/modules/crm/lib/ht
 import { GhlApiError } from "@repo/api/modules/crm/lib/providers/ghl-client";
 import { resolveCrmProvider } from "@repo/api/modules/crm/lib/resolve";
 import { resolveSourceIdForAgent } from "@repo/api/modules/crm/lib/resolve-source";
+import { decryptSourceSecret } from "@repo/api/modules/sources/lib/config-crypto";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
 import { getCrmLiveToolByName } from "@repo/database";
 
@@ -96,7 +97,8 @@ export async function POST(req: Request): Promise<Response> {
 	}
 
 	const ok = verify(
-		liveTool.secret,
+		// Stored sealed at rest; legacy plaintext rows pass through unchanged.
+		decryptSourceSecret(liveTool.secret),
 		req.headers.get("x-voice-timestamp"),
 		req.headers.get("x-voice-signature"),
 		raw,

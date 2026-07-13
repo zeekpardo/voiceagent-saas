@@ -1,4 +1,5 @@
 import { getCrmLiveToolByName, upsertCrmLiveTool } from "@repo/database";
+import { errMessage } from "@repo/utils";
 
 import { sealSecret } from "../../sources/lib/config-crypto";
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
@@ -158,7 +159,7 @@ export async function ensureCrmLiveTools(
 				endpoint_url: endpointUrl,
 				enabled: true,
 			}).catch((err) => {
-				console.warn(`[crm-live-tools] patch ${def.name} failed:`, err);
+				console.warn(`[crm-live-tools] patch ${def.name} failed:`, errMessage(err));
 			});
 			result.push({ id: existing.toolId, name: def.name, description: def.description });
 			continue;

@@ -1,4 +1,5 @@
 import { getAgentSource } from "@repo/database";
+import { errMessage } from "@repo/utils";
 
 import { gatewayFetch } from "../../voiceagents/lib/gateway";
 import { applyFieldMappings, type MappingEntry } from "./field-mapping";
@@ -80,7 +81,7 @@ async function resolvePostCallPrefs(
 			writeNote: typeof writeNote === "boolean" ? writeNote : undefined,
 		};
 	} catch (err) {
-		console.warn(`[crm-sync] could not load agent ${agentId} for post-call prefs`, err);
+		console.warn(`[crm-sync] could not load agent ${agentId} for post-call prefs`, errMessage(err));
 		return {};
 	}
 }
@@ -201,7 +202,7 @@ export async function syncCallToCrm(event: CallCompletedEvent): Promise<SyncResu
 			);
 			summaryWritten = written > 0;
 		} catch (err) {
-			console.warn(`[crm-sync] summary write to "${summaryField}" failed`, err);
+			console.warn(`[crm-sync] summary write to "${summaryField}" failed`, errMessage(err));
 		}
 	}
 

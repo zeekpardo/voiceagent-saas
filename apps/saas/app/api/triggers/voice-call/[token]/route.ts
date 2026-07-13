@@ -13,8 +13,9 @@ import { verifyTriggerToken } from "@repo/api/modules/crm/lib/trigger-token";
 import { readChannelMode } from "@repo/api/modules/voiceagents/lib/channel-mode";
 import { mergeCustomVariables } from "@repo/api/modules/voiceagents/lib/custom-variables";
 import { gatewayFetch } from "@repo/api/modules/voiceagents/lib/gateway";
+import { createRateLimiter } from "@repo/api/modules/voiceagents/lib/rate-limit";
 import type { GatewayAgent } from "@repo/api/modules/voiceagents/lib/schema";
-import { getAgentSource } from "@repo/database";
+import { getAgentSource, getSourceById, listSourcePhoneNumbers } from "@repo/database";
 
 /**
  * CRM workflow → voice call. Drop this URL into a workflow webhook action
@@ -27,6 +28,27 @@ import { getAgentSource } from "@repo/database";
  *
  * This static route wins over the /api/[[...rest]] catch-all.
  */
+
+/**
+ * Abuse guards for this PUBLIC, paid endpoint (each accepted hit = a real PSTN
+ * call + LLM spend). All three are in-memory / per-instance for now — a good
+ * first line of defence, but on a multi-instance deploy each container counts
+ * independently, so the effective ceilings are roughly value × instances. Move
+ * to a shared store (Redis INCR+EXPIRE / durable object) before treating any of
+ * these as a hard quota (tracked as plan item 7). See rate-limit.ts caveat.
+ */
+
+// Per-token burst limits, keyed on the signed token. Sized for real GHL
+// workflow bursts (a campaign fanning out) while capping a runaway loop or an
+// abusive replay of a leaked URL.
+const perTokenMinuteLimiter = createRateLimiter(10, 60 * 1000); // 10 / min / token
+const perTokenHourLimiter = createRateLimiter(100, 60 * 60 * 1000); // 100 / hour / token
+
+// Per-org rolling-24h ceiling on trigger-placed outbound calls. Resolved from
+// the (trusted, token-verified) sourceId's organization. A named constant so
+// it's easy to tune; the sliding window reuses the same limiter primitive.
+const ORG_DAILY_OUTBOUND_CAP = 500;
+const orgDailyLimiter = createRateLimiter(ORG_DAILY_OUTBOUND_CAP, 24 * 60 * 60 * 1000);
 
 interface TriggerPayload {
 	phone?: string;
@@ -102,6 +124,20 @@ export async function POST(
 		return Response.json({ error: "invalid trigger token" }, { status: 401 });
 	}
 
+	// Guard 1 — per-token rate limit. Keyed on the signed token so one workflow's
+	// URL can burst normally but can't flood the paid outbound path (minute cap
+	// stops loops, hour cap stops sustained abuse). Checked before any DB/gateway
+	// work so a flood is shed cheaply.
+	const minuteLimit = perTokenMinuteLimiter.check(`token:${token}`);
+	const hourLimit = minuteLimit.allowed ? perTokenHourLimiter.check(`token:${token}`) : minuteLimit;
+	if (!minuteLimit.allowed || !hourLimit.allowed) {
+		const retryAfter = Math.max(minuteLimit.retryAfterSeconds, hourLimit.retryAfterSeconds);
+		return Response.json(
+			{ error: "rate limit exceeded for this trigger token" },
+			{ status: 429, headers: { "Retry-After": String(retryAfter) } },
+		);
+	}
+
 	const payload = (await req.json().catch(() => ({}))) as TriggerPayload;
 	const phone = toE164(payload.phone ?? payload.contact?.phone);
 	if (!phone) {
@@ -124,6 +160,29 @@ export async function POST(
 				{ error: "`from` must be a valid E.164 or 10-digit US phone number" },
 				{ status: 400 },
 			);
+		}
+	}
+
+	// Guard 2 — anti-spoof caller ID. A client-supplied `from` must be a number
+	// this source actually OWNS (GHL's normal flow sets `from` to the source's own
+	// number, so legitimate calls pass). An unowned/spoofed value is DROPPED rather
+	// than rejected: the call still places from the trunk/default caller ID
+	// (non-breaking) while the spoofed number never reaches the PSTN. Fail-safe —
+	// a lookup error also drops `from` so we never dial out an unverified caller ID.
+	if (from) {
+		const ownedNumbers = await listSourcePhoneNumbers(identity.sourceId)
+			.then((rows) => rows.map((r) => r.e164))
+			.catch(() => null);
+		if (ownedNumbers === null) {
+			console.warn(
+				`[voice-trigger] owned-number lookup failed for source ${identity.sourceId}; dropping caller id`,
+			);
+			from = undefined;
+		} else if (!ownedNumbers.includes(from)) {
+			console.warn(
+				`[voice-trigger] dropping unowned caller id ${from} for source ${identity.sourceId}`,
+			);
+			from = undefined;
 		}
 	}
 
@@ -249,6 +308,31 @@ export async function POST(
 			console.error("[voice-trigger] text-mode conversation start failed:", err);
 			return Response.json({ error: (err as Error).message }, { status: 502 });
 		}
+	}
+
+	// Guard 3 — per-org daily outbound ceiling. Resolve the org from the trusted,
+	// token-verified sourceId and enforce a rolling-24h cap right before the paid
+	// dispatch (after text-mode/tag-skip early returns, so only real calls count).
+	// Fail-safe: if the org can't be resolved we block rather than risk an uncapped
+	// paid call — a valid token should always map to an existing source.
+	const organizationId = await getSourceById(identity.sourceId)
+		.then((s) => s?.organizationId ?? null)
+		.catch(() => null);
+	if (!organizationId) {
+		console.error(
+			`[voice-trigger] could not resolve org for source ${identity.sourceId}; blocking call`,
+		);
+		return Response.json(
+			{ error: "could not verify the outbound quota for this source" },
+			{ status: 503 },
+		);
+	}
+	const dailyLimit = orgDailyLimiter.check(`org:${organizationId}`);
+	if (!dailyLimit.allowed) {
+		return Response.json(
+			{ error: "daily outbound call limit reached for this account" },
+			{ status: 429, headers: { "Retry-After": String(dailyLimit.retryAfterSeconds) } },
+		);
 	}
 
 	try {

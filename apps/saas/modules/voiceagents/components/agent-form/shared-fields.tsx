@@ -9,7 +9,7 @@ import { useMemo, useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
 import type { AgentFormValues } from "../../lib/agent-form-mapping";
-import { textToTiptapDoc, tiptapToText } from "../flow/compile";
+import { textToTiptapDoc, tiptapToText } from "../flow/compile/text";
 import { buildVariableItems, createFlowMentionExtension } from "../flow/mentions";
 import { SectionEditor } from "../flow/SectionEditor";
 

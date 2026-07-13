@@ -18,8 +18,8 @@ import { ArrowDownIcon, ArrowUpIcon, PlusIcon, SearchIcon, Trash2Icon } from "lu
 import { useState } from "react";
 
 import { useAgentCalendarsQuery } from "../../../lib/api";
-import { MODEL_GROUPS } from "../../AgentForm";
-import { makeId, textToTiptapDoc } from "../compile";
+import { MODEL_GROUPS } from "../../../lib/voice-catalog";
+import { makeId, textToTiptapDoc } from "../compile/text";
 import type { AgentNodeData, FlowNodeData } from "../flow-types";
 import type { createFlowMentionExtension } from "../mentions";
 import { SectionEditor } from "../SectionEditor";

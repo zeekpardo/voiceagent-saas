@@ -7,7 +7,7 @@ import { Switch } from "@repo/ui/components/switch";
 import { Textarea } from "@repo/ui/components/textarea";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
-import { makeId } from "../compile";
+import { makeId } from "../compile/text";
 import type { FlowNodeData, SwitchNodeData } from "../flow-types";
 import { TitleInput, usePatch } from "./shared";
 

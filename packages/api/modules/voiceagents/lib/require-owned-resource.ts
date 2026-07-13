@@ -13,11 +13,11 @@ import { gatewayFetch } from "./gateway";
  * resources keyed directly by agent id.
  */
 async function assertOwnedAgent(
-	session: { activeOrganizationId?: string | null },
+	session: { activeOrganizationId?: string | null; userId: string },
 	agentId: string,
 	notFoundMessage: string,
 ): Promise<void> {
-	const organizationId = requireActiveOrganizationId(session);
+	const organizationId = await requireActiveOrganizationId(session);
 	const owner = await getAgentOrganizationId(agentId);
 	if (owner !== organizationId) {
 		throw new ORPCError("NOT_FOUND", { message: notFoundMessage });
@@ -26,7 +26,7 @@ async function assertOwnedAgent(
 
 /** Throws NOT_FOUND unless the caller's active org owns the agent behind `callId`. */
 export async function requireOwnedCall(
-	session: { activeOrganizationId?: string | null },
+	session: { activeOrganizationId?: string | null; userId: string },
 	callId: string,
 ): Promise<void> {
 	const call = await gatewayFetch<{ agent_id: string }>(
@@ -38,7 +38,7 @@ export async function requireOwnedCall(
 
 /** Throws NOT_FOUND unless the caller's active org owns the agent behind `conversationId`. */
 export async function requireOwnedConversation(
-	session: { activeOrganizationId?: string | null },
+	session: { activeOrganizationId?: string | null; userId: string },
 	conversationId: string,
 ): Promise<void> {
 	const conversation = await gatewayFetch<{ agent_id: string }>(

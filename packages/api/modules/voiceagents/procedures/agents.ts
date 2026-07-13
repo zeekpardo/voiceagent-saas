@@ -21,7 +21,7 @@ export const listAgents = protectedProcedure
 		summary: "List voice agents",
 	})
 	.handler(async ({ context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const [{ agents }, ownedIds] = await Promise.all([
 			gatewayFetch<{ agents: GatewayAgent[] }>("GET", "/v1/agents"),
 			listOrganizationAgentIds(organizationId),
@@ -52,7 +52,7 @@ export const createAgent = protectedProcedure
 	})
 	.input(agentConfigInput)
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const persona = await resolvePersona(organizationId, input.personaId);
 		const agent = await gatewayFetch<GatewayAgent>(
 			"POST",

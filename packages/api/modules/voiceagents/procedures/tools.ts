@@ -62,7 +62,7 @@ export const listTools = protectedProcedure
 		summary: "List tools",
 	})
 	.handler(async ({ context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const ownedIds = new Set(await listOrganizationToolIds(organizationId));
 		const { tools } = await gatewayFetch<{ tools: GatewayTool[] }>("GET", "/v1/tools");
 		return tools.filter((t) => ownedIds.has(t.id));
@@ -89,7 +89,7 @@ export const createTool = protectedProcedure
 		}),
 	)
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		// The signing secret comes back exactly once — surface it to the UI.
 		const tool = await gatewayFetch<GatewayTool & { secret: string }>("POST", "/v1/tools", {
 			name: input.name,
@@ -111,7 +111,7 @@ export const deleteTool = protectedProcedure
 	})
 	.input(z.object({ id: z.string() }))
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		if ((await getToolOrganizationId(input.id)) !== organizationId) {
 			throw new ORPCError("NOT_FOUND", { message: "Tool not found" });
 		}

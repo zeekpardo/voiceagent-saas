@@ -40,7 +40,7 @@ export const listNumbers = protectedProcedure
 		summary: "List phone numbers",
 	})
 	.handler(async ({ context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const keys = await ownedNumberKeys(organizationId);
 		const { numbers } = await gatewayFetch<{ numbers: GatewayNumber[] }>("GET", "/v1/numbers");
 		return numbers.filter((n) => orgOwnsNumber(n, keys));
@@ -55,7 +55,7 @@ export const setNumberAgent = protectedProcedure
 	})
 	.input(z.object({ id: z.string(), agentId: z.string().nullable() }))
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		if (input.agentId) {
 			await requireOwnedAgent(context.session, input.agentId);
 		}

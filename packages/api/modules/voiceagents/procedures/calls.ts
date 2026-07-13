@@ -34,7 +34,7 @@ export const listCalls = protectedProcedure
 	.handler(async ({ input, context }) => {
 		// Tenant isolation: the engine gateway is org-agnostic, so scope calls to the
 		// agents the caller's active organization owns (same rule as listAgents).
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const ownedAgentIds = await listOrganizationAgentIds(organizationId);
 		const limit = input.limit ?? 50;
 

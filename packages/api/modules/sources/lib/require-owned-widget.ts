@@ -9,10 +9,10 @@ import { requireActiveOrganizationId } from "./org";
  * never reveal whether the id exists in another org.
  */
 export async function requireOwnedWidget(
-	session: { activeOrganizationId?: string | null },
+	session: { activeOrganizationId?: string | null; userId: string },
 	widgetId: string,
 ) {
-	const organizationId = requireActiveOrganizationId(session);
+	const organizationId = await requireActiveOrganizationId(session);
 	const widget = await getSourceWidget(widgetId);
 	if (!widget || widget.source.organizationId !== organizationId) {
 		throw new ORPCError("NOT_FOUND", { message: "Widget not found" });

@@ -5,10 +5,10 @@ import { requireActiveOrganizationId } from "./org";
 
 /** Verifies the caller's active organization owns sourceId, throwing NOT_FOUND otherwise. */
 export async function requireOwnedSource(
-	session: { activeOrganizationId?: string | null },
+	session: { activeOrganizationId?: string | null; userId: string },
 	sourceId: string,
 ) {
-	const organizationId = requireActiveOrganizationId(session);
+	const organizationId = await requireActiveOrganizationId(session);
 	const source = await getSource(sourceId, organizationId);
 	if (!source) {
 		throw new ORPCError("NOT_FOUND", { message: "Source not found" });

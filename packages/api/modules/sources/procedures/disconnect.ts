@@ -14,7 +14,7 @@ export const disconnectSourceProcedure = protectedProcedure
 	})
 	.input(z.object({ id: z.string() }))
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const source = await getSource(input.id, organizationId);
 		if (!source) {
 			throw new ORPCError("NOT_FOUND", { message: "Source not found" });

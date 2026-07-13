@@ -92,7 +92,7 @@ export const listPersonasProcedure = protectedProcedure
 		summary: "List personas for the active organization",
 	})
 	.handler(async ({ context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const rows = await listPersonas(organizationId);
 		return rows.map(toDTO);
 	});
@@ -106,7 +106,7 @@ export const getPersonaProcedure = protectedProcedure
 	})
 	.input(z.object({ id: z.string() }))
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const row = await getPersona(input.id, organizationId);
 		if (!row) {
 			throw new ORPCError("NOT_FOUND", { message: "Persona not found" });
@@ -123,7 +123,7 @@ export const createPersonaProcedure = protectedProcedure
 	})
 	.input(personaInput)
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const row = await createPersona({ organizationId, ...input });
 		return toDTO(row);
 	});
@@ -137,7 +137,7 @@ export const updatePersonaProcedure = protectedProcedure
 	})
 	.input(z.object({ id: z.string(), data: personaInput }))
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const row = await updatePersona(input.id, organizationId, input.data);
 		if (!row) {
 			throw new ORPCError("NOT_FOUND", { message: "Persona not found" });
@@ -154,7 +154,7 @@ export const deletePersonaProcedure = protectedProcedure
 	})
 	.input(z.object({ id: z.string() }))
 	.handler(async ({ input, context }) => {
-		const organizationId = requireActiveOrganizationId(context.session);
+		const organizationId = await requireActiveOrganizationId(context.session);
 		const result = await deletePersona(input.id, organizationId);
 		if (result.count === 0) {
 			throw new ORPCError("NOT_FOUND", { message: "Persona not found" });

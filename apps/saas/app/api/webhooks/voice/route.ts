@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { seenVoiceEventIds } from "@repo/api/modules/crm/lib/ghl-webhook";
 import { type CallCompletedEvent, syncCallToCrm } from "@repo/api/modules/crm/lib/sync";
 import { runTextFallback } from "@repo/api/modules/crm/lib/text-fallback";
 import { db } from "@repo/database";
@@ -41,6 +42,14 @@ export async function POST(req: Request): Promise<Response> {
 	);
 	if (!ok) {
 		return Response.json({ error: "invalid signature" }, { status: 401 });
+	}
+
+	// Replay guard: drop a re-sent signed delivery (single-use within the
+	// signature-validity window). The engine sends a unique X-Voice-Event-Id;
+	// fall back to the signature when absent.
+	const replayKey = req.headers.get("x-voice-event-id") ?? req.headers.get("x-voice-signature");
+	if (replayKey && seenVoiceEventIds.add(replayKey)) {
+		return Response.json({ ok: true, duplicate: true });
 	}
 
 	const event = JSON.parse(raw) as CallCompletedEvent;

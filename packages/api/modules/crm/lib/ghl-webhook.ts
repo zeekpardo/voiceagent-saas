@@ -130,3 +130,12 @@ export const seenWebhookIds = new LruSet(2000);
 
 /** Process-wide record of messageIds WE sent, to skip their echoes. */
 export const sentMessageIds = new LruSet(2000);
+
+/** Process-wide replay guard for signed voice-engine webhook deliveries,
+ * keyed by the engine's per-event id (X-Voice-Event-Id), or the request
+ * signature when absent. A re-sent delivery is dropped as a duplicate. */
+export const seenVoiceEventIds = new LruSet(4000);
+
+/** Process-wide replay guard for signed live-CRM-tool invocations, keyed by
+ * the request HMAC signature (unique per timestamp+body; a replay reuses it). */
+export const seenToolSignatures = new LruSet(4000);

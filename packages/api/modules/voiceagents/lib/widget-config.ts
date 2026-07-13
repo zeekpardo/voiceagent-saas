@@ -168,18 +168,24 @@ export interface WidgetPublicConfig {
 	appearance: WidgetAppearance;
 	targeting: WidgetTargeting;
 	behavior: WidgetBehavior;
-	token: string;
 }
 
 /**
  * Shape a stored widget row into the payload the PUBLIC config-by-ID endpoint
  * serves. Only non-secret, render-relevant fields are exposed — never the
- * sourceId, organizationId, agentId, or origins allowlist. The `token` is the
- * same public capability that already lives in the pasted snippet today.
+ * sourceId, organizationId, agentId, origins allowlist, OR the session token.
+ *
+ * The token is deliberately NOT returned here. This endpoint is public with
+ * `Access-Control-Allow-Origin: *`, so anything it returns is readable
+ * cross-origin by anyone who knows the widgetId; the token is the credential the
+ * origin-pinned /api/widget/session route accepts, so leaking it through a
+ * wildcard-CORS endpoint is a real exposure. The widget doesn't need it here:
+ * the iframe (/widget/embed) resolves the token server-side from the same
+ * widgetId on OUR origin, so the loader never has to carry it. (`widgetToken`
+ * stays in the row type only because callers pass the raw row.)
  */
 export function sanitizeWidgetConfig(row: {
 	name: string;
-	widgetToken: string;
 	appearance: unknown;
 	targeting: unknown;
 	behavior: unknown;
@@ -189,6 +195,5 @@ export function sanitizeWidgetConfig(row: {
 		appearance: parseWidgetAppearance(row.appearance),
 		targeting: parseWidgetTargeting(row.targeting),
 		behavior: parseWidgetBehavior(row.behavior),
-		token: row.widgetToken,
 	};
 }

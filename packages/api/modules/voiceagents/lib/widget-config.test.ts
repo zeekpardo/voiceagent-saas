@@ -137,21 +137,21 @@ describe("sanitizeWidgetConfig", () => {
 	it("exposes only render-relevant fields, defaulting stale blobs", () => {
 		const result = sanitizeWidgetConfig({
 			name: "Support",
-			widgetToken: "tok_abc",
 			appearance: { style: "panel" },
 			targeting: null,
 			behavior: undefined,
 		});
 		expect(result).toEqual({
 			name: "Support",
-			token: "tok_abc",
 			appearance: parseWidgetAppearance({ style: "panel" }),
 			targeting: { include: [], exclude: [] },
 			behavior: parseWidgetBehavior(undefined),
 		});
-		// No leakage of server-only fields.
+		// No leakage of server-only fields — crucially NOT the session token, which
+		// must not travel through the public wildcard-CORS config endpoint.
 		expect(Object.keys(result).sort()).toEqual(
-			["appearance", "behavior", "name", "targeting", "token"].sort(),
+			["appearance", "behavior", "name", "targeting"].sort(),
 		);
+		expect(result).not.toHaveProperty("token");
 	});
 });

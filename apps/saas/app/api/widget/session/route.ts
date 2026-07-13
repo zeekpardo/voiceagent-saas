@@ -77,9 +77,29 @@ async function isAuthenticatedOwner(req: Request, organizationId: string): Promi
 	}
 }
 
+/**
+ * Best-effort client IP for rate-limit keying. `x-forwarded-for` is an ordered
+ * chain "client, proxy1, proxy2, …" where the LEFT-most entries are supplied by
+ * the caller and trivially spoofed (prepend a random value each request to roll
+ * past the per-IP limiter). We therefore take the RIGHT-most hop — the address
+ * the trust boundary directly in front of us actually observed and appended —
+ * not `split(",")[0]`.
+ *
+ * ASSUMPTION: exactly one trusted proxy (Railway's edge) sits in front of this
+ * service and appends the real peer IP as the LAST XFF element. If a fleet of N
+ * trusted proxies is ever introduced, skip N hops from the right instead of
+ * taking a single one. Falls back to `x-real-ip` (proxy-set single value) and
+ * then a constant so local dev (no XFF at all) still keys deterministically.
+ */
 function clientIp(req: Request): string {
 	const fwd = req.headers.get("x-forwarded-for");
-	if (fwd) return fwd.split(",")[0]!.trim();
+	if (fwd) {
+		const hops = fwd
+			.split(",")
+			.map((h) => h.trim())
+			.filter(Boolean);
+		if (hops.length > 0) return hops[hops.length - 1]!;
+	}
 	return req.headers.get("x-real-ip") ?? "unknown";
 }
 
@@ -92,6 +112,7 @@ export function OPTIONS(req: Request): Response {
 
 export async function POST(req: Request): Promise<Response> {
 	const origin = req.headers.get("origin");
+	const secFetchSite = req.headers.get("sec-fetch-site");
 	const body = (await req.json().catch(() => ({}))) as WidgetSessionBody;
 
 	const token = typeof body.token === "string" ? body.token : "";
@@ -100,20 +121,46 @@ export async function POST(req: Request): Promise<Response> {
 		return Response.json({ error: "invalid widget token" }, { status: 401 });
 	}
 
-	// Which origin to check against the token's allowlist:
-	// - Cross-origin API call (Origin ≠ ours): the request Origin — a site
-	//   calling this route directly must itself be allowlisted.
-	// - Same-origin (the iframe app) or no Origin: the iframe reports the
-	//   EMBEDDING page's origin as body.parentOrigin (ancestorOrigins/referrer);
-	//   with no parent (the embed page opened top-level, e.g. dev preview) we
-	//   check our own origin. parentOrigin is client-supplied — the signed token
-	//   remains the real credential; origin pinning is defense-in-depth. True
-	//   browser-enforced pinning (dynamic frame-ancestors from the token) is a
-	//   tracked follow-up.
 	const selfOrigin = new URL(req.url).origin;
+
+	// The allow-decision is anchored on the BROWSER-SENT Origin header, never on
+	// the client-supplied body.parentOrigin. A genuine embed always sends an
+	// Origin on this POST — same-origin fetches from our own iframe included
+	// (browsers set Origin on every non-GET/HEAD request) — so a MISSING Origin
+	// means a scripted/non-browser client. Reject it up front, otherwise a leaked
+	// token could be replayed from a server with a spoofed parentOrigin to satisfy
+	// the allowlist. (Previously the code fell back to parentOrigin when no Origin
+	// was present, which is exactly that bypass.)
+	if (!origin) {
+		return Response.json({ error: "origin header required" }, { status: 403 });
+	}
+
+	// A same-origin request is our widget iframe (served from selfOrigin) calling
+	// this route. Its browser Origin is our own domain and therefore cannot
+	// identify the EMBEDDING site, so only here do we consult parentOrigin — the
+	// value our own trusted iframe JS computed from ancestorOrigins/referrer. A
+	// hit that claims our Origin while Sec-Fetch-Site reports cross-site/none is a
+	// forged combination, so it is not treated as same-origin (it then fails the
+	// allowlist below like any other outsider).
+	//
+	// DEFERRED (would break embeds if forced now): parentOrigin is still
+	// client-readable, so this same-origin branch remains defense-in-depth atop
+	// the signed token rather than a hard guarantee. Fully removing parentOrigin
+	// from the decision requires browser-enforced pinning — dynamic
+	// `frame-ancestors` on /widget/embed derived from the token's origins (today
+	// next.config.ts pins `frame-ancestors *` for /widget/*). Tracked follow-up;
+	// closing that needs the CSP change so anonymous embeds keep working.
 	const parentOrigin = typeof body.parentOrigin === "string" ? body.parentOrigin : "";
-	const effectiveOrigin =
-		origin && origin !== selfOrigin ? origin : parentOrigin || origin || selfOrigin;
+	const sameOriginRequest =
+		origin === selfOrigin && secFetchSite !== "cross-site" && secFetchSite !== "none";
+
+	// Which origin to check against the token's allowlist:
+	// - same-origin iframe: the iframe-reported parent site, or our own origin
+	//   when the embed page was opened top-level (dev preview / no ancestor);
+	// - cross-origin direct call (Origin ≠ ours): the caller's real, browser-sent
+	//   Origin — a site POSTing here directly must itself be allowlisted;
+	//   parentOrigin is ignored.
+	const effectiveOrigin = sameOriginRequest ? parentOrigin || selfOrigin : origin;
 
 	// Studio live-test bypass: when the effective origin is our own app (the
 	// editor's iframe reports OUR origin as its parent), an authenticated member

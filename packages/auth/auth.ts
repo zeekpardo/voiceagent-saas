@@ -16,7 +16,7 @@ import { getBaseUrl } from "@repo/utils";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { createAuthMiddleware } from "better-auth/api";
-import { admin, magicLink, openAPI, organization, twoFactor } from "better-auth/plugins";
+import { admin, openAPI, organization, twoFactor } from "better-auth/plugins";
 import { parse as parseCookies } from "cookie";
 
 import { config } from "./config";
@@ -39,6 +39,33 @@ export const auth = betterAuth({
 	advanced: {
 		database: {
 			generateId: false,
+		},
+		// Railway (and most PaaS proxies) forward the client IP in x-forwarded-for.
+		// Without this, rate-limit + audit IPs collapse to the proxy address.
+		// NOTE: the left-most XFF hop is client-settable — this is best-effort attribution,
+		// not a hard control. A trusted-proxy-depth resolver + shared store is plan item 7.
+		ipAddress: {
+			ipAddressHeaders: ["x-forwarded-for"],
+		},
+	},
+	// Auth-endpoint rate limiting. In-memory storage is PER-INSTANCE — adequate for the
+	// current single-instance Railway deploy; move to DB/Redis (secondaryStorage) before
+	// scaling to multiple instances (SECURITY-REMEDIATION-PLAN.md item 7).
+	rateLimit: {
+		enabled: true,
+		window: 60,
+		max: 100,
+		customRules: {
+			// Credential + code guessing
+			"/sign-in/email": { window: 60, max: 5 },
+			"/two-factor/verify-totp": { window: 60, max: 5 },
+			"/two-factor/verify-otp": { window: 60, max: 5 },
+			"/two-factor/verify-backup-code": { window: 60, max: 5 },
+			// Signup + email-dispatch (invite-gated, but throttle to prevent email-bombing)
+			"/sign-up/email": { window: 300, max: 5 },
+			"/forget-password": { window: 300, max: 3 },
+			"/reset-password": { window: 300, max: 5 },
+			"/send-verification-email": { window: 300, max: 3 },
 		},
 	},
 	session: {
@@ -220,22 +247,11 @@ export const auth = betterAuth({
 	plugins: [
 		admin(),
 		passkey(),
-		magicLink({
-			disableSignUp: false,
-			sendMagicLink: async ({ email, url }, ctx) => {
-				const request = ctx?.request as Request;
-
-				const locale = getLocaleFromRequest(request);
-				await sendEmail({
-					to: email,
-					templateId: "magicLink",
-					context: {
-						url,
-					},
-					locale,
-				});
-			},
-		}),
+		// Magic-link login is intentionally NOT registered. The better-auth magicLink plugin
+		// exposes /sign-in/magic-link, which self-signs-up new users and bypasses
+		// invitationOnlyPlugin (that only guards /sign-up/email) — an open-signup backdoor.
+		// To re-enable as a LOGIN-ONLY method: re-add magicLink({ disableSignUp: true, ... })
+		// here AND set config.enableMagicLink = true (the login UI keys off that flag).
 		organization({
 			sendInvitationEmail: async ({ email, id, organization }, request) => {
 				const locale = getLocaleFromRequest(request);

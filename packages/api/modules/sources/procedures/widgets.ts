@@ -7,6 +7,7 @@ import {
 import { z } from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
+import { requireOwnedAgent } from "../../voiceagents/lib/require-owned-agent";
 import {
 	parseWidgetAppearance,
 	parseWidgetBehavior,
@@ -84,6 +85,9 @@ export const createWidget = protectedProcedure
 	)
 	.handler(async ({ input, context }) => {
 		const source = await requireOwnedSource(context.session, input.sourceId);
+		// The bound agent must also belong to the caller's org — else a widget token
+		// could pair another org's agent with this source.
+		await requireOwnedAgent(context.session, input.agentId);
 		// New widgets start with no origins pinned; the merchant adds them in the
 		// editor (update re-mints the token). "*" would be needed to actually run
 		// before then — surfaced in the editor's origins section.
@@ -123,6 +127,9 @@ export const updateWidget = protectedProcedure
 	)
 	.handler(async ({ input, context }) => {
 		const { widget, organizationId } = await requireOwnedWidget(context.session, input.id);
+		if (input.agentId) {
+			await requireOwnedAgent(context.session, input.agentId);
+		}
 
 		const nextAgentId = input.agentId ?? widget.agentId;
 		const nextOrigins = input.origins ?? (widget.origins as string[]);

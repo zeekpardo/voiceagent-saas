@@ -81,6 +81,16 @@ export async function listSourcePhoneNumbers(sourceId: string) {
 	});
 }
 
+/** Every phone number provisioned under an organization's sources (org-scoped
+ * via the SourcePhoneNumber -> Source relation). Used to scope the gateway's
+ * org-agnostic /v1/numbers list/route to the caller's org. */
+export async function listOrganizationPhoneNumbers(organizationId: string) {
+	return db.sourcePhoneNumber.findMany({
+		where: { source: { organizationId } },
+		select: { e164: true, providerRef: true },
+	});
+}
+
 export async function getSourcePhoneNumber(id: string, sourceId: string) {
 	return db.sourcePhoneNumber.findFirst({ where: { id, sourceId } });
 }

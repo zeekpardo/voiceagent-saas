@@ -37,6 +37,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useAgentsQuery, useDeleteAgentMutation } from "../lib/api";
+import { CreateAgentDialog } from "./CreateAgentDialog";
 
 interface AgentConfig {
 	description?: string;
@@ -50,6 +51,7 @@ export function AgentsTable() {
 	const deleteMutation = useDeleteAgentMutation();
 
 	const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
+	const [createOpen, setCreateOpen] = useState(false);
 
 	const table = useTableState<GatewayAgent>({
 		data: agents,
@@ -157,10 +159,8 @@ export function AgentsTable() {
 					<div className="min-h-0 gap-4 py-12 flex h-full flex-col items-center justify-center rounded-xl border bg-card text-center">
 						<AudioLinesIcon className="size-10 opacity-40" />
 						<p className="opacity-60">No voice agents yet. Create your first one.</p>
-						<Button asChild variant="primary">
-							<Link href="/voice-agents/new">
-								<PlusIcon className="size-4" /> New agent
-							</Link>
+						<Button variant="primary" onClick={() => setCreateOpen(true)}>
+							<PlusIcon className="size-4" /> New agent
 						</Button>
 					</div>
 				}
@@ -205,10 +205,8 @@ export function AgentsTable() {
 					</DropdownMenu>
 				)}
 				toolbarActions={
-					<Button asChild variant="primary">
-						<Link href="/voice-agents/new">
-							<PlusIcon className="size-4" /> New agent
-						</Link>
+					<Button variant="primary" onClick={() => setCreateOpen(true)}>
+						<PlusIcon className="size-4" /> New agent
 					</Button>
 				}
 				bulkActions={
@@ -259,6 +257,7 @@ export function AgentsTable() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+			<CreateAgentDialog open={createOpen} onOpenChange={setCreateOpen} />
 		</>
 	);
 }

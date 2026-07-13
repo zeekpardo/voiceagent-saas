@@ -41,9 +41,6 @@ export interface PersonaInput {
 	themeColor?: string | null;
 	styles: string[];
 	howToRespond: string;
-	guardrails?: string | null;
-	ttsVoice?: string | null;
-	llmModel?: string | null;
 }
 
 function personasClient() {

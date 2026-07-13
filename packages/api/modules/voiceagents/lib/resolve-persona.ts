@@ -21,12 +21,12 @@ export async function resolvePersona(
 	if (!persona) {
 		return null;
 	}
+	// Persona v2 partial reversal: the persona contributes identity/tone only.
+	// Guardrails come from the per-agent config and voice/model from the agent's
+	// own tts/llm — so persona.guardrails/ttsVoice/llmModel are no longer read.
 	return {
 		name: persona.name,
 		styles: persona.styles,
 		howToRespond: persona.howToRespond,
-		guardrails: persona.guardrails,
-		ttsVoice: persona.ttsVoice,
-		llmModel: persona.llmModel,
 	};
 }

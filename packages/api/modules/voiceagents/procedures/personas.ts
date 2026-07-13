@@ -23,7 +23,16 @@ import { requireActiveOrganizationId } from "../../sources/lib/org";
 
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
-/** Shared create/update field schema — the UI imports this from @repo/api. */
+/**
+ * Shared create/update field schema — the UI imports this from @repo/api.
+ *
+ * Persona v2 partial reversal (Phase 3b): the persona is an identity/tone layer
+ * only. `guardrails` are now a per-agent config field (surfaced in the agent's
+ * Job Information tab) and voice/model come from the agent's own `tts`/`llm`, so
+ * `guardrails`/`ttsVoice`/`llmModel` are no longer accepted here (nor read at
+ * compile). The DB columns are kept (vestigial); existing values are still
+ * returned read-only via PersonaDTO but can no longer be set.
+ */
 export const personaInput = z.object({
 	name: z.string().min(1).max(80),
 	internalDescription: z.string().max(2000).nullish(),
@@ -31,9 +40,6 @@ export const personaInput = z.object({
 	themeColor: z.string().regex(HEX_COLOR, "Must be a hex color").nullish(),
 	styles: z.array(z.string().min(1).max(40)).max(3).default([]),
 	howToRespond: z.string().max(4000).default(""),
-	guardrails: z.string().max(4000).nullish(),
-	ttsVoice: z.string().max(120).nullish(),
-	llmModel: z.string().max(120).nullish(),
 });
 
 export type PersonaInput = z.infer<typeof personaInput>;

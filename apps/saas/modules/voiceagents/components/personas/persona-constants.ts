@@ -29,14 +29,6 @@ export const HOW_TO_RESPOND_MAX = 3000;
 export const HOW_TO_RESPOND_PLACEHOLDER =
 	"Don't use the contact's name in replies. Keep answers concise and natural — a sentence or two at a time. Never sound scripted; mirror the caller's energy and ask one question at a time.";
 
-export const GUARDRAILS_MAX = 4000;
-
-export const GUARDRAILS_PLACEHOLDER =
-	"Never provide medical, legal, or financial advice. Don't discuss pricing outside the approved range. If the caller sounds distressed or asks for a human, offer to transfer or escalate immediately.";
-
-/** Sentinel Select value meaning "no override — use the agent/engine default". */
-export const NO_PREFERENCE_VALUE = "__default__";
-
 /**
  * Readable foreground (near-black or white) for text drawn on a hex backdrop,
  * chosen by perceived luminance so initials stay legible on any theme color.

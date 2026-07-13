@@ -21,6 +21,8 @@
  *    maxDuration comfortably above the window + turn latency.
  */
 
+import { getRedis } from "@repo/utils/lib/redis";
+
 /**
  * Quiet window (ms) a handler waits for a newer message before dispatching.
  * Override with `SMS_DEBOUNCE_WINDOW_MS`; defaults to 5000 (5s), a balance
@@ -87,8 +89,125 @@ export class InboundDebouncer {
 	}
 }
 
+/**
+ * Cross-instance burst coalescer. Same enqueue / isLatest / drain contract as
+ * `InboundDebouncer`, but async and backed by shared Redis when REDIS_URL is set
+ * so a burst split across instances by a load balancer still coalesces to ONE
+ * turn. With no REDIS_URL it delegates to an in-memory `InboundDebouncer`
+ * UNCHANGED, preserving local dev / tests / CI behavior.
+ *
+ * FAIL-OPEN: if a Redis op throws we degrade to "no debouncing for this
+ * message" — enqueue still returns a token, isLatest returns true so THIS
+ * handler dispatches, and drain returns "" so the caller falls back to the
+ * single message text (`drain(key) || text`). A Redis blip never DROPS a
+ * message; at worst it skips coalescing.
+ */
+export interface SharedDebouncer {
+	enqueue(key: string, text: string): Promise<number>;
+	isLatest(key: string, token: number): Promise<boolean>;
+	drain(key: string): Promise<string>;
+}
+
+// Keys live only for the quiet window plus turn-latency headroom, then expire.
+const DEBOUNCE_TTL_MS = DEBOUNCE_WINDOW_MS + 60_000;
+
+// Append text + bump this key's monotonic token + record it as latest, atomically,
+// refreshing the TTL on every enqueue. Returns the new token.
+const ENQUEUE_SCRIPT = `
+local token = redis.call('INCR', KEYS[1])
+redis.call('RPUSH', KEYS[2], ARGV[1])
+redis.call('SET', KEYS[3], token)
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
+redis.call('PEXPIRE', KEYS[2], ARGV[2])
+redis.call('PEXPIRE', KEYS[3], ARGV[2])
+return token
+`;
+
+// Atomically read + clear the buffered parts and the latest-marker. The seq
+// counter (KEYS not touched here) is left to expire so tokens stay monotonic
+// across the active window (never recycled under a still-live burst).
+const DRAIN_SCRIPT = `
+local parts = redis.call('LRANGE', KEYS[1], 0, -1)
+redis.call('DEL', KEYS[1])
+redis.call('DEL', KEYS[2])
+return parts
+`;
+
+function createInboundDebouncer(): SharedDebouncer {
+	const redis = getRedis();
+
+	if (!redis) {
+		const memory = new InboundDebouncer();
+		return {
+			enqueue: (key, text) => Promise.resolve(memory.enqueue(key, text)),
+			isLatest: (key, token) => Promise.resolve(memory.isLatest(key, token)),
+			drain: (key) => Promise.resolve(memory.drain(key)),
+		};
+	}
+
+	const seqKey = (key: string) => `debounce:seq:${key}`;
+	const partsKey = (key: string) => `debounce:parts:${key}`;
+	const latestKey = (key: string) => `debounce:latest:${key}`;
+
+	return {
+		async enqueue(key, text) {
+			try {
+				return (await redis.eval(
+					ENQUEUE_SCRIPT,
+					3,
+					seqKey(key),
+					partsKey(key),
+					latestKey(key),
+					text,
+					String(DEBOUNCE_TTL_MS),
+				)) as number;
+			} catch (error) {
+				console.error(
+					"[inbound-debounce] redis error on enqueue, failing open (no coalesce):",
+					error instanceof Error ? error.message : error,
+				);
+				// A token that isLatest can't match a stored latest → this handler
+				// still dispatches via the drain-fallback below.
+				return -1;
+			}
+		},
+		async isLatest(key, token) {
+			if (token < 0) {
+				return true; // enqueue failed open — let this handler dispatch.
+			}
+			try {
+				const latest = await redis.get(latestKey(key));
+				return latest !== null && Number(latest) === token;
+			} catch (error) {
+				console.error(
+					"[inbound-debounce] redis error on isLatest, failing open (dispatch):",
+					error instanceof Error ? error.message : error,
+				);
+				return true;
+			}
+		},
+		async drain(key) {
+			try {
+				const parts = (await redis.eval(
+					DRAIN_SCRIPT,
+					2,
+					partsKey(key),
+					latestKey(key),
+				)) as string[];
+				return parts.join("\n");
+			} catch (error) {
+				console.error(
+					"[inbound-debounce] redis error on drain, failing open (empty → caller uses raw text):",
+					error instanceof Error ? error.message : error,
+				);
+				return "";
+			}
+		},
+	};
+}
+
 /** Process-wide debouncer shared by the inbound webhook. */
-export const inboundDebouncer = new InboundDebouncer();
+export const inboundDebouncer = createInboundDebouncer();
 
 /** Await `ms` — small sleep helper for the quiet window (non-blocking). */
 export function sleep(ms: number): Promise<void> {

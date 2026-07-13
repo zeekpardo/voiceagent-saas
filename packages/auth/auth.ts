@@ -21,6 +21,7 @@ import { parse as parseCookies } from "cookie";
 
 import { config } from "./config";
 import { updateSeatsInOrganizationSubscription } from "./lib/organization";
+import { getRedisSecondaryStorage } from "./lib/secondary-storage";
 import { invitationOnlyPlugin } from "./plugins/invitation-only";
 
 const getLocaleFromRequest = (request?: Request) => {
@@ -30,12 +31,21 @@ const getLocaleFromRequest = (request?: Request) => {
 
 const appUrl = getBaseUrl(process.env.NEXT_PUBLIC_SAAS_URL, 3000);
 
+// Shared Redis for cross-instance auth-endpoint rate limiting — present ONLY when
+// REDIS_URL is set (else undefined → Better Auth keeps its default in-memory
+// rate limiting + Postgres sessions, preserving local dev / tests / CI). When
+// present it is paired with `rateLimit.storage: "secondary-storage"` AND
+// `session.storeSessionInDatabase: true` so ONLY rate limiting relies on Redis
+// and sessions stay authoritative in Postgres. See lib/secondary-storage.ts.
+const redisSecondaryStorage = getRedisSecondaryStorage();
+
 export const auth = betterAuth({
 	baseURL: appUrl,
 	trustedOrigins: [appUrl],
 	database: prismaAdapter(db, {
 		provider: "postgresql",
 	}),
+	...(redisSecondaryStorage ? { secondaryStorage: redisSecondaryStorage } : {}),
 	advanced: {
 		database: {
 			generateId: false,
@@ -48,11 +58,12 @@ export const auth = betterAuth({
 			ipAddressHeaders: ["x-forwarded-for"],
 		},
 	},
-	// Auth-endpoint rate limiting. In-memory storage is PER-INSTANCE — adequate for the
-	// current single-instance Railway deploy; move to DB/Redis (secondaryStorage) before
-	// scaling to multiple instances (SECURITY-REMEDIATION-PLAN.md item 7).
+	// Auth-endpoint rate limiting. Backed by shared Redis via `secondaryStorage`
+	// when REDIS_URL is set (correct across instances); otherwise Better Auth's
+	// default in-memory per-instance storage (preserves local dev / tests / CI).
 	rateLimit: {
 		enabled: true,
+		...(redisSecondaryStorage ? { storage: "secondary-storage" as const } : {}),
 		window: 60,
 		max: 100,
 		customRules: {
@@ -71,6 +82,12 @@ export const auth = betterAuth({
 	session: {
 		expiresIn: config.sessionCookieMaxAge,
 		freshAge: 0,
+		// CRITICAL: when `secondaryStorage` is provided, better-auth 1.6.22 would
+		// otherwise move sessions into Redis (Redis-only). This keeps Postgres as
+		// the session source of truth so ONLY rate limiting uses Redis; sessions
+		// are unaffected. Harmless no-op when no secondaryStorage is configured
+		// (sessions already live in the DB). See lib/secondary-storage.ts.
+		storeSessionInDatabase: true,
 	},
 	databaseHooks: {
 		session: {

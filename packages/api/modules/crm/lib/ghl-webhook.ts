@@ -1,5 +1,7 @@
 import { createVerify } from "node:crypto";
 
+import { getRedis } from "@repo/utils/lib/redis";
+
 /**
  * GoHighLevel marketplace webhook verification + replay/loop guards.
  *
@@ -125,17 +127,84 @@ export class LruSet {
 	}
 }
 
-/** Process-wide de-dupe of delivered webhookIds. */
-export const seenWebhookIds = new LruSet(2000);
+/**
+ * Cross-instance de-dupe / replay guard. Backed by shared Redis when REDIS_URL
+ * is set (atomic `SET key NX EX ttl`), else the in-memory `LruSet` above
+ * UNCHANGED — so local dev / tests / CI (no Redis) keep the exact previous
+ * per-instance behavior. Both `add` and `has` are async because a Redis op is.
+ *
+ * FAIL-OPEN: if a Redis op throws, we log and report "not seen" (add → false,
+ * has → false). Dropping a real delivery as a phantom "duplicate" on a Redis
+ * blip is worse than occasionally reprocessing one, so we bias to processing.
+ */
+export class DedupSet {
+	private readonly redis = getRedis();
+	private readonly memory: LruSet;
 
-/** Process-wide record of messageIds WE sent, to skip their echoes. */
-export const sentMessageIds = new LruSet(2000);
+	constructor(
+		private readonly prefix: string,
+		max: number,
+		private readonly ttlSeconds: number,
+	) {
+		this.memory = new LruSet(max);
+	}
 
-/** Process-wide replay guard for signed voice-engine webhook deliveries,
+	private redisKey(key: string): string {
+		return `dedup:${this.prefix}:${key}`;
+	}
+
+	/** Record `key`. Resolves true if it was ALREADY present (a duplicate). */
+	async add(key: string): Promise<boolean> {
+		if (!this.redis) {
+			return this.memory.add(key);
+		}
+		try {
+			// NX → set only if absent. Reply is "OK" on a fresh set (not a dup),
+			// null when the key already existed (a duplicate). Atomic across instances.
+			const res = await this.redis.set(this.redisKey(key), "1", "EX", this.ttlSeconds, "NX");
+			return res === null;
+		} catch (error) {
+			console.error(
+				`[dedup] redis error for ${this.prefix}.add, failing open (not-duplicate):`,
+				error instanceof Error ? error.message : error,
+			);
+			return false;
+		}
+	}
+
+	/** Resolves true if `key` has been recorded (and not yet expired). */
+	async has(key: string): Promise<boolean> {
+		if (!this.redis) {
+			return this.memory.has(key);
+		}
+		try {
+			return (await this.redis.exists(this.redisKey(key))) === 1;
+		} catch (error) {
+			console.error(
+				`[dedup] redis error for ${this.prefix}.has, failing open (not-seen):`,
+				error instanceof Error ? error.message : error,
+			);
+			return false;
+		}
+	}
+}
+
+// TTL bounds how long a delivered id / signature is remembered. A generous 24h
+// covers realistic redelivery / replay windows (the routes also enforce a short
+// timestamp-freshness / signature-validity window upstream).
+const DEDUP_TTL_SECONDS = 24 * 60 * 60;
+
+/** Cross-instance de-dupe of delivered webhookIds. */
+export const seenWebhookIds = new DedupSet("ghl:webhook", 2000, DEDUP_TTL_SECONDS);
+
+/** Cross-instance record of messageIds WE sent, to skip their echoes. */
+export const sentMessageIds = new DedupSet("ghl:sent-msg", 2000, DEDUP_TTL_SECONDS);
+
+/** Cross-instance replay guard for signed voice-engine webhook deliveries,
  * keyed by the engine's per-event id (X-Voice-Event-Id), or the request
  * signature when absent. A re-sent delivery is dropped as a duplicate. */
-export const seenVoiceEventIds = new LruSet(4000);
+export const seenVoiceEventIds = new DedupSet("voice:event", 4000, DEDUP_TTL_SECONDS);
 
-/** Process-wide replay guard for signed live-CRM-tool invocations, keyed by
+/** Cross-instance replay guard for signed live-CRM-tool invocations, keyed by
  * the request HMAC signature (unique per timestamp+body; a replay reuses it). */
-export const seenToolSignatures = new LruSet(4000);
+export const seenToolSignatures = new DedupSet("tool:sig", 4000, DEDUP_TTL_SECONDS);

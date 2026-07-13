@@ -110,7 +110,7 @@ export async function POST(req: Request): Promise<Response> {
 	// Replay guard: a re-sent signed invocation reuses its signature (HMAC over
 	// timestamp+body). Drop duplicates within the signature-validity window.
 	const signature = req.headers.get("x-voice-signature");
-	if (signature && seenToolSignatures.add(signature)) {
+	if (signature && (await seenToolSignatures.add(signature))) {
 		return toolResult({ ok: true, duplicate: true });
 	}
 

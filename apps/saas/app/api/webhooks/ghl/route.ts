@@ -110,12 +110,12 @@ export async function POST(req: Request): Promise<Response> {
 	}
 
 	// 4) De-dupe redelivered webhooks.
-	if (payload.webhookId && seenWebhookIds.add(payload.webhookId)) {
+	if (payload.webhookId && (await seenWebhookIds.add(payload.webhookId))) {
 		return ack({ skipped: "duplicate webhookId" });
 	}
 
 	// 5) Loop avoidance: skip echoes of messages WE sent.
-	if (payload.messageId && sentMessageIds.has(payload.messageId)) {
+	if (payload.messageId && (await sentMessageIds.has(payload.messageId))) {
 		return ack({ skipped: "own message echo" });
 	}
 
@@ -192,12 +192,12 @@ export async function POST(req: Request): Promise<Response> {
 		//     the winner drains the combined buffered text and runs it as ONE turn.
 		//     See inbound-debounce.ts for the serverless tradeoff/limits.
 		const debounceKey = payload.conversationId;
-		const debounceToken = inboundDebouncer.enqueue(debounceKey, text);
+		const debounceToken = await inboundDebouncer.enqueue(debounceKey, text);
 		if (DEBOUNCE_WINDOW_MS > 0) await sleep(DEBOUNCE_WINDOW_MS);
-		if (!inboundDebouncer.isLatest(debounceKey, debounceToken)) {
+		if (!(await inboundDebouncer.isLatest(debounceKey, debounceToken))) {
 			return ack({ handled: true, debounced: true, replied: false });
 		}
-		const turnText = inboundDebouncer.drain(debounceKey) || text;
+		const turnText = (await inboundDebouncer.drain(debounceKey)) || text;
 
 		// 9) Pick the ONE agent monitoring this channel on this source whose tag
 		//    filters the contact passes. Resolve each candidate's channel-mode
@@ -307,7 +307,7 @@ export async function POST(req: Request): Promise<Response> {
 
 		// 15) Record our messageIds so their echoes (redelivery / OutboundMessage)
 		//     are skipped by the loop guard.
-		for (const sent of sends) if (sent.messageId) sentMessageIds.add(sent.messageId);
+		for (const sent of sends) if (sent.messageId) await sentMessageIds.add(sent.messageId);
 
 		return ack({
 			handled: true,

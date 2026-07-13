@@ -4,6 +4,7 @@ import { getSignedUploadUrl } from "@repo/storage";
 import z from "zod";
 
 import { protectedProcedure } from "../../../orpc/procedures";
+import { assertRole } from "../../sources/lib/org";
 import { verifyOrganizationMembership } from "../lib/membership";
 
 export const createLogoUploadUrl = protectedProcedure
@@ -31,6 +32,9 @@ export const createLogoUploadUrl = protectedProcedure
 		if (!membership) {
 			throw new ORPCError("FORBIDDEN");
 		}
+
+		// The org logo is part of the org-settings governance surface — owner-only.
+		assertRole(membership.role, ["owner"]);
 
 		const path = `${organizationId}.png`;
 		const signedUploadUrl = await getSignedUploadUrl(path, {

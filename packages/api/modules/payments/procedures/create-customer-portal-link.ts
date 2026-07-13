@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { localeMiddleware } from "../../../orpc/middleware/locale-middleware";
 import { protectedProcedure } from "../../../orpc/procedures";
+import { assertRole } from "../../sources/lib/org";
 
 export const createCustomerPortalLink = protectedProcedure
 	.use(localeMiddleware)
@@ -31,13 +32,12 @@ export const createCustomerPortalLink = protectedProcedure
 		}
 
 		if (purchase.organizationId) {
+			// Billing/subscription management is owner-only.
 			const userOrganizationMembership = await getOrganizationMembership(
 				purchase.organizationId,
 				user.id,
 			);
-			if (userOrganizationMembership?.role !== "owner") {
-				throw new ORPCError("FORBIDDEN");
-			}
+			assertRole(userOrganizationMembership?.role, ["owner"]);
 		}
 
 		if (purchase.userId && purchase.userId !== user.id) {

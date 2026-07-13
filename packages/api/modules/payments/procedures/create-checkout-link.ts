@@ -1,5 +1,5 @@
 import { ORPCError } from "@orpc/client";
-import { getOrganizationById } from "@repo/database";
+import { getOrganizationById, getOrganizationMembership } from "@repo/database";
 import { logger } from "@repo/logs";
 import {
 	createCheckoutLink as createCheckoutLinkFn,
@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { localeMiddleware } from "../../../orpc/middleware/locale-middleware";
 import { protectedProcedure } from "../../../orpc/procedures";
+import { assertRole } from "../../sources/lib/org";
 
 export const createCheckoutLink = protectedProcedure
 	.use(localeMiddleware)
@@ -36,6 +37,14 @@ export const createCheckoutLink = protectedProcedure
 			input: { planId, redirectUrl, type, interval, organizationId },
 			context: { user },
 		}) => {
+			// Billing is owner-only. When purchasing for an organization, verify the
+			// caller is an owner of THAT org (input-supplied, so it must be checked
+			// here rather than via the active-org keystone).
+			if (organizationId) {
+				const membership = await getOrganizationMembership(organizationId, user.id);
+				assertRole(membership?.role, ["owner"]);
+			}
+
 			const customerId = await getCustomerIdFromEntity(
 				organizationId
 					? {
